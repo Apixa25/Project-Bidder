@@ -23,11 +23,25 @@ export default async function CustomerProfilePage() {
 
   if (!profile) redirect("/login");
 
-  const { data: portfolioItems } = await supabase
+  const { data: rawPortfolioItems } = await supabase
     .from("portfolio_items")
     .select("*")
     .eq("user_id", user.id)
     .order("display_order", { ascending: true });
+
+  const itemIds = (rawPortfolioItems || []).map((i) => i.id);
+  const { data: allMedia } = itemIds.length > 0
+    ? await supabase
+        .from("portfolio_item_media")
+        .select("*")
+        .in("portfolio_item_id", itemIds)
+        .order("display_order", { ascending: true })
+    : { data: [] };
+
+  const portfolioItems = (rawPortfolioItems || []).map((item) => ({
+    ...item,
+    media: (allMedia || []).filter((m) => m.portfolio_item_id === item.id),
+  }));
 
   return (
     <div>
