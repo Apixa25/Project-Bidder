@@ -5,6 +5,7 @@ export type ProjectStatus = "open" | "awarded" | "closed";
 export type BadgeLevel = "gold" | "silver" | "bronze" | null;
 
 export type TradeCategory =
+  // Legacy values (kept for backward compatibility with existing data)
   | "electrical"
   | "plumbing"
   | "roofing"
@@ -15,9 +16,53 @@ export type TradeCategory =
   | "painting"
   | "tile"
   | "landscape"
-  | "general";
+  | "general"
+  // General licenses
+  | "general_a"
+  | "general_b"
+  | "general_c"
+  | "handyman"
+  | "general_work"
+  // California Specialty (C-) Contractor Classifications
+  | "c2_insulation"
+  | "c4_boiler"
+  | "c5_framing"
+  | "c6_cabinet"
+  | "c7_low_voltage"
+  | "c8_concrete"
+  | "c10_electrical"
+  | "c11_drywall"
+  | "c12_earthwork"
+  | "c13_fencing"
+  | "c15_flooring"
+  | "c16_fire_protection"
+  | "c17_glazing"
+  | "c20_hvac"
+  | "c21_demolition"
+  | "c23_ornamental_metal"
+  | "c27_landscaping"
+  | "c29_masonry"
+  | "c31_traffic_control"
+  | "c33_painting"
+  | "c34_pipeline"
+  | "c36_plumbing"
+  | "c38_refrigeration"
+  | "c39_roofing"
+  | "c42_sanitation"
+  | "c43_sheet_metal"
+  | "c45_sign"
+  | "c46_solar"
+  | "c47_manufactured_housing"
+  | "c50_reinforcing_steel"
+  | "c51_structural_steel"
+  | "c53_swimming_pool"
+  | "c54_tile"
+  | "c55_water_conditioning"
+  | "c57_well_drilling"
+  | "c60_earthquake_retrofit";
 
 export const TRADE_LABELS: Record<TradeCategory, string> = {
+  // Legacy values — display-friendly labels for any existing data
   electrical: "Electrical",
   plumbing: "Plumbing",
   roofing: "Roofing",
@@ -29,7 +74,98 @@ export const TRADE_LABELS: Record<TradeCategory, string> = {
   tile: "Tile",
   landscape: "Landscape",
   general: "General Work",
+  // General licenses
+  general_a: "General A",
+  general_b: "General B",
+  general_c: "General C",
+  handyman: "Handyman",
+  general_work: "General Work",
+  // California Specialty (C-) Contractor Classifications
+  c2_insulation: "C-2 — Insulation and Acoustical",
+  c4_boiler: "C-4 — Boiler, Hot Water Heating and Steam Fitting",
+  c5_framing: "C-5 — Framing and Rough Carpentry",
+  c6_cabinet: "C-6 — Cabinet, Millwork and Finish Carpentry",
+  c7_low_voltage: "C-7 — Low Voltage Systems",
+  c8_concrete: "C-8 — Concrete",
+  c10_electrical: "C-10 — Electrical",
+  c11_drywall: "C-11 — Drywall",
+  c12_earthwork: "C-12 — Earthwork and Paving",
+  c13_fencing: "C-13 — Fencing",
+  c15_flooring: "C-15 — Flooring and Floor Covering",
+  c16_fire_protection: "C-16 — Fire Protection",
+  c17_glazing: "C-17 — Glazing",
+  c20_hvac: "C-20 — HVAC",
+  c21_demolition: "C-21 — Building Moving/Demolition",
+  c23_ornamental_metal: "C-23 — Ornamental Metal",
+  c27_landscaping: "C-27 — Landscaping",
+  c29_masonry: "C-29 — Masonry",
+  c31_traffic_control: "C-31 — Construction Zone Traffic Control",
+  c33_painting: "C-33 — Painting and Decorating",
+  c34_pipeline: "C-34 — Pipeline",
+  c36_plumbing: "C-36 — Plumbing",
+  c38_refrigeration: "C-38 — Refrigeration",
+  c39_roofing: "C-39 — Roofing",
+  c42_sanitation: "C-42 — Sanitation System",
+  c43_sheet_metal: "C-43 — Sheet Metal",
+  c45_sign: "C-45 — Sign",
+  c46_solar: "C-46 — Solar",
+  c47_manufactured_housing: "C-47 — General Manufactured Housing",
+  c50_reinforcing_steel: "C-50 — Reinforcing Steel",
+  c51_structural_steel: "C-51 — Structural Steel",
+  c53_swimming_pool: "C-53 — Swimming Pool",
+  c54_tile: "C-54 — Tile (Ceramic and Mosaic)",
+  c55_water_conditioning: "C-55 — Water Conditioning",
+  c57_well_drilling: "C-57 — Well Drilling",
+  c60_earthquake_retrofit: "C-60 — Earthquake Retrofit",
 };
+
+/**
+ * Ordered list of trades shown in forms (new project, edit project, bid form).
+ * General licenses first, then C-classifications in numerical order.
+ */
+export const FORM_TRADES: TradeCategory[] = [
+  "general_a",
+  "general_b",
+  "general_c",
+  "handyman",
+  "general_work",
+  "c2_insulation",
+  "c4_boiler",
+  "c5_framing",
+  "c6_cabinet",
+  "c7_low_voltage",
+  "c8_concrete",
+  "c10_electrical",
+  "c11_drywall",
+  "c12_earthwork",
+  "c13_fencing",
+  "c15_flooring",
+  "c16_fire_protection",
+  "c17_glazing",
+  "c20_hvac",
+  "c21_demolition",
+  "c23_ornamental_metal",
+  "c27_landscaping",
+  "c29_masonry",
+  "c31_traffic_control",
+  "c33_painting",
+  "c34_pipeline",
+  "c36_plumbing",
+  "c38_refrigeration",
+  "c39_roofing",
+  "c42_sanitation",
+  "c43_sheet_metal",
+  "c45_sign",
+  "c46_solar",
+  "c47_manufactured_housing",
+  "c50_reinforcing_steel",
+  "c51_structural_steel",
+  "c53_swimming_pool",
+  "c54_tile",
+  "c55_water_conditioning",
+  "c57_well_drilling",
+  "c60_earthquake_retrofit",
+];
 
 export interface Profile {
   id: string;

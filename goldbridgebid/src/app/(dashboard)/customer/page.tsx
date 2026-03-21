@@ -7,6 +7,7 @@ import {
   ClipboardList,
   MessageSquare,
   TrendingUp,
+  ImageIcon,
 } from "lucide-react";
 
 export default async function CustomerDashboard() {
@@ -28,7 +29,7 @@ export default async function CustomerDashboard() {
 
   const { data: projects, count: projectCount } = await supabase
     .from("projects")
-    .select("*", { count: "exact" })
+    .select("*, project_files(id, file_url, thumbnail_url, file_type, annotated_url)", { count: "exact" })
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false })
     .limit(5);
@@ -134,43 +135,74 @@ export default async function CustomerDashboard() {
         </div>
         {projects && projects.length > 0 ? (
           <div className="divide-y divide-border">
-            {projects.map((project) => (
-              <div
-                key={project.id}
-                className="flex items-center justify-between px-6 py-4 hover:bg-surface-hover transition-colors"
-              >
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-medium text-text-primary truncate">
-                    {project.title}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-text-muted">
-                    {project.location_city}, {project.location_state} •{" "}
-                    {new Date(project.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="ml-4 flex items-center gap-4">
-                  <span className="text-sm font-medium text-text-secondary">
-                    {project.bid_count}{" "}
-                    {project.bid_count === 1 ? "bid" : "bids"}
-                  </span>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      project.status === "open"
-                        ? "bg-green-100 text-green-700"
+            {projects.map((project) => {
+              const imageFiles = (project.project_files || []).filter(
+                (f: { file_type: string }) => f.file_type.startsWith("image/")
+              );
+              const firstImage = imageFiles[0] as
+                | { thumbnail_url: string | null; annotated_url: string | null; file_url: string }
+                | undefined;
+              const thumbUrl = firstImage
+                ? firstImage.annotated_url || firstImage.thumbnail_url || firstImage.file_url
+                : null;
+
+              return (
+                <Link
+                  key={project.id}
+                  href={`/customer/projects/${project.id}`}
+                  className="flex items-center gap-4 px-6 py-4 hover:bg-surface-hover transition-colors"
+                >
+                  {/* Project Thumbnail */}
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border bg-bg-warm">
+                    {thumbUrl ? (
+                      <img
+                        src={thumbUrl}
+                        alt={project.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <ImageIcon className="h-6 w-6 text-text-muted/40" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Project Info */}
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-medium text-text-primary truncate">
+                      {project.title}
+                    </h3>
+                    <p className="mt-0.5 text-xs text-text-muted">
+                      {project.location_city}, {project.location_state} •{" "}
+                      {new Date(project.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  {/* Status */}
+                  <div className="ml-4 flex items-center gap-4 shrink-0">
+                    <span className="text-sm font-medium text-text-secondary">
+                      {project.bid_count}{" "}
+                      {project.bid_count === 1 ? "bid" : "bids"}
+                    </span>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        project.status === "open"
+                          ? "bg-green-100 text-green-700"
+                          : project.status === "awarded"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {project.status === "open"
+                        ? "Open"
                         : project.status === "awarded"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-gray-100 text-gray-600"
-                    }`}
-                  >
-                    {project.status === "open"
-                      ? "Open"
-                      : project.status === "awarded"
-                        ? "Awarded"
-                        : "Closed"}
-                  </span>
-                </div>
-              </div>
-            ))}
+                          ? "Awarded"
+                          : "Closed"}
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         ) : (
           <div className="px-6 py-12 text-center">

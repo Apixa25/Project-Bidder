@@ -14,12 +14,10 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { updateProject } from "../../actions";
-import { TRADE_LABELS } from "@/types/database";
+import { TRADE_LABELS, FORM_TRADES } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import { createBrowserClient } from "@supabase/ssr";
 import { compressFiles } from "@/lib/compress-image";
-
-const TRADE_OPTIONS = Object.entries(TRADE_LABELS) as [TradeCategory, string][];
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
@@ -288,19 +286,19 @@ export default function EditProjectPage() {
           <p className="mb-4 text-sm text-text-muted">
             Select all trades needed for this project.
           </p>
-          <div className="flex flex-wrap gap-2.5">
-            {TRADE_OPTIONS.map(([value, label]) => (
+          <div className="flex flex-wrap gap-2">
+            {FORM_TRADES.map((value) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => toggleTrade(value)}
-                className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
                   selectedTrades.includes(value)
                     ? "border-primary bg-primary text-white shadow-sm"
                     : "border-border bg-surface text-text-secondary hover:border-primary/40 hover:text-text-primary"
                 }`}
               >
-                {label}
+                {TRADE_LABELS[value]}
               </button>
             ))}
           </div>
