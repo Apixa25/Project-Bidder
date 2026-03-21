@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
   FileText,
   Image as ImageIcon,
+  MessageSquare,
 } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
@@ -339,6 +340,15 @@ export default async function BidderProjectDetailPage({
               </p>
             )}
           </div>
+
+          {/* Message Customer */}
+          <Link
+            href={`/bidder/messages/${id}/${project.customer_id}`}
+            className="flex items-center justify-center gap-2 rounded-xl border border-secondary bg-secondary/5 p-4 text-sm font-semibold text-secondary hover:bg-secondary/10 transition-colors"
+          >
+            <MessageSquare className="h-5 w-5" />
+            Message Project Owner
+          </Link>
 
           {/* Quick Scroll to Bid */}
           {availableTrades.length > 0 && (
