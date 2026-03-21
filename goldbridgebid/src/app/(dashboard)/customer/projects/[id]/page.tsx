@@ -14,6 +14,7 @@ import {
   User,
   Phone,
   Mail,
+  MessageSquare,
 } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
 import { BADGE_CONFIG } from "@/lib/badges";
@@ -326,6 +327,13 @@ export default async function ProjectDetailPage({
                             {profile.phone}
                           </a>
                         )}
+                        <Link
+                          href={`/customer/messages/${id}/${bid.bidder_id}`}
+                          className="flex items-center gap-1 rounded-lg bg-secondary/10 px-3 py-1.5 text-secondary hover:bg-secondary/20 transition-colors font-medium"
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                          Message
+                        </Link>
                       </div>
 
                       {/* Bid date stamp */}
