@@ -8,7 +8,6 @@ import {
   DollarSign,
   Clock,
   ClipboardCheck,
-  FileText,
   CheckCircle2,
   XCircle,
   User,
@@ -21,6 +20,7 @@ import { TRADE_LABELS } from "@/types/database";
 import { BADGE_CONFIG } from "@/lib/badges";
 import type { TradeCategory, BadgeLevel } from "@/types/database";
 import ProjectStatusActions from "./ProjectStatusActions";
+import ProjectPhotos from "./ProjectPhotos";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
   title: "Title",
@@ -226,32 +226,9 @@ export default async function ProjectDetailPage({
             </section>
           )}
 
-          {/* Project Files */}
+          {/* Project Photos & Documents with Annotation */}
           {projectFiles && projectFiles.length > 0 && (
-            <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-              <h2 className="mb-4 text-lg font-semibold text-text-primary">
-                Project Files
-              </h2>
-              <div className="space-y-2">
-                {projectFiles.map((file) => (
-                  <a
-                    key={file.id}
-                    href={file.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 hover:bg-surface-hover transition-colors"
-                  >
-                    <FileText className="h-5 w-5 text-primary shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-text-primary truncate">
-                        {file.file_name}
-                      </p>
-                      <p className="text-xs text-text-muted">{file.file_type}</p>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </section>
+            <ProjectPhotos files={projectFiles} />
           )}
 
           {/* Bids Section */}

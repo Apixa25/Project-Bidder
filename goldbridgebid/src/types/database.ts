@@ -55,6 +55,8 @@ export interface Profile {
   updated_at: string;
 }
 
+export type PortfolioItemType = "showcase" | "before_after";
+
 export interface PortfolioItem {
   id: string;
   user_id: string;
@@ -63,6 +65,7 @@ export interface PortfolioItem {
   thumbnail_url: string | null;
   title: string;
   description: string | null;
+  item_type: PortfolioItemType;
   display_order: number;
   created_at: string;
 }
@@ -108,6 +111,8 @@ export interface ProjectFile {
   file_url: string;
   file_name: string;
   file_type: string;
+  thumbnail_url: string | null;
+  annotated_url: string | null;
   uploaded_at: string;
 }
 
@@ -205,6 +210,7 @@ type PortfolioItemInsert = {
   title: string;
   thumbnail_url?: string | null;
   description?: string | null;
+  item_type?: PortfolioItemType;
   display_order?: number;
 };
 
@@ -285,7 +291,10 @@ export interface Database {
       };
       project_files: {
         Row: ProjectFile;
-        Insert: Omit<ProjectFile, "id" | "uploaded_at">;
+        Insert: Omit<ProjectFile, "id" | "uploaded_at" | "thumbnail_url" | "annotated_url"> & {
+          thumbnail_url?: string | null;
+          annotated_url?: string | null;
+        };
         Update: Partial<Omit<ProjectFile, "id">>;
         Relationships: [];
       };

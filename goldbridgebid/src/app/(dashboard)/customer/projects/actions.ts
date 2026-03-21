@@ -230,6 +230,64 @@ export async function deleteProject(projectId: string) {
   redirect("/customer/projects");
 }
 
+export async function saveAnnotation(projectFileId: string, formData: FormData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Unauthorized" };
+
+  const blob = formData.get("annotatedImage") as File;
+  if (!blob || blob.size === 0) return { error: "No annotated image provided." };
+
+  // Verify ownership: the project_file must belong to a project owned by this user
+  const { data: projectFile } = await supabase
+    .from("project_files")
+    .select("id, project_id")
+    .eq("id", projectFileId)
+    .single();
+
+  if (!projectFile) return { error: "File not found." };
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("id", projectFile.project_id)
+    .eq("customer_id", user.id)
+    .single();
+
+  if (!project) return { error: "Not authorized to annotate this file." };
+
+  const filePath = `projects/${project.id}/annotated/${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("project-files")
+    .upload(filePath, blob, { contentType: "image/png" });
+
+  if (uploadError) {
+    console.error("Annotation upload error:", uploadError);
+    return { error: "Failed to upload annotated image." };
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("project-files").getPublicUrl(filePath);
+
+  const { error: updateError } = await supabase
+    .from("project_files")
+    .update({ annotated_url: publicUrl })
+    .eq("id", projectFileId);
+
+  if (updateError) {
+    console.error("Annotation update error:", updateError);
+    return { error: "Failed to save annotation." };
+  }
+
+  return { success: true, annotatedUrl: publicUrl };
+}
+
 export async function updateProject(projectId: string, formData: FormData) {
   const supabase = await createClient();
 

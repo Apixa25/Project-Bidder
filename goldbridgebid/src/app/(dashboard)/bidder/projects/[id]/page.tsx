@@ -9,7 +9,6 @@ import {
   Clock,
   ClipboardCheck,
   FileText,
-  Image as ImageIcon,
   MessageSquare,
   User,
   History,
@@ -17,6 +16,7 @@ import {
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import BidForm from "./BidForm";
+import ProjectPhotosBidder from "./ProjectPhotosBidder";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
   title: "Title",
@@ -193,38 +193,9 @@ export default async function BidderProjectDetailPage({
             </p>
           </section>
 
-          {/* Project Photos */}
+          {/* Project Photos with annotation view */}
           {imageFiles.length > 0 && (
-            <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <ImageIcon className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold text-text-primary">
-                  Project Photos
-                </h2>
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {imageFiles.map((file) => (
-                  <a
-                    key={file.id}
-                    href={file.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group relative aspect-square overflow-hidden rounded-lg border border-border"
-                  >
-                    <img
-                      src={file.thumbnail_url || file.file_url}
-                      alt={file.file_name}
-                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                    />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                      <p className="text-xs text-white truncate">
-                        {file.file_name}
-                      </p>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </section>
+            <ProjectPhotosBidder imageFiles={imageFiles} />
           )}
 
           {/* Documents */}

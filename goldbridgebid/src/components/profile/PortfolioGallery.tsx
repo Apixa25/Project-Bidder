@@ -17,8 +17,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
+  ArrowLeftRight,
 } from "lucide-react";
 import { compressFiles } from "@/lib/compress-image";
+import BeforeAfterSlider from "./BeforeAfterSlider";
 
 interface MediaData {
   id: string;
@@ -34,6 +36,7 @@ interface PortfolioItemData {
   thumbnail_url: string | null;
   title: string;
   description: string | null;
+  item_type?: string;
   media?: MediaData[];
 }
 
@@ -58,10 +61,15 @@ export default function PortfolioGallery({
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   // Form state for multi-file upload
+  const [itemType, setItemType] = useState<"showcase" | "before_after">("showcase");
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [videoFiles, setVideoFiles] = useState<File[]>([]);
   const [videoUrls, setVideoUrls] = useState<string[]>([""]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [beforeFile, setBeforeFile] = useState<File | null>(null);
+  const [afterFile, setAfterFile] = useState<File | null>(null);
+  const [beforePreview, setBeforePreview] = useState<string | null>(null);
+  const [afterPreview, setAfterPreview] = useState<string | null>(null);
 
   useEffect(() => {
     const urls = photoFiles.map((f) => URL.createObjectURL(f));
@@ -69,10 +77,33 @@ export default function PortfolioGallery({
     return () => urls.forEach((u) => URL.revokeObjectURL(u));
   }, [photoFiles]);
 
+  useEffect(() => {
+    if (beforeFile) {
+      const url = URL.createObjectURL(beforeFile);
+      setBeforePreview(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setBeforePreview(null);
+    }
+  }, [beforeFile]);
+
+  useEffect(() => {
+    if (afterFile) {
+      const url = URL.createObjectURL(afterFile);
+      setAfterPreview(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setAfterPreview(null);
+    }
+  }, [afterFile]);
+
   function resetForm() {
+    setItemType("showcase");
     setPhotoFiles([]);
     setVideoFiles([]);
     setVideoUrls([""]);
+    setBeforeFile(null);
+    setAfterFile(null);
     setError(null);
   }
 
@@ -110,22 +141,38 @@ export default function PortfolioGallery({
     setUploading(true);
     setError(null);
 
-    const validVideoUrls = videoUrls.filter((u) => u.trim().length > 0);
+    formData.append("itemType", itemType);
 
-    if (photoFiles.length === 0 && videoFiles.length === 0 && validVideoUrls.length === 0) {
-      setError("Please add at least one photo or video.");
-      setUploading(false);
-      return;
+    if (itemType === "before_after") {
+      if (!beforeFile || !afterFile) {
+        setError("Please select both a Before photo and an After photo.");
+        setUploading(false);
+        return;
+      }
+
+      setCompressing(true);
+      const { files: compressedPair } = await compressFiles([beforeFile, afterFile]);
+      setCompressing(false);
+
+      // Order matters: before = index 0, after = index 1
+      compressedPair.forEach((f) => formData.append("photos", f));
+    } else {
+      const validVideoUrls = videoUrls.filter((u) => u.trim().length > 0);
+
+      if (photoFiles.length === 0 && videoFiles.length === 0 && validVideoUrls.length === 0) {
+        setError("Please add at least one photo or video.");
+        setUploading(false);
+        return;
+      }
+
+      setCompressing(true);
+      const { files: compressedPhotos } = await compressFiles(photoFiles);
+      setCompressing(false);
+
+      compressedPhotos.forEach((f) => formData.append("photos", f));
+      videoFiles.forEach((f) => formData.append("videos", f));
+      validVideoUrls.forEach((u) => formData.append("videoUrls", u));
     }
-
-    // Compress photos
-    setCompressing(true);
-    const { files: compressedPhotos } = await compressFiles(photoFiles);
-    setCompressing(false);
-
-    compressedPhotos.forEach((f) => formData.append("photos", f));
-    videoFiles.forEach((f) => formData.append("videos", f));
-    validVideoUrls.forEach((u) => formData.append("videoUrls", u));
 
     const result = await addPortfolioItem(formData);
     if (result.error) {
@@ -219,6 +266,39 @@ export default function PortfolioGallery({
             <p className="text-sm text-red-600">{error}</p>
           )}
 
+          {/* Item Type Toggle */}
+          <div>
+            <label className="block text-sm font-semibold text-text-primary mb-2">
+              Type
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setItemType("showcase")}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium border transition-colors ${
+                  itemType === "showcase"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-surface text-text-secondary hover:bg-surface-hover"
+                }`}
+              >
+                <ImageIcon className="h-4 w-4" />
+                Project Showcase
+              </button>
+              <button
+                type="button"
+                onClick={() => setItemType("before_after")}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium border transition-colors ${
+                  itemType === "before_after"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-surface text-text-secondary hover:bg-surface-hover"
+                }`}
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+                Before &amp; After
+              </button>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-semibold text-text-primary mb-1.5">
               Project Title *
@@ -228,9 +308,11 @@ export default function PortfolioGallery({
               name="title"
               required
               placeholder={
-                ownerRole === "bidder"
-                  ? "e.g. Kitchen Remodel — Crescent City"
-                  : "e.g. Our Dream Deck Project"
+                itemType === "before_after"
+                  ? "e.g. Bathroom Renovation — Before & After"
+                  : ownerRole === "bidder"
+                    ? "e.g. Kitchen Remodel — Crescent City"
+                    : "e.g. Our Dream Deck Project"
               }
               className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
@@ -243,168 +325,271 @@ export default function PortfolioGallery({
             <textarea
               name="description"
               rows={3}
-              placeholder="Tell the story — what was done, materials used, challenges overcome..."
+              placeholder={
+                itemType === "before_after"
+                  ? "Describe the transformation — what was the problem and how was it resolved..."
+                  : "Tell the story — what was done, materials used, challenges overcome..."
+              }
               className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
-          {/* Photos Upload */}
-          <div>
-            <label className="block text-sm font-semibold text-text-primary mb-2">
-              📷 Photos (up to 15)
-            </label>
-            <label
-              className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 px-4 py-5 transition-colors hover:border-primary hover:bg-primary/10"
-            >
-              <ImageIcon className="h-7 w-7 text-primary" />
-              <p className="mt-2 text-sm font-semibold text-primary">
-                Click to select photos
-              </p>
-              <p className="mt-0.5 text-xs text-text-muted">
-                {photoFiles.length > 0
-                  ? `${photoFiles.length}/15 photos selected`
-                  : "JPG, PNG, GIF, WEBP — select multiple"}
-              </p>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handlePhotoSelect}
-                className="hidden"
-              />
-            </label>
-
-            {/* Photo Previews */}
-            {photoFiles.length > 0 && (
-              <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6">
-                {photoFiles.map((file, idx) => (
-                  <div
-                    key={`photo-${idx}`}
-                    className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-gray-100"
-                  >
-                    {photoPreviews[idx] && (
-                      <img
-                        src={photoPreviews[idx]}
-                        alt={file.name}
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removePhoto(idx)}
-                      className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                    <div className="absolute inset-x-0 bottom-0 bg-black/50 px-1 py-0.5">
-                      <p className="text-[10px] text-white truncate">
-                        {formatSize(file.size)}
+          {/* Before & After Mode */}
+          {itemType === "before_after" ? (
+            <div className="grid grid-cols-2 gap-4">
+              {/* Before Photo */}
+              <div>
+                <label className="block text-sm font-semibold text-text-primary mb-2">
+                  📷 Before Photo *
+                </label>
+                <label
+                  className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-red-300 bg-red-50 px-4 py-5 transition-colors hover:border-red-400 hover:bg-red-100"
+                >
+                  {beforePreview ? (
+                    <img
+                      src={beforePreview}
+                      alt="Before"
+                      className="h-28 w-full rounded object-cover"
+                    />
+                  ) : (
+                    <>
+                      <ImageIcon className="h-7 w-7 text-red-400" />
+                      <p className="mt-2 text-sm font-semibold text-red-600">
+                        Select &quot;Before&quot; photo
                       </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Videos Upload */}
-          <div>
-            <label className="block text-sm font-semibold text-text-primary mb-2">
-              🎬 Videos (up to 3 — file upload or YouTube links)
-            </label>
-
-            {/* Video file uploads */}
-            <label
-              className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-4 py-4 transition-colors hover:border-primary/40 hover:bg-primary/5"
-            >
-              <Video className="h-6 w-6 text-text-muted" />
-              <p className="mt-1.5 text-sm font-medium text-text-primary">
-                Upload video files
-              </p>
-              <p className="mt-0.5 text-xs text-text-muted">
-                {videoFiles.length > 0
-                  ? `${videoFiles.length} video(s) selected`
-                  : "MP4, MOV, WebM — up to 300MB each"}
-              </p>
-              <input
-                type="file"
-                accept="video/*"
-                multiple
-                onChange={handleVideoSelect}
-                className="hidden"
-              />
-            </label>
-
-            {videoFiles.length > 0 && (
-              <div className="mt-2 space-y-1.5">
-                {videoFiles.map((file, idx) => (
-                  <div
-                    key={`vid-${idx}`}
-                    className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-2"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Play className="h-4 w-4 text-text-muted shrink-0" />
-                      <span className="text-xs text-text-primary truncate">
-                        {file.name}
-                      </span>
-                      <span className="text-xs text-text-muted shrink-0">
-                        ({formatSize(file.size)})
-                      </span>
-                    </div>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) setBeforeFile(e.target.files[0]);
+                      e.target.value = "";
+                    }}
+                    className="hidden"
+                  />
+                </label>
+                {beforeFile && (
+                  <div className="mt-1.5 flex items-center justify-between text-xs text-text-muted">
+                    <span className="truncate">{beforeFile.name}</span>
                     <button
                       type="button"
-                      onClick={() => removeVideoFile(idx)}
-                      className="ml-2 text-text-muted hover:text-red-500 transition-colors"
+                      onClick={() => setBeforeFile(null)}
+                      className="text-red-500 hover:text-red-700 ml-2"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                ))}
+                )}
               </div>
-            )}
 
-            {/* YouTube URLs */}
-            <div className="mt-3 space-y-2">
-              <p className="text-xs text-text-muted">
-                Or paste YouTube / video URLs:
-              </p>
-              {videoUrls.map((url, idx) => (
-                <div key={`url-${idx}`} className="flex items-center gap-2">
+              {/* After Photo */}
+              <div>
+                <label className="block text-sm font-semibold text-text-primary mb-2">
+                  📷 After Photo *
+                </label>
+                <label
+                  className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-green-300 bg-green-50 px-4 py-5 transition-colors hover:border-green-400 hover:bg-green-100"
+                >
+                  {afterPreview ? (
+                    <img
+                      src={afterPreview}
+                      alt="After"
+                      className="h-28 w-full rounded object-cover"
+                    />
+                  ) : (
+                    <>
+                      <ImageIcon className="h-7 w-7 text-green-400" />
+                      <p className="mt-2 text-sm font-semibold text-green-600">
+                        Select &quot;After&quot; photo
+                      </p>
+                    </>
+                  )}
                   <input
-                    type="url"
-                    value={url}
+                    type="file"
+                    accept="image/*"
                     onChange={(e) => {
-                      const updated = [...videoUrls];
-                      updated[idx] = e.target.value;
-                      setVideoUrls(updated);
+                      if (e.target.files?.[0]) setAfterFile(e.target.files[0]);
+                      e.target.value = "";
                     }}
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="hidden"
                   />
-                  {videoUrls.length > 1 && (
+                </label>
+                {afterFile && (
+                  <div className="mt-1.5 flex items-center justify-between text-xs text-text-muted">
+                    <span className="truncate">{afterFile.name}</span>
                     <button
                       type="button"
-                      onClick={() =>
-                        setVideoUrls((prev) => prev.filter((_, i) => i !== idx))
-                      }
-                      className="text-text-muted hover:text-red-500"
+                      onClick={() => setAfterFile(null)}
+                      className="text-red-500 hover:text-red-700 ml-2"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Photos Upload */}
+              <div>
+                <label className="block text-sm font-semibold text-text-primary mb-2">
+                  📷 Photos (up to 15)
+                </label>
+                <label
+                  className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 px-4 py-5 transition-colors hover:border-primary hover:bg-primary/10"
+                >
+                  <ImageIcon className="h-7 w-7 text-primary" />
+                  <p className="mt-2 text-sm font-semibold text-primary">
+                    Click to select photos
+                  </p>
+                  <p className="mt-0.5 text-xs text-text-muted">
+                    {photoFiles.length > 0
+                      ? `${photoFiles.length}/15 photos selected`
+                      : "JPG, PNG, GIF, WEBP — select multiple"}
+                  </p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePhotoSelect}
+                    className="hidden"
+                  />
+                </label>
+
+                {/* Photo Previews */}
+                {photoFiles.length > 0 && (
+                  <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6">
+                    {photoFiles.map((file, idx) => (
+                      <div
+                        key={`photo-${idx}`}
+                        className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-gray-100"
+                      >
+                        {photoPreviews[idx] && (
+                          <img
+                            src={photoPreviews[idx]}
+                            alt={file.name}
+                            className="h-full w-full object-cover"
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(idx)}
+                          className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                        <div className="absolute inset-x-0 bottom-0 bg-black/50 px-1 py-0.5">
+                          <p className="text-[10px] text-white truncate">
+                            {formatSize(file.size)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Videos Upload */}
+              <div>
+                <label className="block text-sm font-semibold text-text-primary mb-2">
+                  🎬 Videos (up to 3 — file upload or YouTube links)
+                </label>
+
+                {/* Video file uploads */}
+                <label
+                  className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-4 py-4 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                >
+                  <Video className="h-6 w-6 text-text-muted" />
+                  <p className="mt-1.5 text-sm font-medium text-text-primary">
+                    Upload video files
+                  </p>
+                  <p className="mt-0.5 text-xs text-text-muted">
+                    {videoFiles.length > 0
+                      ? `${videoFiles.length} video(s) selected`
+                      : "MP4, MOV, WebM — up to 300MB each"}
+                  </p>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    multiple
+                    onChange={handleVideoSelect}
+                    className="hidden"
+                  />
+                </label>
+
+                {videoFiles.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {videoFiles.map((file, idx) => (
+                      <div
+                        key={`vid-${idx}`}
+                        className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Play className="h-4 w-4 text-text-muted shrink-0" />
+                          <span className="text-xs text-text-primary truncate">
+                            {file.name}
+                          </span>
+                          <span className="text-xs text-text-muted shrink-0">
+                            ({formatSize(file.size)})
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeVideoFile(idx)}
+                          className="ml-2 text-text-muted hover:text-red-500 transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* YouTube URLs */}
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-text-muted">
+                    Or paste YouTube / video URLs:
+                  </p>
+                  {videoUrls.map((url, idx) => (
+                    <div key={`url-${idx}`} className="flex items-center gap-2">
+                      <input
+                        type="url"
+                        value={url}
+                        onChange={(e) => {
+                          const updated = [...videoUrls];
+                          updated[idx] = e.target.value;
+                          setVideoUrls(updated);
+                        }}
+                        placeholder="https://www.youtube.com/watch?v=..."
+                        className="flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                      {videoUrls.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setVideoUrls((prev) => prev.filter((_, i) => i !== idx))
+                          }
+                          className="text-text-muted hover:text-red-500"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {videoUrls.length < 3 && (
+                    <button
+                      type="button"
+                      onClick={() => setVideoUrls((prev) => [...prev, ""])}
+                      className="text-xs font-medium text-primary hover:text-primary-dark transition-colors"
+                    >
+                      + Add another video URL
                     </button>
                   )}
                 </div>
-              ))}
-              {videoUrls.length < 3 && (
-                <button
-                  type="button"
-                  onClick={() => setVideoUrls((prev) => [...prev, ""])}
-                  className="text-xs font-medium text-primary hover:text-primary-dark transition-colors"
-                >
-                  + Add another video URL
-                </button>
-              )}
-            </div>
-          </div>
+              </div>
+            </>
+          )}
 
           {/* Submit */}
           <div className="flex items-center gap-3 pt-2">
@@ -421,7 +606,9 @@ export default function PortfolioGallery({
               ) : uploading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Uploading ({photoFiles.length} photos, {videoFiles.length + videoUrls.filter((u) => u.trim()).length} videos)...
+                  {itemType === "before_after"
+                    ? "Uploading before & after..."
+                    : `Uploading (${photoFiles.length} photos, ${videoFiles.length + videoUrls.filter((u) => u.trim()).length} videos)...`}
                 </>
               ) : (
                 "Add to Portfolio"
@@ -451,7 +638,63 @@ export default function PortfolioGallery({
             const videoCount =
               item.media?.filter((m) => m.media_type === "video").length || 0;
             const isExpanded = expandedItem === item.id;
+            const isBeforeAfter = item.item_type === "before_after";
 
+            // For before/after items, get sorted media (display_order 0=before, 1=after)
+            const sortedMedia = [...(item.media || [])].sort(
+              (a, b) => 0 // maintain insertion order which is display_order
+            );
+            const beforeMedia = sortedMedia[0];
+            const afterMedia = sortedMedia[1];
+
+            // Before/After Card
+            if (isBeforeAfter && beforeMedia && afterMedia) {
+              return (
+                <div
+                  key={item.id}
+                  className="group relative rounded-xl border border-border bg-surface shadow-sm overflow-hidden col-span-full sm:col-span-2"
+                >
+                  <div className="relative">
+                    <BeforeAfterSlider
+                      beforeUrl={beforeMedia.thumbnail_url || beforeMedia.media_url}
+                      afterUrl={afterMedia.thumbnail_url || afterMedia.media_url}
+                    />
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 rounded-full bg-primary/90 px-3 py-1 text-[10px] font-bold text-white shadow z-10">
+                      <ArrowLeftRight className="inline h-3 w-3 mr-1 -mt-0.5" />
+                      BEFORE &amp; AFTER
+                    </div>
+                    {isOwner && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveItem(item.id);
+                        }}
+                        disabled={removingId === item.id}
+                        className="absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-all"
+                      >
+                        {removingId === item.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-sm text-text-primary">
+                      {item.title}
+                    </h3>
+                    {item.description && (
+                      <p className="mt-1 text-xs text-text-secondary line-clamp-2">
+                        {item.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            // Regular Showcase Card
             return (
               <div
                 key={item.id}

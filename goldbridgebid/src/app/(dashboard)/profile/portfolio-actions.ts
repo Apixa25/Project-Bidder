@@ -15,6 +15,7 @@ export async function addPortfolioItem(formData: FormData) {
 
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
+  const itemType = (formData.get("itemType") as string) || "showcase";
   const photos = formData.getAll("photos") as File[];
   const videos = formData.getAll("videos") as File[];
   const videoUrls = formData.getAll("videoUrls") as string[];
@@ -25,16 +26,22 @@ export async function addPortfolioItem(formData: FormData) {
   const validVideos = videos.filter((f) => f.size > 0);
   const validVideoUrls = videoUrls.filter((u) => u.trim().length > 0);
 
-  if (validPhotos.length === 0 && validVideos.length === 0 && validVideoUrls.length === 0) {
-    return { error: "Please upload at least one photo or video." };
-  }
+  if (itemType === "before_after") {
+    if (validPhotos.length !== 2) {
+      return { error: "Before & After requires exactly 2 photos (before and after)." };
+    }
+  } else {
+    if (validPhotos.length === 0 && validVideos.length === 0 && validVideoUrls.length === 0) {
+      return { error: "Please upload at least one photo or video." };
+    }
 
-  if (validPhotos.length > 15) {
-    return { error: "Maximum 15 photos per portfolio item." };
-  }
+    if (validPhotos.length > 15) {
+      return { error: "Maximum 15 photos per portfolio item." };
+    }
 
-  if (validVideos.length + validVideoUrls.length > 3) {
-    return { error: "Maximum 3 videos per portfolio item." };
+    if (validVideos.length + validVideoUrls.length > 3) {
+      return { error: "Maximum 3 videos per portfolio item." };
+    }
   }
 
   // Use the first photo as the cover, or fall back to first video
@@ -56,6 +63,7 @@ export async function addPortfolioItem(formData: FormData) {
       media_type: "image",
       title,
       description: description || null,
+      item_type: itemType === "before_after" ? "before_after" : "showcase",
       display_order: (count || 0) + 1,
     })
     .select("id")
