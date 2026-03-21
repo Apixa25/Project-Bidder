@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { uploadAvatar, removeAvatar } from "@/app/(dashboard)/profile/avatar-actions";
 import { Camera, Loader2, Trash2, User } from "lucide-react";
+import { compressImage, PRESETS } from "@/lib/compress-image";
 
 interface AvatarUploadProps {
   currentUrl: string | null;
@@ -22,8 +23,11 @@ export default function AvatarUpload({ currentUrl, userName }: AvatarUploadProps
 
     setUploading(true);
     setError(null);
+
+    const { file: compressed } = await compressImage(file, PRESETS.avatar);
+
     const formData = new FormData();
-    formData.set("avatar", file);
+    formData.set("avatar", compressed);
 
     const result = await uploadAvatar(formData);
     if (result.error) {

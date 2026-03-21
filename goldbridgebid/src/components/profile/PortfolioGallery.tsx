@@ -14,11 +14,13 @@ import {
   Trash2,
   Play,
 } from "lucide-react";
+import { compressImage } from "@/lib/compress-image";
 
 interface PortfolioItemData {
   id: string;
   media_url: string;
   media_type: string;
+  thumbnail_url: string | null;
   title: string;
   description: string | null;
 }
@@ -46,6 +48,12 @@ export default function PortfolioGallery({
   async function handleAdd(formData: FormData) {
     setUploading(true);
     setError(null);
+
+    const mediaFile = formData.get("media") as File | null;
+    if (mediaFile && mediaFile.size > 0 && mediaFile.type.startsWith("image/")) {
+      const { file: compressed } = await compressImage(mediaFile);
+      formData.set("media", compressed);
+    }
 
     const result = await addPortfolioItem(formData);
     if (result.error) {
@@ -283,7 +291,7 @@ export default function PortfolioGallery({
                       rel="noopener noreferrer"
                     >
                       <img
-                        src={item.media_url}
+                        src={item.thumbnail_url || item.media_url}
                         alt={item.title}
                         className="h-full w-full object-cover transition-transform group-hover:scale-105"
                       />

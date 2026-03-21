@@ -11,6 +11,7 @@ import {
   Trash2,
   ExternalLink,
 } from "lucide-react";
+import { compressImage } from "@/lib/compress-image";
 
 interface CredentialCardProps {
   field: string;
@@ -43,9 +44,11 @@ export default function CredentialCard({
     setUploading(true);
     setError(null);
 
+    const { file: compressed } = await compressImage(file);
+
     const formData = new FormData();
     formData.set("field", field);
-    formData.set("file", file);
+    formData.set("file", compressed);
 
     const result = await uploadCredential(formData);
     if (result.error) {

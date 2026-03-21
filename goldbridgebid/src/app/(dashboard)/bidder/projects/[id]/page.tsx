@@ -212,7 +212,7 @@ export default async function BidderProjectDetailPage({
                     className="group relative aspect-square overflow-hidden rounded-lg border border-border"
                   >
                     <img
-                      src={file.file_url}
+                      src={file.thumbnail_url || file.file_url}
                       alt={file.file_name}
                       className="h-full w-full object-cover transition-transform group-hover:scale-105"
                     />

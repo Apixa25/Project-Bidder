@@ -5,6 +5,7 @@ import { submitBid } from "../actions";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import { Upload, X, FileText, Loader2 } from "lucide-react";
+import { compressFiles } from "@/lib/compress-image";
 
 interface BidFormProps {
   projectId: string;
@@ -30,7 +31,8 @@ export default function BidForm({ projectId, availableTrades }: BidFormProps) {
     setSubmitting(true);
     setError(null);
 
-    for (const file of files) {
+    const { files: compressed } = await compressFiles(files);
+    for (const file of compressed) {
       formData.append("files", file);
     }
 

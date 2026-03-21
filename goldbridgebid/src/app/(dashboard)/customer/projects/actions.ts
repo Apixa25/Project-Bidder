@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { TradeCategory } from "@/types/database";
+import { generateAndUploadThumbnail } from "@/lib/generate-thumbnail";
 
 export async function createProject(formData: FormData) {
   const supabase = await createClient();
@@ -86,11 +87,21 @@ export async function createProject(formData: FormData) {
           data: { publicUrl },
         } = supabase.storage.from("project-files").getPublicUrl(filePath);
 
+        let thumbnailUrl: string | null = null;
+        if (file.type.startsWith("image/")) {
+          thumbnailUrl = await generateAndUploadThumbnail(
+            file,
+            "project-files",
+            filePath
+          );
+        }
+
         await supabase.from("project_files").insert({
           project_id: project.id,
           file_url: publicUrl,
           file_name: file.name,
           file_type: file.type,
+          thumbnail_url: thumbnailUrl,
         });
       }
     }
@@ -349,11 +360,21 @@ export async function updateProject(projectId: string, formData: FormData) {
           data: { publicUrl },
         } = supabase.storage.from("project-files").getPublicUrl(filePath);
 
+        let thumbnailUrl: string | null = null;
+        if (file.type.startsWith("image/")) {
+          thumbnailUrl = await generateAndUploadThumbnail(
+            file,
+            "project-files",
+            filePath
+          );
+        }
+
         await supabase.from("project_files").insert({
           project_id: projectId,
           file_url: publicUrl,
           file_name: file.name,
           file_type: file.type,
+          thumbnail_url: thumbnailUrl,
         });
       }
     }

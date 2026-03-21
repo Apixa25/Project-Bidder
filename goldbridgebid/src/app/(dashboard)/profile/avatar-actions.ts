@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { generateAndUploadThumbnail } from "@/lib/generate-thumbnail";
 
 export async function uploadAvatar(formData: FormData) {
   const supabase = await createClient();
@@ -38,6 +39,11 @@ export async function uploadAvatar(formData: FormData) {
   const {
     data: { publicUrl },
   } = supabase.storage.from("profile-media").getPublicUrl(filePath);
+
+  await generateAndUploadThumbnail(file, "profile-media", filePath, {
+    width: 150,
+    quality: 75,
+  });
 
   const { error: updateError } = await supabase
     .from("profiles")

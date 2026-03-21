@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { generateAndUploadThumbnail } from "@/lib/generate-thumbnail";
 
 export async function addPortfolioItem(formData: FormData) {
   const supabase = await createClient();
@@ -55,6 +56,15 @@ export async function addPortfolioItem(formData: FormData) {
     return { error: "Please upload a file or provide a video URL." };
   }
 
+  let thumbnailUrl: string | null = null;
+  if (mediaType === "image" && file && file.size > 0) {
+    thumbnailUrl = await generateAndUploadThumbnail(
+      file,
+      "profile-media",
+      `portfolio/${user.id}/${file.name}`
+    );
+  }
+
   const { count } = await supabase
     .from("portfolio_items")
     .select("*", { count: "exact", head: true })
@@ -66,6 +76,7 @@ export async function addPortfolioItem(formData: FormData) {
       user_id: user.id,
       media_url: mediaUrl,
       media_type: mediaType,
+      thumbnail_url: thumbnailUrl,
       title,
       description: description || null,
       display_order: (count || 0) + 1,

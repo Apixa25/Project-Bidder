@@ -17,6 +17,7 @@ import { updateProject } from "../../actions";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import { createBrowserClient } from "@supabase/ssr";
+import { compressFiles } from "@/lib/compress-image";
 
 const TRADE_OPTIONS = Object.entries(TRADE_LABELS) as [TradeCategory, string][];
 
@@ -54,6 +55,7 @@ export default function EditProjectPage() {
   const [previews, setPreviews] = useState<(string | null)[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [compressing, setCompressing] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
 
   useEffect(() => {
@@ -124,7 +126,12 @@ export default function EditProjectPage() {
     }
 
     selectedTrades.forEach((trade) => formData.append("trades", trade));
-    newFiles.forEach((file) => formData.append("files", file));
+
+    setCompressing(true);
+    const { files: compressed } = await compressFiles(newFiles);
+    setCompressing(false);
+
+    compressed.forEach((file) => formData.append("files", file));
 
     const result = await updateProject(params.id, formData);
     if (result?.error) {
@@ -588,7 +595,12 @@ export default function EditProjectPage() {
               disabled={loading}
               className="flex items-center gap-2 rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark transition-colors disabled:opacity-60"
             >
-              {loading ? (
+              {compressing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Compressing images...
+                </>
+              ) : loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Saving Changes...
