@@ -44,8 +44,6 @@ export default function ProjectPhotos({ files }: ProjectPhotosProps) {
         )
       );
     }
-
-    setAnnotatingFile(null);
   }
 
   return (

@@ -13,6 +13,8 @@ import {
   Save,
   Loader2,
   Minus,
+  CheckCircle2,
+  ArrowLeft,
 } from "lucide-react";
 
 type Tool = "pen" | "arrow" | "rect" | "circle" | "text" | "line";
@@ -58,6 +60,7 @@ export default function PhotoAnnotator({
   const [strokeWidth, setStrokeWidth] = useState(STROKE_WIDTHS[1]);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [textPos, setTextPos] = useState<{ x: number; y: number } | null>(null);
@@ -282,6 +285,7 @@ export default function PhotoAnnotator({
       finished.points = [...finished.points];
     }
     currentAnnotation.current = null;
+    setSaved(false);
     setAnnotations((prev) => [...prev, finished]);
   }
 
@@ -370,6 +374,7 @@ export default function PhotoAnnotator({
       return;
     }
 
+    setSaved(false);
     setAnnotations((prev) => [
       ...prev,
       {
@@ -387,10 +392,12 @@ export default function PhotoAnnotator({
   }
 
   function handleUndo() {
+    setSaved(false);
     setAnnotations((prev) => prev.slice(0, -1));
   }
 
   function handleClear() {
+    setSaved(false);
     setAnnotations([]);
   }
 
@@ -500,6 +507,7 @@ export default function PhotoAnnotator({
         if (blob) {
           try {
             await onSave(fileId, blob);
+            setSaved(true);
           } catch {
             // Error handled by parent
           }
@@ -601,9 +609,15 @@ export default function PhotoAnnotator({
         </div>
 
         <div className="flex items-center gap-2">
+          {saved && (
+            <span className="flex items-center gap-1 text-sm font-medium text-green-400">
+              <CheckCircle2 className="h-4 w-4" />
+              Saved
+            </span>
+          )}
           <button
             onClick={handleSave}
-            disabled={saving || annotations.length === 0}
+            disabled={saving || annotations.length === 0 || saved}
             className="flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-green-500 transition-colors disabled:opacity-50"
           >
             {saving ? (
@@ -615,10 +629,14 @@ export default function PhotoAnnotator({
           </button>
           <button
             onClick={onClose}
-            className="flex items-center gap-1 rounded-lg border border-white/20 px-3 py-1.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
+            className={`flex items-center gap-1 rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors ${
+              saved
+                ? "bg-primary text-white hover:bg-primary/90"
+                : "border border-white/20 text-gray-300 hover:text-white hover:bg-gray-700"
+            }`}
           >
-            <X className="h-4 w-4" />
-            Cancel
+            <ArrowLeft className="h-4 w-4" />
+            {saved ? "Done" : "Cancel"}
           </button>
         </div>
       </div>
