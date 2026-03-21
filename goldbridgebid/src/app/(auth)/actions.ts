@@ -103,13 +103,17 @@ export async function signOut() {
   redirect("/");
 }
 
-export async function signInWithGoogle(role: string) {
+export async function signInWithGoogle(role?: string) {
   const supabase = await createClient();
+
+  const redirectUrl = role
+    ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?role=${role}`
+    : `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?role=${role}`,
+      redirectTo: redirectUrl,
     },
   });
 

@@ -27,7 +27,7 @@ function LoginForm() {
   async function handleGoogleLogin() {
     setLoading(true);
     setError(null);
-    const result = await signInWithGoogle("customer");
+    const result = await signInWithGoogle();
     if (result?.error) {
       setError(result.error);
       setLoading(false);

@@ -5,8 +5,9 @@ import type { UserRole } from "@/types/database";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const roleRaw = searchParams.get("role") || "customer";
-  const role: UserRole = roleRaw === "bidder" ? "bidder" : "customer";
+  const roleRaw = searchParams.get("role");
+  const signupRole: UserRole | null =
+    roleRaw === "bidder" ? "bidder" : roleRaw === "customer" ? "customer" : null;
 
   if (code) {
     const supabase = await createClient();
@@ -16,28 +17,41 @@ export async function GET(request: Request) {
     if (!error && sessionData.user) {
       const { data: existingProfile } = await supabase
         .from("profiles")
-        .select("id")
+        .select("*")
         .eq("user_id", sessionData.user.id)
         .single();
 
-      if (!existingProfile) {
-        await supabase.from("profiles").insert({
-          user_id: sessionData.user.id,
-          role,
-          full_name:
-            sessionData.user.user_metadata?.full_name ||
-            sessionData.user.email?.split("@")[0] ||
-            "User",
-          email: sessionData.user.email || "",
-          phone: "",
-          address: "",
-        });
+      if (existingProfile) {
+        // Existing user — redirect based on their STORED role
+        const storedRole = existingProfile.role as UserRole;
+        const redirectPath =
+          storedRole === "admin"
+            ? "/admin"
+            : storedRole === "bidder"
+              ? "/bidder"
+              : "/customer";
+        return NextResponse.redirect(`${origin}${redirectPath}`);
+      }
 
-        if (role === "bidder") {
-          await supabase.from("bidder_credentials").insert({
-            user_id: sessionData.user.id,
-          });
-        }
+      // New user — create profile with the role from signup
+      const role: UserRole = signupRole || "customer";
+
+      await supabase.from("profiles").insert({
+        user_id: sessionData.user.id,
+        role,
+        full_name:
+          sessionData.user.user_metadata?.full_name ||
+          sessionData.user.email?.split("@")[0] ||
+          "User",
+        email: sessionData.user.email || "",
+        phone: "",
+        address: "",
+      });
+
+      if (role === "bidder") {
+        await supabase.from("bidder_credentials").insert({
+          user_id: sessionData.user.id,
+        });
       }
 
       const redirectPath = role === "bidder" ? "/bidder" : "/customer";
