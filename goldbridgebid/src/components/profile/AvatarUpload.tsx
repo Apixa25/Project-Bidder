@@ -13,6 +13,7 @@ export default function AvatarUpload({ currentUrl, userName }: AvatarUploadProps
   const [avatarUrl, setAvatarUrl] = useState(currentUrl);
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -20,12 +21,15 @@ export default function AvatarUpload({ currentUrl, userName }: AvatarUploadProps
     if (!file) return;
 
     setUploading(true);
+    setError(null);
     const formData = new FormData();
     formData.set("avatar", file);
 
     const result = await uploadAvatar(formData);
-    if (result.success && result.url) {
-      setAvatarUrl(result.url);
+    if (result.error) {
+      setError(result.error);
+    } else if (result.success && result.url) {
+      setAvatarUrl(result.url + "?t=" + Date.now());
     }
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
@@ -82,6 +86,9 @@ export default function AvatarUpload({ currentUrl, userName }: AvatarUploadProps
         <p className="text-xs text-text-muted mb-2">
           JPG, PNG or GIF. Max 12MB.
         </p>
+        {error && (
+          <p className="text-xs text-red-600 mb-2">{error}</p>
+        )}
         <div className="flex items-center gap-2">
           <button
             type="button"
