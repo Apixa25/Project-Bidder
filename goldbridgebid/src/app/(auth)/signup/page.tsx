@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, Suspense } from "react";
-import { HardHat, FileText, ClipboardCheck, Loader2 } from "lucide-react";
+import Image from "next/image";
+import { FileText, ClipboardCheck, Loader2 } from "lucide-react";
 import { signup, signInWithGoogle } from "../actions";
 
 function SignupForm() {
@@ -39,8 +40,14 @@ function SignupForm() {
   return (
     <div className="w-full max-w-md">
       <div className="mb-8 text-center">
-        <Link href="/" className="inline-flex items-center gap-2">
-          <HardHat className="h-10 w-10 text-primary" />
+        <Link href="/" className="inline-flex items-center gap-3">
+          <Image
+            src="/logo.png"
+            alt="Gold Bridge Bid"
+            width={48}
+            height={48}
+            className="rounded-full"
+          />
           <span className="text-2xl font-bold text-text-primary">
             Gold<span className="text-primary">Bridge</span>Bid
           </span>

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import {
-  HardHat,
   LayoutDashboard,
   FolderOpen,
   ClipboardList,
@@ -63,7 +63,13 @@ export default function DashboardNav({
       {/* Logo */}
       <div className="flex items-center gap-2 border-b border-border px-6 py-4">
         <Link href="/" className="flex items-center gap-2">
-          <HardHat className="h-7 w-7 text-primary" />
+          <Image
+            src="/logo.png"
+            alt="Gold Bridge Bid"
+            width={36}
+            height={36}
+            className="rounded-full"
+          />
           <span className="text-lg font-bold text-text-primary">
             Gold<span className="text-primary">Bridge</span>Bid
           </span>

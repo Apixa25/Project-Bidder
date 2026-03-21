@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   HardHat,
   FileText,
@@ -70,7 +71,13 @@ export default function Home() {
       <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur-sm">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
-            <HardHat className="h-8 w-8 text-primary" />
+            <Image
+              src="/logo.png"
+              alt="Gold Bridge Bid"
+              width={40}
+              height={40}
+              className="rounded-full"
+            />
             <span className="text-xl font-bold text-text-primary">
               Gold<span className="text-primary">Bridge</span>Bid
             </span>
@@ -338,7 +345,13 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
             <div className="flex items-center gap-2">
-              <HardHat className="h-6 w-6 text-primary" />
+              <Image
+                src="/logo.png"
+                alt="Gold Bridge Bid"
+                width={32}
+                height={32}
+                className="rounded-full"
+              />
               <span className="text-lg font-bold text-text-primary">
                 Gold<span className="text-primary">Bridge</span>Bid
               </span>

@@ -24,6 +24,16 @@ export const metadata: Metadata = {
     "Crescent City",
     "construction projects",
   ],
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
+  openGraph: {
+    title: "GoldBridgeBid — Where Qualified Contractors Compete",
+    description:
+      "Post your construction project and receive sealed bids from qualified, verified contractors.",
+    images: [{ url: "/logo.png" }],
+  },
 };
 
 export default function RootLayout({
