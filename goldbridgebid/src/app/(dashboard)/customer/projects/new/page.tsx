@@ -398,7 +398,7 @@ export default function NewProjectPage() {
               Click to add photos
             </p>
             <p className="mt-1 text-xs text-text-muted">
-              JPG, PNG, GIF, WEBP — up to 50MB each
+              JPG, PNG, GIF, WEBP — up to 12MB each
             </p>
             <input
               id="photo-upload"
@@ -477,7 +477,7 @@ export default function NewProjectPage() {
               Click to upload documents
             </p>
             <p className="mt-1 text-xs text-text-muted">
-              PDFs, Word docs, spreadsheets, videos — up to 50MB each
+              PDFs, Word docs, spreadsheets, videos — up to 300MB each
             </p>
             <input
               id="doc-upload"

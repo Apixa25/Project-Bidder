@@ -1,10 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { User, Calendar, Shield, ArrowRight } from "lucide-react";
+import { Calendar, Shield, ArrowRight } from "lucide-react";
 import { BADGE_CONFIG } from "@/lib/badges";
 import type { BadgeLevel } from "@/types/database";
 import ProfileForm from "@/components/profile/ProfileForm";
+import AvatarUpload from "@/components/profile/AvatarUpload";
+import PortfolioGallery from "@/components/profile/PortfolioGallery";
+import SocialLinksForm from "@/components/profile/SocialLinksForm";
 
 export default async function BidderProfilePage() {
   const supabase = await createClient();
@@ -29,6 +32,12 @@ export default async function BidderProfilePage() {
     .eq("user_id", user.id)
     .single();
 
+  const { data: portfolioItems } = await supabase
+    .from("portfolio_items")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("display_order", { ascending: true });
+
   const badgeLevel = credentials?.badge_level as BadgeLevel;
   const badgeInfo = badgeLevel ? BADGE_CONFIG[badgeLevel] : null;
 
@@ -37,49 +46,24 @@ export default async function BidderProfilePage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-text-primary">My Profile 👤</h1>
         <p className="mt-1 text-text-secondary">
-          Manage your account and business information.
+          Manage your profile — customers see this when reviewing your bids.
         </p>
       </div>
 
-      {/* Account Info Card */}
+      {/* Avatar + Badge Card */}
       <div className="mb-8 rounded-xl border border-border bg-surface p-6 shadow-sm">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary/10">
-              <User className="h-7 w-7 text-secondary" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-text-primary">
-                {profile.full_name}
-              </h2>
-              {profile.business_name && (
-                <p className="text-sm text-text-secondary">
-                  {profile.business_name}
-                </p>
-              )}
-              <p className="text-sm text-text-muted">{profile.email}</p>
-              <div className="mt-1 flex items-center gap-3 text-xs text-text-muted">
-                <span className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2.5 py-0.5 font-medium text-secondary capitalize">
-                  {profile.role}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  Member since{" "}
-                  {new Date(profile.created_at).toLocaleDateString()}
-                </span>
-              </div>
-            </div>
-          </div>
-
+          <AvatarUpload
+            currentUrl={profile.avatar_url}
+            userName={profile.full_name}
+          />
           <div className="flex items-center gap-3">
             {badgeInfo ? (
               <div
                 className={`flex items-center gap-2 rounded-full ${badgeInfo.bgColor} px-4 py-2`}
               >
                 <span className="text-lg">{badgeInfo.icon}</span>
-                <span
-                  className={`text-sm font-semibold ${badgeInfo.color}`}
-                >
+                <span className={`text-sm font-semibold ${badgeInfo.color}`}>
                   {badgeInfo.label}
                 </span>
               </div>
@@ -100,14 +84,44 @@ export default async function BidderProfilePage() {
             </Link>
           </div>
         </div>
+        <div className="mt-4 flex items-center gap-3 text-xs text-text-muted">
+          <span className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2.5 py-0.5 font-medium text-secondary capitalize">
+            {profile.role}
+          </span>
+          <span className="flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            Member since {new Date(profile.created_at).toLocaleDateString()}
+          </span>
+        </div>
       </div>
 
       {/* Profile Form */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+      <div className="mb-8 rounded-xl border border-border bg-surface p-6 shadow-sm">
         <h2 className="mb-6 text-lg font-semibold text-text-primary">
           Edit Profile
         </h2>
         <ProfileForm profile={profile} />
+      </div>
+
+      {/* Social Links */}
+      <div className="mb-8 rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-4 text-lg font-semibold text-text-primary">
+          🔗 Links & Social Media
+        </h2>
+        <p className="mb-4 text-sm text-text-muted">
+          Share your website, social profiles, and review pages so customers can
+          learn about your business.
+        </p>
+        <SocialLinksForm links={profile} />
+      </div>
+
+      {/* Portfolio */}
+      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <PortfolioGallery
+          items={portfolioItems || []}
+          isOwner={true}
+          ownerRole="bidder"
+        />
       </div>
     </div>
   );

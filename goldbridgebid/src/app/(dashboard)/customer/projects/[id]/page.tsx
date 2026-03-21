@@ -213,14 +213,30 @@ export default async function ProjectDetailPage({
                       {/* Bidder Header */}
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                            <User className="h-5 w-5 text-primary" />
-                          </div>
+                          <Link
+                            href={`/profile/${bid.bidder_id}`}
+                            className="shrink-0"
+                          >
+                            {profile?.avatar_url ? (
+                              <img
+                                src={profile.avatar_url}
+                                alt={profile.full_name}
+                                className="h-10 w-10 rounded-full object-cover border-2 border-white shadow"
+                              />
+                            ) : (
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                                <User className="h-5 w-5 text-primary" />
+                              </div>
+                            )}
+                          </Link>
                           <div>
                             <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-text-primary">
+                              <Link
+                                href={`/profile/${bid.bidder_id}`}
+                                className="font-semibold text-text-primary hover:text-primary transition-colors"
+                              >
                                 {profile?.full_name || "Unknown Bidder"}
-                              </h3>
+                              </Link>
                               {badgeInfo && (
                                 <span
                                   className={`inline-flex items-center gap-1 rounded-full ${badgeInfo.bgColor} px-2 py-0.5 text-xs font-medium ${badgeInfo.color}`}

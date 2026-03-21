@@ -45,8 +45,26 @@ export interface Profile {
   zip: string;
   bio: string | null;
   avatar_url: string | null;
+  website_url: string | null;
+  facebook_url: string | null;
+  linkedin_url: string | null;
+  instagram_url: string | null;
+  other_link_url: string | null;
+  other_link_label: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface PortfolioItem {
+  id: string;
+  user_id: string;
+  media_url: string;
+  media_type: "image" | "video";
+  thumbnail_url: string | null;
+  title: string;
+  description: string | null;
+  display_order: number;
+  created_at: string;
 }
 
 export interface BidderCredentials {
@@ -172,6 +190,22 @@ type ProfileInsert = {
   business_name?: string | null;
   bio?: string | null;
   avatar_url?: string | null;
+  website_url?: string | null;
+  facebook_url?: string | null;
+  linkedin_url?: string | null;
+  instagram_url?: string | null;
+  other_link_url?: string | null;
+  other_link_label?: string | null;
+};
+
+type PortfolioItemInsert = {
+  user_id: string;
+  media_url: string;
+  media_type: string;
+  title: string;
+  thumbnail_url?: string | null;
+  description?: string | null;
+  display_order?: number;
 };
 
 type CredentialsInsert = {
@@ -289,6 +323,12 @@ export interface Database {
         Row: FlaggedContent;
         Insert: Omit<FlaggedContent, "id" | "created_at" | "resolved">;
         Update: { resolved?: boolean };
+        Relationships: [];
+      };
+      portfolio_items: {
+        Row: PortfolioItem;
+        Insert: PortfolioItemInsert;
+        Update: Partial<Omit<PortfolioItemInsert, "user_id">>;
         Relationships: [];
       };
     };
