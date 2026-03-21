@@ -42,8 +42,8 @@ function LoginForm() {
           <Image
             src="/logo.png"
             alt="Gold Bridge Bid"
-            width={48}
-            height={48}
+            width={192}
+            height={192}
             className="rounded-full"
           />
           <span className="text-2xl font-bold text-text-primary">

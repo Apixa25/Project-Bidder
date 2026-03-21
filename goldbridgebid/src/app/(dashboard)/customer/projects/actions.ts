@@ -75,14 +75,19 @@ export async function createProject(formData: FormData) {
 
   if (validFiles.length > 0 && project) {
     for (const file of validFiles) {
-      const fileExt = file.name.split(".").pop();
-      const filePath = `projects/${project.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+      try {
+        const fileExt = file.name.split(".").pop();
+        const filePath = `projects/${project.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("project-files")
-        .upload(filePath, file);
+        const { error: uploadError } = await supabase.storage
+          .from("project-files")
+          .upload(filePath, file);
 
-      if (!uploadError) {
+        if (uploadError) {
+          console.error("Storage upload error:", uploadError);
+          continue;
+        }
+
         const {
           data: { publicUrl },
         } = supabase.storage.from("project-files").getPublicUrl(filePath);
@@ -96,13 +101,25 @@ export async function createProject(formData: FormData) {
           );
         }
 
-        await supabase.from("project_files").insert({
+        const insertData: Record<string, unknown> = {
           project_id: project.id,
           file_url: publicUrl,
           file_name: file.name,
           file_type: file.type,
-          thumbnail_url: thumbnailUrl,
-        });
+        };
+        if (thumbnailUrl) {
+          insertData.thumbnail_url = thumbnailUrl;
+        }
+
+        const { error: insertError } = await supabase
+          .from("project_files")
+          .insert(insertData);
+
+        if (insertError) {
+          console.error("project_files insert error:", insertError);
+        }
+      } catch (err) {
+        console.error("File processing error:", err);
       }
     }
   }
@@ -406,14 +423,19 @@ export async function updateProject(projectId: string, formData: FormData) {
 
   if (validFiles.length > 0) {
     for (const file of validFiles) {
-      const fileExt = file.name.split(".").pop();
-      const filePath = `projects/${projectId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+      try {
+        const fileExt = file.name.split(".").pop();
+        const filePath = `projects/${projectId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("project-files")
-        .upload(filePath, file);
+        const { error: uploadError } = await supabase.storage
+          .from("project-files")
+          .upload(filePath, file);
 
-      if (!uploadError) {
+        if (uploadError) {
+          console.error("Storage upload error:", uploadError);
+          continue;
+        }
+
         const {
           data: { publicUrl },
         } = supabase.storage.from("project-files").getPublicUrl(filePath);
@@ -427,13 +449,25 @@ export async function updateProject(projectId: string, formData: FormData) {
           );
         }
 
-        await supabase.from("project_files").insert({
+        const insertData: Record<string, unknown> = {
           project_id: projectId,
           file_url: publicUrl,
           file_name: file.name,
           file_type: file.type,
-          thumbnail_url: thumbnailUrl,
-        });
+        };
+        if (thumbnailUrl) {
+          insertData.thumbnail_url = thumbnailUrl;
+        }
+
+        const { error: insertError } = await supabase
+          .from("project_files")
+          .insert(insertData);
+
+        if (insertError) {
+          console.error("project_files insert error:", insertError);
+        }
+      } catch (err) {
+        console.error("File processing error:", err);
       }
     }
   }

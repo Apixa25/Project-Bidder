@@ -66,8 +66,8 @@ export default function DashboardNav({
           <Image
             src="/logo.png"
             alt="Gold Bridge Bid"
-            width={36}
-            height={36}
+            width={144}
+            height={144}
             className="rounded-full"
           />
           <span className="text-lg font-bold text-text-primary">

@@ -74,8 +74,8 @@ export default function Home() {
             <Image
               src="/logo.png"
               alt="Gold Bridge Bid"
-              width={40}
-              height={40}
+              width={160}
+              height={160}
               className="rounded-full"
             />
             <span className="text-xl font-bold text-text-primary">
@@ -348,8 +348,8 @@ export default function Home() {
               <Image
                 src="/logo.png"
                 alt="Gold Bridge Bid"
-                width={32}
-                height={32}
+                width={128}
+                height={128}
                 className="rounded-full"
               />
               <span className="text-lg font-bold text-text-primary">
