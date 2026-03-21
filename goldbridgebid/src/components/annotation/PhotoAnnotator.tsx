@@ -277,8 +277,12 @@ export default function PhotoAnnotator({
   function handleMouseUp() {
     if (!isDrawing.current || !currentAnnotation.current) return;
     isDrawing.current = false;
-    setAnnotations((prev) => [...prev, { ...currentAnnotation.current! }]);
+    const finished = { ...currentAnnotation.current };
+    if (finished.points) {
+      finished.points = [...finished.points];
+    }
     currentAnnotation.current = null;
+    setAnnotations((prev) => [...prev, finished]);
   }
 
   function drawAnnotation(ctx: CanvasRenderingContext2D, ann: Annotation) {
