@@ -158,59 +158,138 @@ export interface FlaggedContent {
   created_at: string;
 }
 
-// Supabase generated types placeholder
+// Insert helpers: make nullable fields and DB-defaulted fields optional
+type ProfileInsert = {
+  user_id: string;
+  role: UserRole;
+  full_name: string;
+  email: string;
+  phone: string;
+  address: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  business_name?: string | null;
+  bio?: string | null;
+  avatar_url?: string | null;
+};
+
+type CredentialsInsert = {
+  user_id: string;
+  license_url?: string | null;
+  bond_url?: string | null;
+  insurance_url?: string | null;
+  workers_comp_url?: string | null;
+  ein_url?: string | null;
+  references_url?: string | null;
+};
+
+type ProjectInsert = {
+  customer_id: string;
+  title: string;
+  description: string;
+  completion_criteria: string;
+  trades: TradeCategory[];
+  location_address: string;
+  location_city: string;
+  location_state: string;
+  location_zip: string;
+  budget_min?: number | null;
+  budget_max?: number | null;
+  desired_start_date?: string | null;
+  timeline?: string | null;
+};
+
+type BidInsert = {
+  project_id: string;
+  bidder_id: string;
+  trade: TradeCategory;
+  price: number;
+  estimated_timeline: string;
+  estimated_start_date: string;
+  price_breakdown?: string | null;
+  notes?: string | null;
+};
+
+type MessageInsert = {
+  project_id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  file_url?: string | null;
+  file_name?: string | null;
+};
+
+type NotificationInsert = {
+  user_id: string;
+  type: string;
+  title: string;
+  message: string;
+  link?: string | null;
+};
+
 export interface Database {
   public: {
     Tables: {
       profiles: {
         Row: Profile;
-        Insert: Omit<Profile, "id" | "created_at" | "updated_at">;
-        Update: Partial<Omit<Profile, "id" | "created_at">>;
+        Insert: ProfileInsert;
+        Update: Partial<ProfileInsert>;
+        Relationships: [];
       };
       bidder_credentials: {
         Row: BidderCredentials;
-        Insert: Omit<BidderCredentials, "id" | "created_at" | "updated_at" | "badge_level">;
-        Update: Partial<Omit<BidderCredentials, "id" | "created_at">>;
+        Insert: CredentialsInsert;
+        Update: Partial<CredentialsInsert>;
+        Relationships: [];
       };
       projects: {
         Row: Project;
-        Insert: Omit<Project, "id" | "created_at" | "updated_at" | "bid_count" | "status">;
-        Update: Partial<Omit<Project, "id" | "created_at" | "customer_id">>;
+        Insert: ProjectInsert;
+        Update: Partial<Omit<ProjectInsert, "customer_id">> & { status?: ProjectStatus };
+        Relationships: [];
       };
       project_files: {
         Row: ProjectFile;
         Insert: Omit<ProjectFile, "id" | "uploaded_at">;
         Update: Partial<Omit<ProjectFile, "id">>;
+        Relationships: [];
       };
       project_edits: {
         Row: ProjectEdit;
         Insert: Omit<ProjectEdit, "id" | "edited_at">;
         Update: never;
+        Relationships: [];
       };
       bids: {
         Row: Bid;
-        Insert: Omit<Bid, "id" | "created_at" | "updated_at">;
-        Update: Partial<Omit<Bid, "id" | "created_at" | "project_id" | "bidder_id">>;
+        Insert: BidInsert;
+        Update: Partial<Omit<BidInsert, "project_id" | "bidder_id">>;
+        Relationships: [];
       };
       bid_files: {
         Row: BidFile;
         Insert: Omit<BidFile, "id" | "uploaded_at">;
         Update: Partial<Omit<BidFile, "id">>;
+        Relationships: [];
       };
       messages: {
         Row: Message;
-        Insert: Omit<Message, "id" | "created_at" | "read">;
-        Update: Partial<Pick<Message, "read">>;
+        Insert: MessageInsert;
+        Update: { read?: boolean };
+        Relationships: [];
       };
       notifications: {
         Row: Notification;
-        Insert: Omit<Notification, "id" | "created_at" | "read">;
-        Update: Partial<Pick<Notification, "read">>;
+        Insert: NotificationInsert;
+        Update: { read?: boolean };
+        Relationships: [];
       };
       flagged_content: {
         Row: FlaggedContent;
         Insert: Omit<FlaggedContent, "id" | "created_at" | "resolved">;
-        Update: Partial<Pick<FlaggedContent, "resolved">>;
+        Update: { resolved?: boolean };
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
