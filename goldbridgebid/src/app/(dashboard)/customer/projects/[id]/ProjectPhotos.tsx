@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Image as ImageIcon, Pencil, FileText } from "lucide-react";
 import PhotoAnnotator from "@/components/annotation/PhotoAnnotator";
+import ImageLightbox from "@/components/ImageLightbox";
 import { saveAnnotation } from "../actions";
 
 interface ProjectFileData {
@@ -22,6 +23,7 @@ export default function ProjectPhotos({ files }: ProjectPhotosProps) {
   const [annotatingFile, setAnnotatingFile] = useState<ProjectFileData | null>(
     null
   );
+  const [viewingFile, setViewingFile] = useState<ProjectFileData | null>(null);
   const [fileList, setFileList] = useState(files);
 
   const imageFiles = fileList.filter((f) => f.file_type.startsWith("image/"));
@@ -64,19 +66,14 @@ export default function ProjectPhotos({ files }: ProjectPhotosProps) {
               return (
                 <div
                   key={file.id}
-                  className="group relative aspect-square overflow-hidden rounded-lg border border-border"
+                  className="group relative aspect-square overflow-hidden rounded-lg border border-border cursor-pointer"
+                  onClick={() => setViewingFile(file)}
                 >
-                  <a
-                    href={file.annotated_url || file.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <img
-                      src={displayUrl}
-                      alt={file.file_name}
-                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                    />
-                  </a>
+                  <img
+                    src={displayUrl}
+                    alt={file.file_name}
+                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                  />
 
                   {/* Annotation badge */}
                   {file.annotated_url && (
@@ -138,6 +135,15 @@ export default function ProjectPhotos({ files }: ProjectPhotosProps) {
             ))}
           </div>
         </section>
+      )}
+
+      {/* Image Lightbox */}
+      {viewingFile && (
+        <ImageLightbox
+          imageUrl={viewingFile.annotated_url || viewingFile.file_url}
+          fileName={viewingFile.file_name}
+          onClose={() => setViewingFile(null)}
+        />
       )}
 
       {/* Annotation Modal */}

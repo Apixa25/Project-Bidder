@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Image as ImageIcon, Eye, EyeOff } from "lucide-react";
+import ImageLightbox from "@/components/ImageLightbox";
 
 interface ProjectFileData {
   id: string;
@@ -20,6 +21,7 @@ export default function ProjectPhotosBidder({
   imageFiles,
 }: ProjectPhotosBidderProps) {
   const [showOriginals, setShowOriginals] = useState(false);
+  const [viewingFile, setViewingFile] = useState<ProjectFileData | null>(null);
 
   const hasAnnotations = imageFiles.some((f) => f.annotated_url);
 
@@ -62,12 +64,10 @@ export default function ProjectPhotosBidder({
             : file.file_url;
 
           return (
-            <a
+            <div
               key={file.id}
-              href={linkUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group relative aspect-square overflow-hidden rounded-lg border border-border"
+              onClick={() => setViewingFile(file)}
+              className="group relative aspect-square overflow-hidden rounded-lg border border-border cursor-pointer"
             >
               <img
                 src={displayUrl}
@@ -84,10 +84,23 @@ export default function ProjectPhotosBidder({
                   {file.file_name}
                 </p>
               </div>
-            </a>
+            </div>
           );
         })}
       </div>
+
+      {/* Image Lightbox */}
+      {viewingFile && (
+        <ImageLightbox
+          imageUrl={
+            !showOriginals && viewingFile.annotated_url
+              ? viewingFile.annotated_url
+              : viewingFile.file_url
+          }
+          fileName={viewingFile.file_name}
+          onClose={() => setViewingFile(null)}
+        />
+      )}
     </section>
   );
 }
