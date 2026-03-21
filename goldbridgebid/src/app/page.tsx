@@ -70,7 +70,7 @@ export default function Home() {
       {/* Navigation */}
       <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur-sm">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col items-center gap-1">
             <Image
               src="/logo.png"
               alt="Gold Bridge Bid"
@@ -344,7 +344,7 @@ export default function Home() {
       <footer className="border-t border-border bg-surface py-12">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col items-center gap-1">
               <Image
                 src="/logo.png"
                 alt="Gold Bridge Bid"

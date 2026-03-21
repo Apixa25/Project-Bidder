@@ -40,7 +40,7 @@ function SignupForm() {
   return (
     <div className="w-full max-w-md">
       <div className="mb-8 text-center">
-        <Link href="/" className="inline-flex items-center gap-3">
+        <Link href="/" className="inline-flex flex-col items-center gap-2">
           <Image
             src="/logo.png"
             alt="Gold Bridge Bid"

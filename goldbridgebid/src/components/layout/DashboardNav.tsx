@@ -61,8 +61,8 @@ export default function DashboardNav({
   return (
     <nav className="flex h-screen w-64 flex-col border-r border-border bg-surface">
       {/* Logo */}
-      <div className="flex items-center gap-2 border-b border-border px-6 py-4">
-        <Link href="/" className="flex items-center gap-2">
+      <div className="border-b border-border px-6 py-4">
+        <Link href="/" className="flex flex-col items-center gap-2">
           <Image
             src="/logo.png"
             alt="Gold Bridge Bid"
