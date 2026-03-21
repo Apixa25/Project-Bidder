@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { Plus, FolderOpen, MapPin, Calendar } from "lucide-react";
+import { Plus, FolderOpen, MapPin, Calendar, ImageIcon } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 
@@ -16,7 +16,7 @@ export default async function MyProjectsPage() {
 
   const { data: projects } = await supabase
     .from("projects")
-    .select("*")
+    .select("*, project_files(id, file_url, thumbnail_url, file_type, annotated_url)")
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -42,13 +42,39 @@ export default async function MyProjectsPage() {
 
       {projects && projects.length > 0 ? (
         <div className="space-y-4">
-          {projects.map((project) => (
+          {projects.map((project) => {
+            const imageFiles = (project.project_files || []).filter(
+              (f: { file_type: string }) => f.file_type.startsWith("image/")
+            );
+            const firstImage = imageFiles[0] as
+              | { thumbnail_url: string | null; annotated_url: string | null; file_url: string }
+              | undefined;
+            const thumbUrl = firstImage
+              ? firstImage.annotated_url || firstImage.thumbnail_url || firstImage.file_url
+              : null;
+
+            return (
             <Link
               key={project.id}
               href={`/customer/projects/${project.id}`}
               className="block rounded-xl border border-border bg-surface p-6 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
             >
-              <div className="flex items-start justify-between">
+              <div className="flex items-start gap-5">
+                {/* Project Thumbnail */}
+                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-border bg-bg-warm">
+                  {thumbUrl ? (
+                    <img
+                      src={thumbUrl}
+                      alt={project.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <ImageIcon className="h-8 w-8 text-text-muted/40" />
+                    </div>
+                  )}
+                </div>
+
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3">
                     <h2 className="text-lg font-semibold text-text-primary truncate">
@@ -115,7 +141,8 @@ export default async function MyProjectsPage() {
                 </div>
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="rounded-xl border border-border bg-surface py-16 text-center shadow-sm">

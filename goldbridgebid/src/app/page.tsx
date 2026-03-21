@@ -99,18 +99,18 @@ export default function Home() {
     <div className="flex flex-col min-h-screen">
       {/* Navigation */}
       <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur-sm">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex flex-col items-center gap-1">
+        <nav className="mx-auto flex max-w-7xl items-center px-6 py-4">
+          <span className="text-4xl font-bold text-text-primary shrink-0">
+            Gold<span className="text-primary">Bridge</span>Bid<span className="text-primary">.com</span>
+          </span>
+          <div className="flex flex-1 justify-center">
             <Image
               src="/logo.png"
               alt="Gold Bridge Bid"
-              width={160}
-              height={160}
+              width={320}
+              height={320}
               className="rounded-full"
             />
-            <span className="text-xl font-bold text-text-primary">
-              Gold<span className="text-primary">Bridge</span>Bid
-            </span>
           </div>
           <div className="flex items-center gap-4">
             <Link
