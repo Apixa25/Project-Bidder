@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Upload, X, Loader2, Info } from "lucide-react";
+import { ArrowLeft, Upload, X, Loader2, Info, ImageIcon, FileText as FileIcon } from "lucide-react";
 import { createProject } from "../actions";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
@@ -19,8 +19,19 @@ const US_STATES = [
 export default function NewProjectPage() {
   const [selectedTrades, setSelectedTrades] = useState<TradeCategory[]>([]);
   const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<(string | null)[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const urls: (string | null)[] = files.map((file) =>
+      file.type.startsWith("image/") ? URL.createObjectURL(file) : null
+    );
+    setPreviews(urls);
+    return () => {
+      urls.forEach((url) => url && URL.revokeObjectURL(url));
+    };
+  }, [files]);
 
   function toggleTrade(trade: TradeCategory) {
     setSelectedTrades((prev) =>
@@ -367,64 +378,147 @@ export default function NewProjectPage() {
           </div>
         </section>
 
-        {/* File Uploads */}
+        {/* Photos & Images */}
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <h2 className="mb-2 text-lg font-semibold text-text-primary">
-            Project Files
+            📸 Project Photos
           </h2>
           <p className="mb-4 text-sm text-text-muted">
-            Upload photos, documents, plans, or videos to help contractors
-            understand the scope.
+            Upload photos of the project site, specific areas of concern, pipe
+            locations, existing conditions — anything that helps contractors
+            understand what they&apos;re bidding on.
           </p>
 
           <label
-            htmlFor="file-upload"
-            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-6 py-8 transition-colors hover:border-primary/40 hover:bg-primary/5"
+            htmlFor="photo-upload"
+            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 px-6 py-8 transition-colors hover:border-primary hover:bg-primary/10"
           >
-            <Upload className="h-8 w-8 text-text-muted" />
-            <p className="mt-2 text-sm font-medium text-text-primary">
-              Click to upload files
+            <ImageIcon className="h-10 w-10 text-primary" />
+            <p className="mt-3 text-sm font-semibold text-primary">
+              Click to add photos
             </p>
             <p className="mt-1 text-xs text-text-muted">
-              Photos, PDFs, documents, videos — up to 50MB each
+              JPG, PNG, GIF, WEBP — up to 50MB each
             </p>
             <input
-              id="file-upload"
+              id="photo-upload"
               type="file"
               multiple
-              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,video/*"
+              accept="image/*"
               onChange={handleFileChange}
               className="hidden"
             />
           </label>
 
-          {files.length > 0 && (
-            <div className="mt-4 space-y-2">
-              {files.map((file, i) => (
-                <div
-                  key={`${file.name}-${i}`}
-                  className="flex items-center justify-between rounded-lg border border-border bg-bg-warm px-4 py-2.5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-text-primary truncate">
-                      {file.name}
-                    </p>
-                    <p className="text-xs text-text-muted">
-                      {formatFileSize(file.size)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeFile(i)}
-                    className="ml-3 rounded-md p-1 text-text-muted hover:bg-red-50 hover:text-red-600 transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-              <p className="text-sm text-text-muted">
-                {files.length} file{files.length !== 1 ? "s" : ""} selected
+          {/* Image Previews Grid */}
+          {files.some((f) => f.type.startsWith("image/")) && (
+            <div className="mt-4">
+              <p className="mb-2 text-sm font-medium text-text-primary">
+                {files.filter((f) => f.type.startsWith("image/")).length}{" "}
+                photo
+                {files.filter((f) => f.type.startsWith("image/")).length !== 1
+                  ? "s"
+                  : ""}{" "}
+                added
               </p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {files.map((file, i) =>
+                  file.type.startsWith("image/") && previews[i] ? (
+                    <div
+                      key={`img-${file.name}-${i}`}
+                      className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-gray-100"
+                    >
+                      <img
+                        src={previews[i]!}
+                        alt={file.name}
+                        className="h-full w-full object-cover"
+                      />
+                      <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => removeFile(i)}
+                          className="self-end m-2 rounded-full bg-red-500 p-1.5 text-white shadow-lg hover:bg-red-600 transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                        <div className="px-2 pb-2">
+                          <p className="text-xs text-white truncate font-medium">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-white/70">
+                            {formatFileSize(file.size)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Documents & Other Files */}
+        <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <h2 className="mb-2 text-lg font-semibold text-text-primary">
+            📄 Documents & Plans
+          </h2>
+          <p className="mb-4 text-sm text-text-muted">
+            Upload blueprints, permits, PDFs, spreadsheets, or videos — any
+            additional files that help define the project scope.
+          </p>
+
+          <label
+            htmlFor="doc-upload"
+            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-6 py-6 transition-colors hover:border-primary/40 hover:bg-primary/5"
+          >
+            <FileIcon className="h-8 w-8 text-text-muted" />
+            <p className="mt-2 text-sm font-medium text-text-primary">
+              Click to upload documents
+            </p>
+            <p className="mt-1 text-xs text-text-muted">
+              PDFs, Word docs, spreadsheets, videos — up to 50MB each
+            </p>
+            <input
+              id="doc-upload"
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,video/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </label>
+
+          {/* Document List */}
+          {files.some((f) => !f.type.startsWith("image/")) && (
+            <div className="mt-4 space-y-2">
+              {files.map((file, i) =>
+                !file.type.startsWith("image/") ? (
+                  <div
+                    key={`doc-${file.name}-${i}`}
+                    className="flex items-center justify-between rounded-lg border border-border bg-bg-warm px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <FileIcon className="h-5 w-5 text-primary shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-text-primary truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-text-muted">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="ml-3 rounded-md p-1.5 text-text-muted hover:bg-red-50 hover:text-red-600 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : null
+              )}
             </div>
           )}
         </section>
