@@ -187,8 +187,22 @@ export interface Profile {
   instagram_url: string | null;
   other_link_url: string | null;
   other_link_label: string | null;
+  is_banned: boolean;
+  banned_at: string | null;
+  banned_by: string | null;
+  ban_reason: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface AdminAuditLog {
+  id: string;
+  admin_id: string;
+  action_type: string;
+  target_type: string;
+  target_id: string;
+  details: Record<string, unknown>;
+  created_at: string;
 }
 
 export type PortfolioItemType = "showcase" | "before_after";
@@ -337,6 +351,18 @@ type ProfileInsert = {
   instagram_url?: string | null;
   other_link_url?: string | null;
   other_link_label?: string | null;
+  is_banned?: boolean;
+  banned_at?: string | null;
+  banned_by?: string | null;
+  ban_reason?: string | null;
+};
+
+type AdminAuditLogInsert = {
+  admin_id: string;
+  action_type: string;
+  target_type: string;
+  target_id: string;
+  details?: Record<string, unknown>;
 };
 
 type PortfolioItemInsert = {
@@ -474,6 +500,12 @@ export interface Database {
         Row: PortfolioItem;
         Insert: PortfolioItemInsert;
         Update: Partial<Omit<PortfolioItemInsert, "user_id">>;
+        Relationships: [];
+      };
+      admin_audit_logs: {
+        Row: AdminAuditLog;
+        Insert: AdminAuditLogInsert;
+        Update: never;
         Relationships: [];
       };
     };

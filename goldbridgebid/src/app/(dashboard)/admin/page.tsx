@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import {
   FolderOpen,
   ClipboardList,
@@ -7,7 +8,25 @@ import {
   Flag,
   BarChart3,
   TrendingUp,
+  MessageSquare,
+  ScrollText,
+  AlertTriangle,
 } from "lucide-react";
+import AdminStatCard from "@/components/admin/AdminStatCard";
+import ActivityFeed, {
+  type ActivityItem,
+} from "@/components/admin/ActivityFeed";
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 
 export default async function AdminDashboard() {
   const supabase = await createClient();
@@ -26,33 +45,174 @@ export default async function AdminDashboard() {
 
   if (!profile || profile.role !== "admin") redirect("/login");
 
-  const { count: projectCount } = await supabase
-    .from("projects")
-    .select("*", { count: "exact", head: true });
+  const sevenDaysAgo = new Date(
+    Date.now() - 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
 
-  const { count: bidCount } = await supabase
-    .from("bids")
-    .select("*", { count: "exact", head: true });
+  const [
+    { count: projectCount },
+    { count: bidCount },
+    { count: customerCount },
+    { count: bidderCount },
+    { count: openProjects },
+    { count: flaggedCount },
+    { count: bannedCount },
+    { count: projectsThisWeek },
+    { count: bidsThisWeek },
+    { count: signupsThisWeek },
+  ] = await Promise.all([
+    supabase.from("projects").select("*", { count: "exact", head: true }),
+    supabase.from("bids").select("*", { count: "exact", head: true }),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "customer"),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "bidder"),
+    supabase
+      .from("projects")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "open"),
+    supabase
+      .from("flagged_content")
+      .select("*", { count: "exact", head: true })
+      .eq("resolved", false),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("is_banned", true),
+    supabase
+      .from("projects")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", sevenDaysAgo),
+    supabase
+      .from("bids")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", sevenDaysAgo),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", sevenDaysAgo),
+  ]);
 
-  const { count: customerCount } = await supabase
-    .from("profiles")
-    .select("*", { count: "exact", head: true })
-    .eq("role", "customer");
+  // Build activity feed from recent items
+  const [
+    { data: recentProjects },
+    { data: recentBids },
+    { data: recentSignups },
+    { data: recentFlags },
+  ] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("id, title, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("bids")
+      .select("id, project_id, price, trade, created_at, projects!inner(title)")
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("profiles")
+      .select("user_id, full_name, role, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5),
+    supabase
+      .from("flagged_content")
+      .select("id, content_type, reason, created_at")
+      .eq("resolved", false)
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
 
-  const { count: bidderCount } = await supabase
-    .from("profiles")
-    .select("*", { count: "exact", head: true })
-    .eq("role", "bidder");
+  const activityItems: ActivityItem[] = [
+    ...(recentProjects || []).map((p) => ({
+      id: `proj-${p.id}`,
+      type: "project" as const,
+      title: `New project posted`,
+      detail: p.title,
+      time: timeAgo(p.created_at),
+    })),
+    ...(recentBids || []).map((b) => ({
+      id: `bid-${b.id}`,
+      type: "bid" as const,
+      title: `New bid: $${Number(b.price).toLocaleString()}`,
+      detail: (b.projects as unknown as { title: string }).title,
+      time: timeAgo(b.created_at),
+    })),
+    ...(recentSignups || []).map((s) => ({
+      id: `signup-${s.user_id}`,
+      type: "signup" as const,
+      title: `New ${s.role} signed up`,
+      detail: s.full_name,
+      time: timeAgo(s.created_at),
+    })),
+    ...(recentFlags || []).map((f) => ({
+      id: `flag-${f.id}`,
+      type: "flag" as const,
+      title: `Content flagged (${f.content_type})`,
+      detail: f.reason.length > 60 ? f.reason.slice(0, 60) + "..." : f.reason,
+      time: timeAgo(f.created_at),
+    })),
+  ]
+    .sort((a, b) => {
+      const timeToMs = (t: string) => {
+        if (t === "just now") return 0;
+        const num = parseInt(t);
+        if (t.includes("m")) return num * 60000;
+        if (t.includes("h")) return num * 3600000;
+        return num * 86400000;
+      };
+      return timeToMs(a.time) - timeToMs(b.time);
+    })
+    .slice(0, 15);
 
-  const { count: openProjects } = await supabase
-    .from("projects")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "open");
-
-  const { count: flaggedCount } = await supabase
-    .from("flagged_content")
-    .select("*", { count: "exact", head: true })
-    .eq("resolved", false);
+  const stats = [
+    {
+      label: "Total Projects",
+      value: projectCount || 0,
+      icon: FolderOpen,
+      color: "bg-primary/10 text-primary",
+      trend: { value: projectsThisWeek || 0, label: "this week" },
+    },
+    {
+      label: "Open Projects",
+      value: openProjects || 0,
+      icon: TrendingUp,
+      color: "bg-green-100 text-green-700",
+    },
+    {
+      label: "Total Bids",
+      value: bidCount || 0,
+      icon: ClipboardList,
+      color: "bg-amber-100 text-amber-700",
+      trend: { value: bidsThisWeek || 0, label: "this week" },
+    },
+    {
+      label: "Customers",
+      value: customerCount || 0,
+      icon: Users,
+      color: "bg-blue-100 text-blue-600",
+      trend: { value: signupsThisWeek || 0, label: "new this week" },
+    },
+    {
+      label: "Bidders",
+      value: bidderCount || 0,
+      icon: Users,
+      color: "bg-secondary/10 text-secondary",
+    },
+    {
+      label: "Flagged Items",
+      value: flaggedCount || 0,
+      icon: Flag,
+      color:
+        (flaggedCount || 0) > 0
+          ? "bg-red-100 text-red-600"
+          : "bg-green-100 text-green-600",
+    },
+  ];
 
   return (
     <div>
@@ -66,109 +226,98 @@ export default async function AdminDashboard() {
         </p>
       </div>
 
+      {/* Alert Banners */}
+      {((flaggedCount || 0) > 0 || (bannedCount || 0) > 0) && (
+        <div className="mb-6 space-y-2">
+          {(flaggedCount || 0) > 0 && (
+            <Link
+              href="/admin/flags"
+              className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm hover:bg-red-100 transition-colors"
+            >
+              <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
+              <span className="font-medium text-red-800">
+                {flaggedCount} unresolved flag
+                {flaggedCount !== 1 ? "s" : ""} need attention
+              </span>
+            </Link>
+          )}
+          {(bannedCount || 0) > 0 && (
+            <Link
+              href="/admin/users?banned=true"
+              className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm hover:bg-amber-100 transition-colors"
+            >
+              <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+              <span className="font-medium text-amber-800">
+                {bannedCount} user{bannedCount !== 1 ? "s" : ""} currently
+                banned
+              </span>
+            </Link>
+          )}
+        </div>
+      )}
+
       {/* Stats Grid */}
-      <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <FolderOpen className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-text-primary">
-                {projectCount || 0}
-              </p>
-              <p className="text-sm text-text-muted">Total Projects</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10">
-              <TrendingUp className="h-5 w-5 text-secondary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-text-primary">
-                {openProjects || 0}
-              </p>
-              <p className="text-sm text-text-muted">Open Projects</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100">
-              <ClipboardList className="h-5 w-5 text-amber-700" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-text-primary">
-                {bidCount || 0}
-              </p>
-              <p className="text-sm text-text-muted">Total Bids</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-              <Users className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-text-primary">
-                {customerCount || 0}
-              </p>
-              <p className="text-sm text-text-muted">Customers</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
-              <Users className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-text-primary">
-                {bidderCount || 0}
-              </p>
-              <p className="text-sm text-text-muted">Bidders</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
-              <Flag className="h-5 w-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-text-primary">
-                {flaggedCount || 0}
-              </p>
-              <p className="text-sm text-text-muted">Flagged Items</p>
-            </div>
-          </div>
-        </div>
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {stats.map((stat) => (
+          <AdminStatCard key={stat.label} {...stat} />
+        ))}
       </div>
 
-      {/* Quick Actions */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-text-primary">
-          Quick Actions
-        </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { href: "/admin/projects", label: "View All Projects", icon: FolderOpen },
-            { href: "/admin/bids", label: "View All Bids", icon: ClipboardList },
-            { href: "/admin/users", label: "Manage Users", icon: Users },
-            { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-          ].map((action) => (
-            <a
-              key={action.href}
-              href={action.href}
-              className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm font-medium text-text-primary hover:bg-surface-hover transition-colors"
-            >
-              <action.icon className="h-5 w-5 text-text-muted" />
-              {action.label}
-            </a>
-          ))}
+      {/* Two Column: Activity + Quick Actions */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Activity Feed */}
+        <div className="lg:col-span-2 rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-text-primary">
+            Recent Activity
+          </h2>
+          <ActivityFeed items={activityItems} />
+        </div>
+
+        {/* Quick Actions */}
+        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-text-primary">
+            Quick Actions
+          </h2>
+          <div className="space-y-2">
+            {[
+              {
+                href: "/admin/projects",
+                label: "All Projects",
+                icon: FolderOpen,
+              },
+              {
+                href: "/admin/bids",
+                label: "All Bids",
+                icon: ClipboardList,
+              },
+              { href: "/admin/users", label: "Manage Users", icon: Users },
+              {
+                href: "/admin/messages",
+                label: "Messages",
+                icon: MessageSquare,
+              },
+              { href: "/admin/flags", label: "Flagged Content", icon: Flag },
+              {
+                href: "/admin/analytics",
+                label: "Analytics",
+                icon: BarChart3,
+              },
+              {
+                href: "/admin/audit",
+                label: "Audit Log",
+                icon: ScrollText,
+              },
+            ].map((action) => (
+              <Link
+                key={action.href}
+                href={action.href}
+                className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm font-medium text-text-primary hover:bg-surface-hover transition-colors"
+              >
+                <action.icon className="h-5 w-5 text-text-muted" />
+                {action.label}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </div>

@@ -33,12 +33,27 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname === "/" ||
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/signup") ||
-    request.nextUrl.pathname.startsWith("/auth/callback");
+    request.nextUrl.pathname.startsWith("/auth/callback") ||
+    request.nextUrl.pathname.startsWith("/banned");
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  if (user && !isPublicRoute) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_banned")
+      .eq("user_id", user.id)
+      .single();
+
+    if (profile?.is_banned) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/banned";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

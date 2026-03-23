@@ -1,13 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import {
-  FolderOpen,
-  ClipboardList,
-  Users,
-  TrendingUp,
-  DollarSign,
-  BarChart3,
-} from "lucide-react";
+import { TRADE_LABELS } from "@/types/database";
+import type { TradeCategory } from "@/types/database";
+import AnalyticsDashboard from "./AnalyticsDashboard";
 
 export default async function AdminAnalyticsPage() {
   const supabase = await createClient();
@@ -15,7 +10,6 @@ export default async function AdminAnalyticsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase
@@ -23,220 +17,242 @@ export default async function AdminAnalyticsPage() {
     .select("role")
     .eq("user_id", user.id)
     .single();
-
   if (profile?.role !== "admin") redirect("/login");
 
-  const { count: totalProjects } = await supabase
+  const thirtyDaysAgo = new Date(
+    Date.now() - 30 * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  // Aggregate counts
+  const [
+    { count: totalProjects },
+    { count: openProjects },
+    { count: awardedProjects },
+    { count: closedProjects },
+    { count: totalBids },
+    { count: totalCustomers },
+    { count: totalBidders },
+    { count: totalMessages },
+    { count: unresolvedFlags },
+  ] = await Promise.all([
+    supabase.from("projects").select("*", { count: "exact", head: true }),
+    supabase
+      .from("projects")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "open"),
+    supabase
+      .from("projects")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "awarded"),
+    supabase
+      .from("projects")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "closed"),
+    supabase.from("bids").select("*", { count: "exact", head: true }),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "customer"),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "bidder"),
+    supabase.from("messages").select("*", { count: "exact", head: true }),
+    supabase
+      .from("flagged_content")
+      .select("*", { count: "exact", head: true })
+      .eq("resolved", false),
+  ]);
+
+  // Projects over time (last 30 days)
+  const { data: recentProjects } = await supabase
     .from("projects")
-    .select("*", { count: "exact", head: true });
+    .select("created_at")
+    .gte("created_at", thirtyDaysAgo)
+    .order("created_at", { ascending: true });
 
-  const { count: openProjects } = await supabase
-    .from("projects")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "open");
-
-  const { count: awardedProjects } = await supabase
-    .from("projects")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "awarded");
-
-  const { count: closedProjects } = await supabase
-    .from("projects")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "closed");
-
-  const { count: totalBids } = await supabase
-    .from("bids")
-    .select("*", { count: "exact", head: true });
-
-  const { count: totalCustomers } = await supabase
-    .from("profiles")
-    .select("*", { count: "exact", head: true })
-    .eq("role", "customer");
-
-  const { count: totalBidders } = await supabase
-    .from("profiles")
-    .select("*", { count: "exact", head: true })
-    .eq("role", "bidder");
-
-  const { count: totalMessages } = await supabase
-    .from("messages")
-    .select("*", { count: "exact", head: true });
-
-  const { count: unresolvedFlags } = await supabase
-    .from("flagged_content")
-    .select("*", { count: "exact", head: true })
-    .eq("resolved", false);
-
+  // Bids over time (last 30 days)
   const { data: recentBids } = await supabase
     .from("bids")
-    .select("price")
-    .order("created_at", { ascending: false })
-    .limit(100);
+    .select("created_at, price, trade")
+    .gte("created_at", thirtyDaysAgo)
+    .order("created_at", { ascending: true });
 
-  const avgBidPrice =
-    recentBids && recentBids.length > 0
-      ? recentBids.reduce((sum, b) => sum + Number(b.price), 0) /
-        recentBids.length
-      : 0;
+  // User signups over time (last 30 days)
+  const { data: recentSignups } = await supabase
+    .from("profiles")
+    .select("created_at, role")
+    .gte("created_at", thirtyDaysAgo)
+    .order("created_at", { ascending: true });
 
-  const bidsPerProject =
-    totalProjects && totalBids
-      ? (totalBids / totalProjects).toFixed(1)
-      : "0";
+  // Projects by trade (need all projects for trade breakdown)
+  const { data: allProjects } = await supabase
+    .from("projects")
+    .select("trades");
 
-  const stats = [
-    {
-      label: "Total Projects",
-      value: totalProjects || 0,
-      icon: FolderOpen,
-      color: "bg-primary/10 text-primary",
-    },
-    {
-      label: "Open Projects",
-      value: openProjects || 0,
-      icon: FolderOpen,
-      color: "bg-green-100 text-green-700",
-    },
-    {
-      label: "Awarded Projects",
-      value: awardedProjects || 0,
-      icon: TrendingUp,
-      color: "bg-amber-100 text-amber-700",
-    },
-    {
-      label: "Closed Projects",
-      value: closedProjects || 0,
-      icon: FolderOpen,
-      color: "bg-gray-100 text-gray-600",
-    },
-    {
-      label: "Total Bids",
-      value: totalBids || 0,
-      icon: ClipboardList,
-      color: "bg-secondary/10 text-secondary",
-    },
-    {
-      label: "Avg. Bid Price",
-      value: `$${Math.round(avgBidPrice).toLocaleString()}`,
-      icon: DollarSign,
-      color: "bg-primary/10 text-primary",
-    },
-    {
-      label: "Bids per Project",
-      value: bidsPerProject,
-      icon: BarChart3,
-      color: "bg-blue-100 text-blue-600",
-    },
-    {
-      label: "Customers",
-      value: totalCustomers || 0,
-      icon: Users,
-      color: "bg-primary/10 text-primary",
-    },
-    {
-      label: "Bidders",
-      value: totalBidders || 0,
-      icon: Users,
-      color: "bg-secondary/10 text-secondary",
-    },
-    {
-      label: "Total Messages",
-      value: totalMessages || 0,
-      icon: BarChart3,
-      color: "bg-blue-100 text-blue-600",
-    },
-    {
-      label: "Unresolved Flags",
-      value: unresolvedFlags || 0,
-      icon: BarChart3,
-      color:
-        (unresolvedFlags || 0) > 0
-          ? "bg-red-100 text-red-600"
-          : "bg-green-100 text-green-600",
-    },
+  // Geographic distribution
+  const { data: geoProjects } = await supabase
+    .from("projects")
+    .select("location_state");
+
+  const { data: geoUsers } = await supabase
+    .from("profiles")
+    .select("state");
+
+  // All bids for avg by trade
+  const { data: allBids } = await supabase
+    .from("bids")
+    .select("price, trade");
+
+  // Top projects by bid count
+  const { data: topProjects } = await supabase
+    .from("projects")
+    .select("id, title, bid_count, location_city, location_state")
+    .order("bid_count", { ascending: false })
+    .limit(10);
+
+  // --- Process data for charts ---
+
+  // Daily counts helper
+  function dailyCounts(items: { created_at: string }[] | null) {
+    const counts: Record<string, number> = {};
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000);
+      counts[d.toISOString().slice(0, 10)] = 0;
+    }
+    for (const item of items || []) {
+      const day = item.created_at.slice(0, 10);
+      if (counts[day] !== undefined) counts[day]++;
+    }
+    return Object.entries(counts).map(([date, count]) => ({
+      date: new Date(date).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
+      count,
+    }));
+  }
+
+  const projectsOverTime = dailyCounts(recentProjects);
+  const bidsOverTime = dailyCounts(recentBids);
+
+  // User growth (cumulative)
+  const userGrowth: { date: string; customers: number; bidders: number }[] = [];
+  let custCum = (totalCustomers || 0) - (recentSignups || []).filter((s) => s.role === "customer").length;
+  let bidCum = (totalBidders || 0) - (recentSignups || []).filter((s) => s.role === "bidder").length;
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    const dateStr = d.toISOString().slice(0, 10);
+    const daySignups = (recentSignups || []).filter(
+      (s) => s.created_at.slice(0, 10) === dateStr
+    );
+    custCum += daySignups.filter((s) => s.role === "customer").length;
+    bidCum += daySignups.filter((s) => s.role === "bidder").length;
+    userGrowth.push({
+      date: d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
+      customers: custCum,
+      bidders: bidCum,
+    });
+  }
+
+  // Trade breakdown
+  const tradeCounts: Record<string, number> = {};
+  for (const p of allProjects || []) {
+    for (const t of (p.trades as TradeCategory[]) || []) {
+      tradeCounts[t] = (tradeCounts[t] || 0) + 1;
+    }
+  }
+  const tradeBreakdown = Object.entries(tradeCounts)
+    .map(([trade, count]) => ({
+      trade: TRADE_LABELS[trade as TradeCategory] || trade,
+      count,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 15);
+
+  // Status donut
+  const statusBreakdown = [
+    { name: "Open", value: openProjects || 0 },
+    { name: "Awarded", value: awardedProjects || 0 },
+    { name: "Closed", value: closedProjects || 0 },
   ];
 
+  // Avg bid by trade
+  const tradeAcc: Record<string, { sum: number; count: number }> = {};
+  for (const b of allBids || []) {
+    const t = b.trade as TradeCategory;
+    if (!tradeAcc[t]) tradeAcc[t] = { sum: 0, count: 0 };
+    tradeAcc[t].sum += Number(b.price);
+    tradeAcc[t].count++;
+  }
+  const avgBidByTrade = Object.entries(tradeAcc)
+    .map(([trade, acc]) => ({
+      trade: TRADE_LABELS[trade as TradeCategory] || trade,
+      avg: Math.round(acc.sum / acc.count),
+    }))
+    .sort((a, b) => b.avg - a.avg)
+    .slice(0, 10);
+
+  // Geographic distribution
+  const geoCounts: Record<
+    string,
+    { projects: number; users: number }
+  > = {};
+  for (const p of geoProjects || []) {
+    const st = p.location_state || "Unknown";
+    if (!geoCounts[st]) geoCounts[st] = { projects: 0, users: 0 };
+    geoCounts[st].projects++;
+  }
+  for (const u of geoUsers || []) {
+    const st = u.state || "Unknown";
+    if (!geoCounts[st]) geoCounts[st] = { projects: 0, users: 0 };
+    geoCounts[st].users++;
+  }
+  const geoData = Object.entries(geoCounts)
+    .map(([state, counts]) => ({ state, ...counts }))
+    .sort((a, b) => b.projects + b.users - (a.projects + a.users));
+
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-text-primary">
-          Platform Analytics 📊
-        </h1>
-        <p className="mt-1 text-text-secondary">
-          Real-time metrics across GoldBridgeBid.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl border border-border bg-surface p-6 shadow-sm"
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.color}`}
-              >
-                <stat.icon className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-text-primary">
-                  {stat.value}
-                </p>
-                <p className="text-sm text-text-muted">{stat.label}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Project Status Breakdown */}
-      <div className="mt-8 rounded-xl border border-border bg-surface p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-text-primary">
-          Project Status Breakdown
-        </h2>
-        <div className="space-y-3">
-          {[
-            {
-              label: "Open",
-              count: openProjects || 0,
-              color: "bg-green-500",
-            },
-            {
-              label: "Awarded",
-              count: awardedProjects || 0,
-              color: "bg-amber-500",
-            },
-            {
-              label: "Closed",
-              count: closedProjects || 0,
-              color: "bg-gray-400",
-            },
-          ].map((item) => {
-            const total = totalProjects || 1;
-            const pct = Math.round((item.count / total) * 100);
-            return (
-              <div key={item.label}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-text-primary">
-                    {item.label}
-                  </span>
-                  <span className="text-sm text-text-muted">
-                    {item.count} ({pct}%)
-                  </span>
-                </div>
-                <div className="h-3 w-full rounded-full bg-bg-warm overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${item.color} transition-all`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+    <AnalyticsDashboard
+      stats={{
+        totalProjects: totalProjects || 0,
+        openProjects: openProjects || 0,
+        awardedProjects: awardedProjects || 0,
+        closedProjects: closedProjects || 0,
+        totalBids: totalBids || 0,
+        totalCustomers: totalCustomers || 0,
+        totalBidders: totalBidders || 0,
+        totalMessages: totalMessages || 0,
+        unresolvedFlags: unresolvedFlags || 0,
+        avgBidPrice:
+          allBids && allBids.length > 0
+            ? Math.round(
+                allBids.reduce((s, b) => s + Number(b.price), 0) /
+                  allBids.length
+              )
+            : 0,
+        bidsPerProject:
+          totalProjects && totalBids
+            ? Number((totalBids / totalProjects).toFixed(1))
+            : 0,
+      }}
+      projectsOverTime={projectsOverTime}
+      bidsOverTime={bidsOverTime}
+      userGrowth={userGrowth}
+      tradeBreakdown={tradeBreakdown}
+      statusBreakdown={statusBreakdown}
+      avgBidByTrade={avgBidByTrade}
+      geoData={geoData}
+      topProjects={
+        (topProjects || []).map((p) => ({
+          title: p.title,
+          bids: p.bid_count,
+          location: `${p.location_city}, ${p.location_state}`,
+        }))
+      }
+    />
   );
 }

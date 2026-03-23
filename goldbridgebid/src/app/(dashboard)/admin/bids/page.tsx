@@ -1,17 +1,27 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { TRADE_LABELS } from "@/types/database";
-import type { TradeCategory } from "@/types/database";
+import type { TradeCategory, BadgeLevel } from "@/types/database";
 import { BADGE_CONFIG } from "@/lib/badges";
-import type { BadgeLevel } from "@/types/database";
+import AdminSearchBar from "@/components/admin/AdminSearchBar";
+import AdminFilterBar, { FilterDropdown } from "@/components/admin/AdminFilters";
+import AdminPagination from "@/components/admin/AdminPagination";
+import ExportButton from "@/components/admin/ExportButton";
 
-export default async function AdminBidsPage() {
+const PAGE_SIZE = 25;
+
+interface Props {
+  searchParams: Promise<{ [key: string]: string | undefined }>;
+}
+
+export default async function AdminBidsPage({ searchParams }: Props) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase
@@ -19,15 +29,20 @@ export default async function AdminBidsPage() {
     .select("role")
     .eq("user_id", user.id)
     .single();
-
   if (profile?.role !== "admin") redirect("/login");
 
-  const { data: bids } = await supabase
+  let query = supabase
     .from("bids")
     .select("*, projects!inner(title, status)")
     .order("created_at", { ascending: false });
 
-  const bidderIds = [...new Set((bids || []).map((b) => b.bidder_id))];
+  if (params.trade) {
+    query = query.eq("trade", params.trade);
+  }
+
+  const { data: allBids } = await query;
+
+  const bidderIds = [...new Set((allBids || []).map((b) => b.bidder_id))];
   const { data: bidderProfiles } =
     bidderIds.length > 0
       ? await supabase
@@ -51,14 +66,107 @@ export default async function AdminBidsPage() {
     (bidderCreds || []).map((c) => [c.user_id, c])
   );
 
+  const searchTerm = (params.q || "").toLowerCase();
+
+  let filtered = (allBids || []).filter((bid) => {
+    const project = bid.projects as unknown as {
+      title: string;
+      status: string;
+    };
+    const bidder = profileMap.get(bid.bidder_id);
+
+    if (searchTerm) {
+      const searchable = [
+        project.title,
+        bidder?.full_name,
+        bidder?.business_name,
+        bidder?.email,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!searchable.includes(searchTerm)) return false;
+    }
+
+    if (params.status && project.status !== params.status) return false;
+
+    return true;
+  });
+
+  const totalItems = filtered.length;
+  const page = Math.max(1, Number(params.page || "1"));
+  const paginated = filtered.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  );
+
+  const exportData = filtered.map((bid) => {
+    const project = bid.projects as unknown as {
+      title: string;
+      status: string;
+    };
+    const bidder = profileMap.get(bid.bidder_id);
+    return {
+      project: project.title,
+      bidder: bidder?.full_name || "",
+      business: bidder?.business_name || "",
+      trade: TRADE_LABELS[bid.trade as TradeCategory] || bid.trade,
+      price: Number(bid.price),
+      status: project.status,
+      submitted: new Date(bid.created_at).toLocaleDateString(),
+    };
+  });
+
+  const tradeOptions = Object.entries(TRADE_LABELS)
+    .slice(0, 20)
+    .map(([value, label]) => ({ value, label }));
+
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-text-primary">All Bids 📋</h1>
-        <p className="mt-1 text-text-secondary">
-          Every bid submitted across the platform. {bids?.length || 0} total
-          bids.
-        </p>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">
+            All Bids 📋
+          </h1>
+          <p className="mt-1 text-text-secondary">
+            {totalItems} bid{totalItems !== 1 ? "s" : ""} found.
+          </p>
+        </div>
+        <ExportButton
+          data={exportData}
+          filename="goldbridgebid-bids"
+          columns={[
+            { key: "project", label: "Project" },
+            { key: "bidder", label: "Bidder" },
+            { key: "business", label: "Business" },
+            { key: "trade", label: "Trade" },
+            { key: "price", label: "Price" },
+            { key: "status", label: "Project Status" },
+            { key: "submitted", label: "Submitted" },
+          ]}
+        />
+      </div>
+
+      <div className="mb-6 space-y-4">
+        <div className="max-w-md">
+          <AdminSearchBar placeholder="Search by project, bidder, business..." />
+        </div>
+        <AdminFilterBar>
+          <FilterDropdown
+            paramName="status"
+            label="Project Status"
+            options={[
+              { value: "open", label: "Open" },
+              { value: "awarded", label: "Awarded" },
+              { value: "closed", label: "Closed" },
+            ]}
+          />
+          <FilterDropdown
+            paramName="trade"
+            label="Trade"
+            options={tradeOptions}
+          />
+        </AdminFilterBar>
       </div>
 
       <div className="rounded-xl border border-border bg-surface shadow-sm">
@@ -90,7 +198,7 @@ export default async function AdminBidsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {(bids || []).map((bid) => {
+              {paginated.map((bid) => {
                 const project = bid.projects as unknown as {
                   title: string;
                   status: string;
@@ -106,14 +214,20 @@ export default async function AdminBidsPage() {
                     className="hover:bg-surface-hover transition-colors"
                   >
                     <td className="px-6 py-4">
-                      <p className="font-medium text-text-primary">
+                      <Link
+                        href={`/admin/projects/${bid.project_id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
                         {project.title}
-                      </p>
+                      </Link>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-text-primary">
+                      <Link
+                        href={`/admin/users/${bid.bidder_id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
                         {bidder?.full_name || "—"}
-                      </p>
+                      </Link>
                       <p className="text-xs text-text-muted">
                         {bidder?.business_name || bidder?.email}
                       </p>
@@ -159,12 +273,14 @@ export default async function AdminBidsPage() {
           </table>
         </div>
 
-        {(!bids || bids.length === 0) && (
+        {totalItems === 0 && (
           <p className="px-6 py-12 text-center text-sm text-text-muted">
-            No bids on the platform yet.
+            No bids match your filters.
           </p>
         )}
       </div>
+
+      <AdminPagination totalItems={totalItems} pageSize={PAGE_SIZE} />
     </div>
   );
 }
