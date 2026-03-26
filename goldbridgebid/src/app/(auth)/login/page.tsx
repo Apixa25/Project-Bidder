@@ -47,7 +47,10 @@ function LoginForm() {
             height={512}
             className="h-48 w-auto max-w-[560px] object-contain"
           />
-          <BrandWordmark className="text-2xl" />
+          <BrandWordmark
+            asLink={false}
+            className="mx-auto h-12 w-auto max-w-[min(100%,360px)] object-contain"
+          />
         </Link>
         <p className="mt-3 text-text-secondary">Sign in to your account</p>
       </div>

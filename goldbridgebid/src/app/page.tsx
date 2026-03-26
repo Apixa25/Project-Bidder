@@ -101,15 +101,18 @@ export default function Home() {
     <div className="flex flex-col min-h-screen">
       {/* Navigation */}
       <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur-sm">
-        <nav className="mx-auto flex max-w-7xl items-center px-4 py-2.5 sm:px-6">
-          <BrandWordmark className="text-xl shrink-0 sm:text-2xl" />
+        <nav className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-[0.6rem] sm:gap-4 sm:px-6">
+          <BrandWordmark
+            priority
+            className="h-12 w-auto max-w-[min(100%,min(92vw,380px))] shrink-0 object-contain object-left sm:h-14 md:h-16"
+          />
           <div className="flex flex-1 justify-center px-2">
             <Image
               src="/logo-mark.png"
               alt="projectxbidx"
-              width={256}
-              height={256}
-              className="h-14 w-auto max-h-16 max-w-[min(100%,220px)] object-contain sm:h-16"
+              width={512}
+              height={512}
+              className="h-14 w-auto max-h-20 max-w-[min(100%,280px)] object-contain sm:h-16 md:h-20"
               priority
             />
           </div>
@@ -183,7 +186,7 @@ export default function Home() {
         {/* How It Works */}
         <section
           id="how-it-works"
-          className="scroll-mt-[230px] py-20 sm:py-28 bg-surface"
+          className="scroll-mt-32 sm:scroll-mt-36 py-20 sm:py-28 bg-surface"
         >
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
@@ -238,7 +241,7 @@ export default function Home() {
         {/* Features Grid */}
         <section
           id="features"
-          className="scroll-mt-[230px] py-20 sm:py-28 bg-bg-warm"
+          className="scroll-mt-32 sm:scroll-mt-36 py-20 sm:py-28 bg-bg-warm"
         >
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
@@ -279,7 +282,7 @@ export default function Home() {
         {/* Badge System Showcase */}
         <section
           id="qualification"
-          className="scroll-mt-[230px] py-20 sm:py-28 bg-surface"
+          className="scroll-mt-32 sm:scroll-mt-36 py-20 sm:py-28 bg-surface"
         >
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-4xl">
@@ -363,7 +366,7 @@ export default function Home() {
         {/* Trades We Cover */}
         <section
           id="trades"
-          className="scroll-mt-[230px] py-20 sm:py-28 bg-bg-warm"
+          className="scroll-mt-32 sm:scroll-mt-36 py-20 sm:py-28 bg-bg-warm"
         >
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
@@ -398,7 +401,7 @@ export default function Home() {
         {/* CTA Section */}
         <section
           id="get-started"
-          className="relative scroll-mt-[230px] overflow-hidden bg-gradient-to-r from-accent via-secondary to-primary py-20"
+          className="relative scroll-mt-32 sm:scroll-mt-36 overflow-hidden bg-gradient-to-r from-accent via-secondary to-primary py-20"
         >
           <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
@@ -446,11 +449,11 @@ export default function Home() {
               <Image
                 src="/logo-mark.png"
                 alt="projectxbidx"
-                width={160}
-                height={160}
-                className="h-14 w-auto max-w-[160px] object-contain"
+                width={320}
+                height={320}
+                className="h-28 w-auto max-w-[320px] object-contain"
               />
-              <BrandWordmark className="text-lg" />
+              <BrandWordmark className="h-10 w-auto max-w-[min(100%,300px)] object-contain" />
             </div>
             <p className="text-sm text-text-muted">
               Serving Crescent City, CA — growing nationwide.

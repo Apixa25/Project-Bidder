@@ -70,11 +70,14 @@ export default function DashboardNav({
           <Image
             src="/logo-mark.png"
             alt="projectxbidx"
-            width={192}
-            height={192}
-            className="h-16 w-auto max-w-[160px] object-contain"
+            width={384}
+            height={384}
+            className="h-32 w-auto max-w-full object-contain px-1"
           />
-          <BrandWordmark className="text-base" />
+          <BrandWordmark
+            asLink={false}
+            className="h-9 w-auto max-w-full object-contain px-0.5"
+          />
         </Link>
       </div>
 

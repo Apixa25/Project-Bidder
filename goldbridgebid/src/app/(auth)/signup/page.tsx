@@ -45,11 +45,14 @@ function SignupForm() {
           <Image
             src="/logo-mark.png"
             alt="projectxbidx"
-            width={256}
-            height={256}
-            className="h-24 w-auto max-w-[280px] object-contain"
+            width={512}
+            height={512}
+            className="h-48 w-auto max-w-[560px] object-contain"
           />
-          <BrandWordmark className="text-2xl" />
+          <BrandWordmark
+            asLink={false}
+            className="mx-auto h-12 w-auto max-w-[min(100%,360px)] object-contain"
+          />
         </Link>
         <p className="mt-3 text-text-secondary">Create your account</p>
       </div>
