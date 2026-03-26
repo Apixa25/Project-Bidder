@@ -102,7 +102,7 @@ export default async function CustomerMessagesPage() {
                       </span>
                     )}
                     {conv.unreadCount > 0 && (
-                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white">
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-slate-950">
                         {conv.unreadCount}
                       </span>
                     )}

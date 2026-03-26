@@ -48,10 +48,10 @@ export default async function BannedPage() {
         <p className="mt-6 text-sm text-text-muted">
           If you believe this is an error, please contact support at{" "}
           <a
-            href="mailto:support@goldbridgebid.com"
+            href="mailto:support@projectxbidx.com"
             className="text-primary underline"
           >
-            support@goldbridgebid.com
+            support@projectxbidx.com
           </a>
         </p>
 

@@ -130,7 +130,7 @@ export default function AnalyticsDashboard({
           Platform Analytics 📊
         </h1>
         <p className="mt-1 text-text-secondary">
-          Real-time metrics across GoldBridgeBid.
+          Real-time metrics across projectxbidx.
         </p>
       </div>
 

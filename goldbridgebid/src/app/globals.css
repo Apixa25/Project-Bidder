@@ -1,27 +1,28 @@
 @import "tailwindcss";
 
+/* projectxbidx.com — gold + navy + teal (technical / construction marketplace) */
 :root {
-  --color-primary: #D97706;
-  --color-primary-dark: #B45309;
-  --color-primary-light: #F59E0B;
-  --color-secondary: #15803D;
-  --color-secondary-dark: #166534;
-  --color-secondary-light: #22C55E;
-  --color-accent: #78350F;
-  --color-accent-light: #92400E;
-  --color-bg-warm: #FFFBEB;
-  --color-bg-sand: #FEF3C7;
-  --color-text-primary: #1C1917;
-  --color-text-secondary: #57534E;
-  --color-text-muted: #78716C;
-  --color-border: #E7E5E4;
-  --color-border-dark: #D6D3D1;
-  --color-surface: #FFFFFF;
-  --color-surface-hover: #FAFAF9;
-  --color-badge-gold: #F59E0B;
-  --color-badge-silver: #9CA3AF;
-  --color-badge-bronze: #EA580C;
-  --color-edit-highlight: #FEF08A;
+  --color-primary: #eab308;
+  --color-primary-dark: #ca8a04;
+  --color-primary-light: #fde047;
+  --color-secondary: #0d9488;
+  --color-secondary-dark: #0f766e;
+  --color-secondary-light: #2dd4bf;
+  --color-accent: #0f172a;
+  --color-accent-light: #1e3a8a;
+  --color-bg-warm: #f4f4f5;
+  --color-bg-sand: #e4e4e7;
+  --color-text-primary: #27272a;
+  --color-text-secondary: #52525b;
+  --color-text-muted: #71717a;
+  --color-border: #e4e4e7;
+  --color-border-dark: #d4d4d8;
+  --color-surface: #ffffff;
+  --color-surface-hover: #fafafa;
+  --color-badge-gold: #eab308;
+  --color-badge-silver: #9ca3af;
+  --color-badge-bronze: #ea580c;
+  --color-edit-highlight: #fef08a;
 }
 
 @theme inline {

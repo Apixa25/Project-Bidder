@@ -134,7 +134,7 @@ export default async function AdminBidsPage({ searchParams }: Props) {
         </div>
         <ExportButton
           data={exportData}
-          filename="goldbridgebid-bids"
+          filename="projectxbidx-bids"
           columns={[
             { key: "project", label: "Project" },
             { key: "bidder", label: "Bidder" },

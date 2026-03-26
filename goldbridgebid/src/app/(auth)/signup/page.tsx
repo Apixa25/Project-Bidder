@@ -6,6 +6,7 @@ import { useState, Suspense } from "react";
 import Image from "next/image";
 import { FileText, ClipboardCheck, Loader2 } from "lucide-react";
 import { signup, signInWithGoogle } from "../actions";
+import { BrandWordmark } from "@/components/BrandWordmark";
 
 function SignupForm() {
   const searchParams = useSearchParams();
@@ -42,15 +43,13 @@ function SignupForm() {
       <div className="mb-8 text-center">
         <Link href="/" className="inline-flex flex-col items-center gap-2">
           <Image
-            src="/logo.png"
-            alt="Gold Bridge Bid"
-            width={192}
-            height={192}
-            className="rounded-full"
+            src="/logo-mark.png"
+            alt="projectxbidx"
+            width={256}
+            height={256}
+            className="h-24 w-auto max-w-[280px] object-contain"
           />
-          <span className="text-2xl font-bold text-text-primary">
-            Gold<span className="text-primary">Bridge</span>Bid
-          </span>
+          <BrandWordmark className="text-2xl" />
         </Link>
         <p className="mt-3 text-text-secondary">Create your account</p>
       </div>
@@ -209,7 +208,7 @@ function SignupForm() {
           <button
             type="submit"
             disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark transition-colors disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-sm hover:bg-primary-dark transition-colors disabled:opacity-60"
           >
             {loading ? (
               <>

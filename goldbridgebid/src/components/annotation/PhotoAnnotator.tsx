@@ -542,7 +542,7 @@ export default function PhotoAnnotator({
                 title={t.label}
                 className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                   tool === t.id
-                    ? "bg-primary text-white"
+                    ? "bg-primary text-slate-950"
                     : "text-gray-300 hover:text-white hover:bg-gray-600"
                 }`}
               >
@@ -575,7 +575,7 @@ export default function PhotoAnnotator({
                 title={`${w}px`}
                 className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
                   strokeWidth === w
-                    ? "bg-primary text-white"
+                    ? "bg-primary text-slate-950"
                     : "text-gray-300 hover:text-white hover:bg-gray-600"
                 }`}
               >
@@ -631,7 +631,7 @@ export default function PhotoAnnotator({
             onClick={onClose}
             className={`flex items-center gap-1 rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors ${
               saved
-                ? "bg-primary text-white hover:bg-primary/90"
+                ? "bg-primary text-slate-950 hover:bg-primary/90"
                 : "border border-white/20 text-gray-300 hover:text-white hover:bg-gray-700"
             }`}
           >
@@ -687,7 +687,7 @@ export default function PhotoAnnotator({
                 />
                 <button
                   onClick={handleTextSubmit}
-                  className="rounded-md bg-primary px-2 py-1 text-xs font-medium text-white hover:bg-primary-dark transition-colors"
+                  className="rounded-md bg-primary px-2 py-1 text-xs font-medium text-slate-950 hover:bg-primary-dark transition-colors"
                 >
                   Add
                 </button>

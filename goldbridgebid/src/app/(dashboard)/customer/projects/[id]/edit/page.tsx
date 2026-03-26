@@ -294,7 +294,7 @@ export default function EditProjectPage() {
                 onClick={() => toggleTrade(value)}
                 className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
                   selectedTrades.includes(value)
-                    ? "border-primary bg-primary text-white shadow-sm"
+                    ? "border-primary bg-primary text-slate-950 shadow-sm"
                     : "border-border bg-surface text-text-secondary hover:border-primary/40 hover:text-text-primary"
                 }`}
               >
@@ -591,7 +591,7 @@ export default function EditProjectPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center gap-2 rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark transition-colors disabled:opacity-60"
+              className="flex items-center gap-2 rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-slate-950 shadow-sm hover:bg-primary-dark transition-colors disabled:opacity-60"
             >
               {compressing ? (
                 <>

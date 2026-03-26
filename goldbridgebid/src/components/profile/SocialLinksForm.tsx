@@ -142,7 +142,7 @@ export default function SocialLinksForm({
       <button
         type="submit"
         disabled={saving}
-        className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-dark transition-colors disabled:opacity-50"
+        className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-slate-950 hover:bg-primary-dark transition-colors disabled:opacity-50"
       >
         {saving ? (
           <>

@@ -75,7 +75,7 @@ export default function AdminPagination({
               onClick={() => goToPage(p)}
               className={`min-w-[32px] rounded-lg px-2 py-1 text-sm font-medium ${
                 p === currentPage
-                  ? "bg-primary text-white"
+                  ? "bg-primary text-slate-950"
                   : "text-text-secondary hover:bg-surface-hover"
               }`}
             >

@@ -659,7 +659,7 @@ export default function PortfolioGallery({
                       beforeUrl={beforeMedia.thumbnail_url || beforeMedia.media_url}
                       afterUrl={afterMedia.thumbnail_url || afterMedia.media_url}
                     />
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 rounded-full bg-primary/90 px-3 py-1 text-[10px] font-bold text-white shadow z-10">
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 rounded-full bg-primary/90 px-3 py-1 text-[10px] font-bold text-slate-950 shadow z-10">
                       <ArrowLeftRight className="inline h-3 w-3 mr-1 -mt-0.5" />
                       BEFORE &amp; AFTER
                     </div>

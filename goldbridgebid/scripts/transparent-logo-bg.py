@@ -66,7 +66,7 @@ def trim_to_alpha(img: Image.Image) -> Image.Image:
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
-    public_logo = root / "public" / "logo.png"
+    public_logo = root / "public" / "logo-mark.png"
     app_icon = root / "src" / "app" / "icon.png"
 
     for path in (public_logo, app_icon):

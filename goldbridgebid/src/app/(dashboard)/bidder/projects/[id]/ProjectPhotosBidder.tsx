@@ -75,7 +75,7 @@ export default function ProjectPhotosBidder({
                 className="h-full w-full object-cover transition-transform group-hover:scale-105"
               />
               {file.annotated_url && !showOriginals && (
-                <div className="absolute top-2 left-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow">
+                <div className="absolute top-2 left-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-slate-950 shadow">
                   ANNOTATED
                 </div>
               )}

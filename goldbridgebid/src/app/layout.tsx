@@ -13,26 +13,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GoldBridgeBid — Where Qualified Contractors Compete",
+  title: "projectxbidx — Sealed bids for every construction project",
   description:
-    "Post your construction project and receive sealed bids from qualified, verified contractors. Serving Crescent City, CA and beyond.",
+    "Post your construction project and receive sealed bids from contractors. A technical, transparent marketplace for owners and bidders.",
   keywords: [
     "construction bidding",
     "contractor marketplace",
     "sealed bids",
-    "qualified contractors",
-    "Crescent City",
     "construction projects",
+    "projectxbidx",
   ],
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: "/icon.png",
+    apple: "/icon.png",
   },
   openGraph: {
-    title: "GoldBridgeBid — Where Qualified Contractors Compete",
+    title: "projectxbidx — Sealed bids for every construction project",
     description:
-      "Post your construction project and receive sealed bids from qualified, verified contractors.",
-    images: [{ url: "/logo.png" }],
+      "Post your construction project and receive sealed bids from contractors.",
+    images: [{ url: "/logo-mark.png" }],
   },
 };
 
@@ -44,7 +43,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

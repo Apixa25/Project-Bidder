@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { signOut } from "@/app/(auth)/actions";
 import type { UserRole } from "@/types/database";
+import { BrandWordmark } from "@/components/BrandWordmark";
 
 interface DashboardNavProps {
   role: UserRole;
@@ -67,15 +68,13 @@ export default function DashboardNav({
       <div className="border-b border-border px-6 py-4">
         <Link href="/" className="flex flex-col items-center gap-2">
           <Image
-            src="/logo.png"
-            alt="Gold Bridge Bid"
-            width={144}
-            height={144}
-            className="rounded-full"
+            src="/logo-mark.png"
+            alt="projectxbidx"
+            width={192}
+            height={192}
+            className="h-16 w-auto max-w-[160px] object-contain"
           />
-          <span className="text-lg font-bold text-text-primary">
-            Gold<span className="text-primary">Bridge</span>Bid
-          </span>
+          <BrandWordmark className="text-base" />
         </Link>
       </div>
 
@@ -123,7 +122,7 @@ export default function DashboardNav({
           <Bell className="h-5 w-5 shrink-0" />
           Notifications
           {unreadNotifications > 0 && (
-            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white">
+            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-slate-950">
               {unreadNotifications}
             </span>
           )}

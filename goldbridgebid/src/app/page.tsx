@@ -10,6 +10,8 @@ import {
   ArrowRight,
   CheckCircle2,
 } from "lucide-react";
+import { ScrollMoreCue } from "@/components/home/ScrollMoreCue";
+import { BrandWordmark } from "@/components/BrandWordmark";
 
 const FEATURES = [
   {
@@ -99,20 +101,19 @@ export default function Home() {
     <div className="flex flex-col min-h-screen">
       {/* Navigation */}
       <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur-sm">
-        <nav className="mx-auto flex max-w-7xl items-center px-6 py-4">
-          <span className="text-4xl font-bold text-text-primary shrink-0">
-            Gold<span className="text-primary">Bridge</span>Bid<span className="text-primary">.com</span>
-          </span>
-          <div className="flex flex-1 justify-center">
+        <nav className="mx-auto flex max-w-7xl items-center px-4 py-2.5 sm:px-6">
+          <BrandWordmark className="text-xl shrink-0 sm:text-2xl" />
+          <div className="flex flex-1 justify-center px-2">
             <Image
-              src="/logo.png"
-              alt="Gold Bridge Bid"
-              width={320}
-              height={320}
-              className="rounded-full"
+              src="/logo-mark.png"
+              alt="projectxbidx"
+              width={256}
+              height={256}
+              className="h-14 w-auto max-h-16 max-w-[min(100%,220px)] object-contain sm:h-16"
+              priority
             />
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link
               href="/login"
               className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
@@ -121,7 +122,7 @@ export default function Home() {
             </Link>
             <Link
               href="/signup"
-              className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark transition-colors"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm hover:bg-primary-dark hover:text-white transition-colors"
             >
               Get Started
             </Link>
@@ -131,24 +132,31 @@ export default function Home() {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-accent via-accent-light to-primary-dark py-24 sm:py-32">
+        <section className="relative overflow-hidden bg-gradient-to-br from-accent via-secondary-dark to-slate-950 pt-12 pb-12 sm:pt-16 sm:pb-16">
           <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
           <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center">
-              <h1 className="text-4xl font-bold tracking-tight text-white sm:text-6xl">
-                Where Qualified Contractors{" "}
-                <span className="text-primary-light">Compete</span> for Your
-                Project
+            <div className="mx-auto max-w-4xl text-center">
+              <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
+                <span className="block">
+                  Do you have a{" "}
+                  <span className="text-primary">project</span> you need a bid
+                  on? Or are you talented at what you do and looking for{" "}
+                  <span className="text-primary">more work</span>?
+                </span>
+                <span className="mt-5 block text-[0.5em] leading-relaxed sm:mt-6">
+                  From a yard that needs mowing all the way to a bridge that needs
+                  to be built, post your project here and receive bids from
+                  potential contractors.
+                </span>
               </h1>
-              <p className="mt-6 text-lg leading-8 text-amber-100/90">
+              <p className="mt-6 text-lg leading-8 text-zinc-200/90">
                 Post your construction project. Receive sealed bids from
-                verified contractors. Pick the best — all in one place. Serving
-                Crescent City, CA and growing nationwide.
+                contractors.
               </p>
               <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <Link
                   href="/signup?role=customer"
-                  className="flex items-center gap-2 rounded-lg bg-primary px-8 py-3.5 text-base font-semibold text-white shadow-lg hover:bg-primary-light transition-colors"
+                  className="flex items-center gap-2 rounded-lg bg-primary px-8 py-3.5 text-base font-semibold text-slate-950 shadow-lg hover:bg-primary-light transition-colors"
                 >
                   Post a Project
                   <ArrowRight className="h-5 w-5" />
@@ -161,12 +169,22 @@ export default function Home() {
                   <ArrowRight className="h-5 w-5" />
                 </Link>
               </div>
+              <div className="mt-8 flex justify-center">
+                <ScrollMoreCue
+                  href="#how-it-works"
+                  variant="on-dark"
+                  ariaLabel="Scroll down to see how it works"
+                />
+              </div>
             </div>
           </div>
         </section>
 
         {/* How It Works */}
-        <section className="py-20 sm:py-28 bg-surface">
+        <section
+          id="how-it-works"
+          className="scroll-mt-[230px] py-20 sm:py-28 bg-surface"
+        >
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
@@ -195,7 +213,7 @@ export default function Home() {
                 },
               ].map((item) => (
                 <div key={item.step} className="text-center">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl font-bold text-white shadow-md">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl font-bold text-slate-950 shadow-md">
                     {item.step}
                   </div>
                   <h3 className="mt-6 text-lg font-semibold text-text-primary">
@@ -207,11 +225,21 @@ export default function Home() {
                 </div>
               ))}
             </div>
+            <div className="mt-12 flex justify-center sm:mt-16">
+              <ScrollMoreCue
+                href="#features"
+                variant="on-light"
+                ariaLabel="Scroll down to platform features"
+              />
+            </div>
           </div>
         </section>
 
         {/* Features Grid */}
-        <section className="py-20 sm:py-28 bg-bg-warm">
+        <section
+          id="features"
+          className="scroll-mt-[230px] py-20 sm:py-28 bg-bg-warm"
+        >
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
@@ -238,11 +266,21 @@ export default function Home() {
                 </div>
               ))}
             </div>
+            <div className="mt-12 flex justify-center sm:mt-16">
+              <ScrollMoreCue
+                href="#qualification"
+                variant="on-light"
+                ariaLabel="Scroll down to qualification badges"
+              />
+            </div>
           </div>
         </section>
 
         {/* Badge System Showcase */}
-        <section className="py-20 sm:py-28 bg-surface">
+        <section
+          id="qualification"
+          className="scroll-mt-[230px] py-20 sm:py-28 bg-surface"
+        >
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-4xl">
               <div className="text-center">
@@ -312,11 +350,21 @@ export default function Home() {
                 </div>
               </div>
             </div>
+            <div className="mt-12 flex justify-center sm:mt-16">
+              <ScrollMoreCue
+                href="#trades"
+                variant="on-light"
+                ariaLabel="Scroll down to trades we cover"
+              />
+            </div>
           </div>
         </section>
 
         {/* Trades We Cover */}
-        <section className="py-20 sm:py-28 bg-bg-warm">
+        <section
+          id="trades"
+          className="scroll-mt-[230px] py-20 sm:py-28 bg-bg-warm"
+        >
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
@@ -324,7 +372,7 @@ export default function Home() {
               </h2>
               <p className="mt-4 text-lg text-text-secondary">
                 From foundation to finish, every trade has a place on
-                GoldBridgeBid.
+                projectxbidx.
               </p>
             </div>
             <div className="mx-auto mt-12 flex max-w-3xl flex-wrap items-center justify-center gap-3">
@@ -337,19 +385,29 @@ export default function Home() {
                 </span>
               ))}
             </div>
+            <div className="mt-12 flex justify-center sm:mt-16">
+              <ScrollMoreCue
+                href="#get-started"
+                variant="on-light"
+                ariaLabel="Scroll down to get started"
+              />
+            </div>
           </div>
         </section>
 
         {/* CTA Section */}
-        <section className="relative overflow-hidden bg-gradient-to-r from-primary-dark via-primary to-primary-light py-20">
+        <section
+          id="get-started"
+          className="relative scroll-mt-[230px] overflow-hidden bg-gradient-to-r from-accent via-secondary to-primary py-20"
+        >
           <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                 Ready to Get Started?
               </h2>
-              <p className="mt-4 text-lg text-amber-100/90">
+              <p className="mt-4 text-lg text-zinc-200/90">
                 Whether you&apos;re posting a project or looking for work,
-                GoldBridgeBid makes it simple.
+                projectxbidx makes it simple.
               </p>
               <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <Link
@@ -366,31 +424,39 @@ export default function Home() {
                 </Link>
               </div>
             </div>
+            <div className="mt-12 flex justify-center sm:mt-14">
+              <ScrollMoreCue
+                href="#site-footer"
+                variant="on-dark"
+                ariaLabel="Scroll down to site footer"
+              />
+            </div>
           </div>
         </section>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-surface py-12">
+      <footer
+        id="site-footer"
+        className="scroll-mt-8 border-t border-border bg-surface py-12 sm:scroll-mt-12"
+      >
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
             <div className="flex flex-col items-center gap-1">
               <Image
-                src="/logo.png"
-                alt="Gold Bridge Bid"
-                width={128}
-                height={128}
-                className="rounded-full"
+                src="/logo-mark.png"
+                alt="projectxbidx"
+                width={160}
+                height={160}
+                className="h-14 w-auto max-w-[160px] object-contain"
               />
-              <span className="text-lg font-bold text-text-primary">
-                Gold<span className="text-primary">Bridge</span>Bid
-              </span>
+              <BrandWordmark className="text-lg" />
             </div>
             <p className="text-sm text-text-muted">
               Serving Crescent City, CA — growing nationwide.
             </p>
             <p className="text-sm text-text-muted">
-              &copy; {new Date().getFullYear()} GoldBridgeBid. All rights
+              &copy; {new Date().getFullYear()} projectxbidx. All rights
               reserved.
             </p>
           </div>
