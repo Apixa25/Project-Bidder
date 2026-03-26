@@ -70,9 +70,9 @@ export default function DashboardNav({
           <Image
             src="/logo-mark.png"
             alt="projectxbidx"
-            width={384}
-            height={384}
-            className="h-16 w-auto max-w-full object-contain px-1"
+            width={768}
+            height={768}
+            className="h-32 w-auto max-w-full object-contain px-1"
           />
           <BrandWordmark
             asLink={false}
