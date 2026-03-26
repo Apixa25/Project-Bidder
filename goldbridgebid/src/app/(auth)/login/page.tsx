@@ -45,11 +45,11 @@ function LoginForm() {
             alt="projectxbidx"
             width={512}
             height={512}
-            className="h-48 w-auto max-w-[560px] object-contain"
+            className="h-24 w-auto max-w-[280px] object-contain"
           />
           <BrandWordmark
             asLink={false}
-            className="mx-auto h-12 w-auto max-w-[min(100%,360px)] object-contain"
+            className="mx-auto h-6 w-auto max-w-[min(100%,180px)] object-contain"
           />
         </Link>
         <p className="mt-3 text-text-secondary">Sign in to your account</p>

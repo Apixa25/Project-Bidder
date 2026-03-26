@@ -72,11 +72,11 @@ export default function DashboardNav({
             alt="projectxbidx"
             width={384}
             height={384}
-            className="h-32 w-auto max-w-full object-contain px-1"
+            className="h-16 w-auto max-w-full object-contain px-1"
           />
           <BrandWordmark
             asLink={false}
-            className="h-9 w-auto max-w-full object-contain px-0.5"
+            className="h-[18px] w-auto max-w-full object-contain px-0.5"
           />
         </Link>
       </div>
