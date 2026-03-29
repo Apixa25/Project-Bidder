@@ -62,7 +62,7 @@ export default async function CustomerProfilePage() {
           />
           <div className="text-right">
             <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary capitalize">
-              {profile.role}
+              customer mode
             </span>
             <p className="mt-1 flex items-center gap-1 text-xs text-text-muted justify-end">
               <Calendar className="h-3 w-3" />
@@ -77,7 +77,7 @@ export default async function CustomerProfilePage() {
         <h2 className="mb-6 text-lg font-semibold text-text-primary">
           Edit Profile
         </h2>
-        <ProfileForm profile={profile} />
+        <ProfileForm profile={profile} editorRole="customer" />
       </div>
 
       {/* Social Links */}

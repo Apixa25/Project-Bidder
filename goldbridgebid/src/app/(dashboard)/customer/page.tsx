@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { userHasRole } from "@/lib/auth/roles";
 import {
   FolderOpen,
   Plus,
@@ -25,7 +26,7 @@ export default async function CustomerDashboard() {
     .eq("user_id", user.id)
     .single();
 
-  if (!profile || profile.role !== "customer") redirect("/login");
+  if (!profile || !(await userHasRole(user.id, "customer"))) redirect("/login");
 
   const { data: projects, count: projectCount } = await supabase
     .from("projects")

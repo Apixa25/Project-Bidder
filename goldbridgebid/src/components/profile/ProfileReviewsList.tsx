@@ -1,3 +1,5 @@
+import ReportReviewButton from "@/components/profile/ReportReviewButton";
+
 type ReviewListItem = {
   id: string;
   review_type: "verified_platform" | "public_reference";
@@ -15,9 +17,13 @@ type ReviewListItem = {
 
 interface ProfileReviewsListProps {
   reviews: ReviewListItem[];
+  canReport?: boolean;
 }
 
-export default function ProfileReviewsList({ reviews }: ProfileReviewsListProps) {
+export default function ProfileReviewsList({
+  reviews,
+  canReport = false,
+}: ProfileReviewsListProps) {
   if (reviews.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-bg-warm px-5 py-8 text-center">
@@ -54,6 +60,7 @@ export default function ProfileReviewsList({ reviews }: ProfileReviewsListProps)
             <span className="text-xs text-text-muted">
               {new Date(review.created_at).toLocaleDateString()}
             </span>
+            {canReport && <ReportReviewButton reviewId={review.id} />}
           </div>
 
           {review.review_title && (

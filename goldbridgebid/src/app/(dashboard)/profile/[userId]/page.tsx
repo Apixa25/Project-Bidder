@@ -342,7 +342,10 @@ export default async function PublicProfilePage({
             <h2 className="mb-4 text-lg font-semibold text-text-primary">
               Reviews
             </h2>
-            <ProfileReviewsList reviews={reviewItems} />
+            <ProfileReviewsList
+              reviews={reviewItems}
+              canReport={!isOwnProfile}
+            />
           </div>
         </div>
 

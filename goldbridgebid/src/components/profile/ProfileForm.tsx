@@ -17,7 +17,13 @@ interface ProfileData {
   role: string;
 }
 
-export default function ProfileForm({ profile }: { profile: ProfileData }) {
+export default function ProfileForm({
+  profile,
+  editorRole = profile.role,
+}: {
+  profile: ProfileData;
+  editorRole?: string;
+}) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -67,7 +73,7 @@ export default function ProfileForm({ profile }: { profile: ProfileData }) {
             className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
-        {profile.role === "bidder" && (
+        {editorRole === "bidder" && (
           <div>
             <label className="block text-sm font-semibold text-text-primary mb-1.5">
               Business Name
@@ -178,7 +184,7 @@ export default function ProfileForm({ profile }: { profile: ProfileData }) {
           rows={4}
           defaultValue={profile.bio || ""}
           placeholder={
-            profile.role === "bidder"
+            editorRole === "bidder"
               ? "Tell customers about your experience, specialties, and what makes your work stand out..."
               : "Tell us about yourself and the types of projects you typically work on..."
           }

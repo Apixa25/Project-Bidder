@@ -100,7 +100,7 @@ export default async function BidderProfilePage() {
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-text-muted">
           <span className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2.5 py-0.5 font-medium text-secondary capitalize">
-            {profile.role}
+            bidder mode
           </span>
           <span className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />
@@ -114,7 +114,7 @@ export default async function BidderProfilePage() {
         <h2 className="mb-6 text-lg font-semibold text-text-primary">
           Edit Profile
         </h2>
-        <ProfileForm profile={profile} />
+        <ProfileForm profile={profile} editorRole="bidder" />
       </div>
 
       {/* Social Links */}

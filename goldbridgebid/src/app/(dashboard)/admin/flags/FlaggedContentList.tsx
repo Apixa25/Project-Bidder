@@ -6,6 +6,8 @@ import {
   resolveFlag,
   dismissFlag,
   banUser,
+  hideReview,
+  deleteReview,
 } from "@/app/(dashboard)/admin/actions";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import {
@@ -36,6 +38,10 @@ interface Props {
   flags: FlagData[];
   reporterMap: Record<string, ReporterData>;
   contentPreviews: Record<string, string>;
+  reviewMetaMap: Record<
+    string,
+    { reviewId: string; revieweeUserId: string | null; status: string }
+  >;
 }
 
 const TYPE_LINKS: Record<string, (id: string) => string> = {
@@ -49,6 +55,7 @@ export default function FlaggedContentList({
   flags: initial,
   reporterMap,
   contentPreviews,
+  reviewMetaMap,
 }: Props) {
   const [flags, setFlags] = useState(initial);
   const [showBan, setShowBan] = useState<{
@@ -79,9 +86,11 @@ export default function FlaggedContentList({
             {unresolved.map((flag) => {
               const reporter = reporterMap[flag.reporter_id];
               const preview = contentPreviews[flag.id];
-              const viewLink = TYPE_LINKS[flag.content_type]?.(
-                flag.content_id
-              );
+              const reviewMeta = reviewMetaMap[flag.id];
+              const viewLink =
+                flag.content_type === "review" && reviewMeta?.revieweeUserId
+                  ? `/profile/${reviewMeta.revieweeUserId}`
+                  : TYPE_LINKS[flag.content_type]?.(flag.content_id);
 
               return (
                 <div
@@ -154,6 +163,38 @@ export default function FlaggedContentList({
                           <ShieldOff className="h-3.5 w-3.5" />
                           Ban User
                         </button>
+                      )}
+                      {flag.content_type === "review" && reviewMeta && (
+                        <>
+                          <button
+                            onClick={async () => {
+                              await hideReview(reviewMeta.reviewId, flag.id);
+                              setFlags((prev) =>
+                                prev.map((f) =>
+                                  f.id === flag.id ? { ...f, resolved: true } : f
+                                )
+                              );
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
+                          >
+                            <ShieldOff className="h-3.5 w-3.5" />
+                            Hide Review
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await deleteReview(reviewMeta.reviewId, flag.id);
+                              setFlags((prev) =>
+                                prev.map((f) =>
+                                  f.id === flag.id ? { ...f, resolved: true } : f
+                                )
+                              );
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            Delete Review
+                          </button>
+                        </>
                       )}
                       {viewLink && (
                         <Link

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import DashboardShell from "@/components/layout/DashboardShell";
+import { getUserRoles } from "@/lib/auth/roles";
 
 export default async function DashboardLayout({
   children,
@@ -27,6 +28,8 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  const availableRoles = await getUserRoles(user.id);
+
   const { count: unreadCount } = await supabase
     .from("notifications")
     .select("*", { count: "exact", head: true })
@@ -35,7 +38,8 @@ export default async function DashboardLayout({
 
   return (
     <DashboardShell
-      role={profile.role}
+      defaultRole={profile.role}
+      availableRoles={availableRoles}
       userName={profile.full_name || profile.email}
       unreadNotifications={unreadCount || 0}
     >

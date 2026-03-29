@@ -200,6 +200,98 @@ export async function deleteMessage(messageId: string) {
   return { success: true };
 }
 
+export async function hideReview(reviewId: string, flagId?: string) {
+  const { supabase, adminUserId } = await requireAdmin();
+
+  const { data: review } = await supabase
+    .from("user_reviews")
+    .select("reviewee_user_id, review_title, status")
+    .eq("id", reviewId)
+    .single();
+
+  await supabase
+    .from("user_reviews")
+    .update({ status: "hidden" })
+    .eq("id", reviewId);
+
+  if (flagId) {
+    await supabase
+      .from("flagged_content")
+      .update({ resolved: true })
+      .eq("id", flagId);
+  }
+
+  await logAudit(supabase, adminUserId, "hide_review", "review", reviewId, {
+    flag_id: flagId,
+    previous_status: review?.status,
+    review_title: review?.review_title,
+  });
+
+  revalidatePath("/admin/flags");
+  if (review?.reviewee_user_id) {
+    revalidatePath(`/profile/${review.reviewee_user_id}`);
+  }
+  return { success: true };
+}
+
+export async function publishReview(reviewId: string) {
+  const { supabase, adminUserId } = await requireAdmin();
+
+  const { data: review } = await supabase
+    .from("user_reviews")
+    .select("reviewee_user_id, review_title, status")
+    .eq("id", reviewId)
+    .single();
+
+  await supabase
+    .from("user_reviews")
+    .update({ status: "published" })
+    .eq("id", reviewId);
+
+  await logAudit(supabase, adminUserId, "publish_review", "review", reviewId, {
+    previous_status: review?.status,
+    review_title: review?.review_title,
+  });
+
+  revalidatePath("/admin/flags");
+  if (review?.reviewee_user_id) {
+    revalidatePath(`/profile/${review.reviewee_user_id}`);
+  }
+  return { success: true };
+}
+
+export async function deleteReview(reviewId: string, flagId?: string) {
+  const { supabase, adminUserId } = await requireAdmin();
+
+  const { data: review } = await supabase
+    .from("user_reviews")
+    .select("reviewee_user_id, reviewer_user_id, review_title, review_body")
+    .eq("id", reviewId)
+    .single();
+
+  await supabase.from("user_reviews").delete().eq("id", reviewId);
+
+  if (flagId) {
+    await supabase
+      .from("flagged_content")
+      .update({ resolved: true })
+      .eq("id", flagId);
+  }
+
+  await logAudit(supabase, adminUserId, "delete_review", "review", reviewId, {
+    flag_id: flagId,
+    reviewee_user_id: review?.reviewee_user_id,
+    reviewer_user_id: review?.reviewer_user_id,
+    review_title: review?.review_title,
+  });
+
+  revalidatePath("/admin/flags");
+  if (review?.reviewee_user_id) {
+    revalidatePath(`/profile/${review.reviewee_user_id}`);
+  }
+  return { success: true };
+}
+
 export async function resolveFlag(flagId: string) {
   const { supabase, adminUserId } = await requireAdmin();
 

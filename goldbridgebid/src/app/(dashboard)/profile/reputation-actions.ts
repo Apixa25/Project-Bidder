@@ -182,3 +182,48 @@ export async function createVerifiedReview(formData: FormData) {
   revalidatePath(`/profile/${revieweeUserId}`);
   return { success: true };
 }
+
+export async function reportReview(reviewId: string, reason: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "You must be logged in to report a review." };
+  }
+
+  const trimmedReason = reason.trim();
+  if (trimmedReason.length < 10) {
+    return { error: "Please provide at least 10 characters explaining the report." };
+  }
+
+  const { data: review } = await supabase
+    .from("user_reviews")
+    .select("id, reviewer_user_id, reviewee_user_id")
+    .eq("id", reviewId)
+    .single();
+
+  if (!review) {
+    return { error: "Review not found." };
+  }
+
+  if (review.reviewer_user_id === user.id) {
+    return { error: "You cannot report your own review." };
+  }
+
+  const { error } = await supabase.from("flagged_content").insert({
+    reporter_id: user.id,
+    content_type: "review",
+    content_id: reviewId,
+    reason: trimmedReason,
+  });
+
+  if (error) {
+    console.error("Report review error:", error);
+    return { error: "Unable to submit that report right now." };
+  }
+
+  revalidatePath(`/profile/${review.reviewee_user_id}`);
+  return { success: true };
+}

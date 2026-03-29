@@ -21,9 +21,11 @@ import {
 import { signOut } from "@/app/(auth)/actions";
 import type { UserRole } from "@/types/database";
 import { BrandWordmark } from "@/components/BrandWordmark";
+import RoleSwitcher from "@/components/layout/RoleSwitcher";
 
 interface DashboardNavProps {
-  role: UserRole;
+  currentRole: UserRole;
+  availableRoles: UserRole[];
   userName: string;
   unreadNotifications?: number;
   isMobileOpen?: boolean;
@@ -58,14 +60,15 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
 };
 
 export default function DashboardNav({
-  role,
+  currentRole,
+  availableRoles,
   userName,
   unreadNotifications = 0,
   isMobileOpen = false,
   onClose,
 }: DashboardNavProps) {
   const pathname = usePathname();
-  const items = NAV_ITEMS[role];
+  const items = NAV_ITEMS[currentRole];
 
   return (
     <nav
@@ -106,7 +109,13 @@ export default function DashboardNav({
         <p className="text-sm font-medium text-text-primary truncate">
           {userName}
         </p>
-        <p className="text-xs text-text-muted capitalize">{role} Account</p>
+        <p className="text-xs text-text-muted capitalize">{currentRole} Account</p>
+        <div className="mt-4">
+          <RoleSwitcher
+            availableRoles={availableRoles}
+            currentRole={currentRole}
+          />
+        </div>
       </div>
 
       {/* Nav Links */}
@@ -115,7 +124,7 @@ export default function DashboardNav({
           {items.map((item) => {
             const isActive =
               pathname === item.href ||
-              (item.href !== `/${role}` && pathname.startsWith(item.href));
+              (item.href !== `/${currentRole}` && pathname.startsWith(item.href));
 
             return (
               <li key={item.href}>
@@ -140,7 +149,7 @@ export default function DashboardNav({
       {/* Notifications & Sign Out */}
       <div className="border-t border-border px-3 py-4 space-y-1">
         <Link
-          href={`/${role}/notifications`}
+          href={`/${currentRole}/notifications`}
           onClick={onClose}
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors"
         >

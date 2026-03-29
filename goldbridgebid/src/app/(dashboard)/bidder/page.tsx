@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { userHasRole } from "@/lib/auth/roles";
 import {
   ClipboardList,
   FolderOpen,
@@ -28,7 +29,7 @@ export default async function BidderDashboard() {
     .eq("user_id", user.id)
     .single();
 
-  if (!profile || profile.role !== "bidder") redirect("/login");
+  if (!profile || !(await userHasRole(user.id, "bidder"))) redirect("/login");
 
   const { data: credentials } = await supabase
     .from("bidder_credentials")

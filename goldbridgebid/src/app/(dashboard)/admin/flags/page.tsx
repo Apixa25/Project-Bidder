@@ -54,6 +54,10 @@ export default async function AdminFlagsPage({ searchParams }: Props) {
 
   // Fetch content previews for each flag
   const contentPreviews: Record<string, string> = {};
+  const reviewMetaMap: Record<
+    string,
+    { reviewId: string; revieweeUserId: string | null; status: string }
+  > = {};
   for (const flag of flags || []) {
     if (flag.content_type === "project") {
       const { data } = await supabase
@@ -94,6 +98,27 @@ export default async function AdminFlagsPage({ searchParams }: Props) {
           ? data.content.slice(0, 100) + "..."
           : data.content
         : "Deleted message";
+    } else if (flag.content_type === "review") {
+      const { data } = await supabase
+        .from("user_reviews")
+        .select("id, review_title, review_body, rating_overall, reviewee_user_id, status")
+        .eq("id", flag.content_id)
+        .single();
+
+      if (data) {
+        contentPreviews[flag.id] =
+          `${data.rating_overall}/5 review` +
+          (data.review_title ? ` • ${data.review_title}` : "") +
+          ` • ${data.review_body.length > 100 ? `${data.review_body.slice(0, 100)}...` : data.review_body}`;
+
+        reviewMetaMap[flag.id] = {
+          reviewId: data.id,
+          revieweeUserId: data.reviewee_user_id,
+          status: data.status,
+        };
+      } else {
+        contentPreviews[flag.id] = "Deleted review";
+      }
     }
   }
 
@@ -121,6 +146,7 @@ export default async function AdminFlagsPage({ searchParams }: Props) {
               { value: "bid", label: "Bid" },
               { value: "user", label: "User" },
               { value: "message", label: "Message" },
+              { value: "review", label: "Review" },
             ]}
           />
           <FilterDropdown
@@ -138,6 +164,7 @@ export default async function AdminFlagsPage({ searchParams }: Props) {
         flags={flags || []}
         reporterMap={reporterMap}
         contentPreviews={contentPreviews}
+        reviewMetaMap={reviewMetaMap}
       />
     </div>
   );

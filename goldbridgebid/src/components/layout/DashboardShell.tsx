@@ -8,20 +8,30 @@ import type { UserRole } from "@/types/database";
 import DashboardNav from "@/components/layout/DashboardNav";
 
 interface DashboardShellProps {
-  role: UserRole;
+  defaultRole: UserRole;
+  availableRoles: UserRole[];
   userName: string;
   unreadNotifications?: number;
   children: ReactNode;
 }
 
 export default function DashboardShell({
-  role,
+  defaultRole,
+  availableRoles,
   userName,
   unreadNotifications = 0,
   children,
 }: DashboardShellProps) {
   const pathname = usePathname();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  const currentRole = pathname.startsWith("/bidder")
+    ? "bidder"
+    : pathname.startsWith("/admin")
+      ? "admin"
+      : pathname.startsWith("/customer")
+        ? "customer"
+        : defaultRole;
 
   useEffect(() => {
     setIsMobileNavOpen(false);
@@ -54,7 +64,8 @@ export default function DashboardShell({
       />
 
       <DashboardNav
-        role={role}
+        currentRole={currentRole}
+        availableRoles={availableRoles}
         userName={userName}
         unreadNotifications={unreadNotifications}
         isMobileOpen={isMobileNavOpen}
@@ -68,7 +79,7 @@ export default function DashboardShell({
               <p className="truncate text-sm font-semibold text-text-primary">
                 {userName}
               </p>
-              <p className="text-xs capitalize text-text-muted">{role} account</p>
+              <p className="text-xs capitalize text-text-muted">{currentRole} account</p>
             </div>
 
             <button
@@ -85,7 +96,7 @@ export default function DashboardShell({
 
           <div className="border-t border-border px-4 py-2">
             <Link
-              href={`/${role}`}
+              href={`/${currentRole}`}
               className="text-xs font-medium text-primary transition-colors hover:text-primary-dark"
             >
               Back to dashboard overview
