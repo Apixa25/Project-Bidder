@@ -46,6 +46,7 @@ interface Props {
     linkedin_url: string | null;
     instagram_url: string | null;
   };
+  roles: string[];
   credentials: unknown;
   credentialChecks: CredentialCheck[];
   projects: ProjectSummary[] | null;
@@ -55,6 +56,7 @@ interface Props {
 
 export default function UserDetailTabs({
   profile,
+  roles,
   credentialChecks,
   projects,
   bids,
@@ -70,7 +72,7 @@ export default function UserDetailTabs({
   const tabs = [
     { id: "profile" as const, label: "Profile" },
     { id: "activity" as const, label: "Activity" },
-    ...(profile.role === "bidder"
+    ...(roles.includes("bidder")
       ? [{ id: "credentials" as const, label: "Credentials" }]
       : []),
   ];
@@ -113,7 +115,7 @@ export default function UserDetailTabs({
               Quick Stats
             </h3>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              {profile.role === "customer" && projects && (
+              {roles.includes("customer") && projects && (
                 <div>
                   <p className="text-2xl font-bold text-text-primary">
                     {projects.length}
@@ -121,7 +123,7 @@ export default function UserDetailTabs({
                   <p className="text-sm text-text-muted">Projects Posted</p>
                 </div>
               )}
-              {profile.role === "bidder" && bids && (
+              {roles.includes("bidder") && bids && (
                 <div>
                   <p className="text-2xl font-bold text-text-primary">
                     {bids.length}
@@ -168,13 +170,35 @@ export default function UserDetailTabs({
               </div>
             </div>
           )}
+
+          <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+            <h3 className="mb-3 text-lg font-semibold text-text-primary">
+              Role Memberships
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {roles.map((role) => (
+                <span
+                  key={role}
+                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                    role === "admin"
+                      ? "bg-purple-100 text-purple-700"
+                      : role === "customer"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-secondary/10 text-secondary"
+                  }`}
+                >
+                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
       {/* Activity Tab */}
       {tab === "activity" && (
         <div className="space-y-6">
-          {profile.role === "customer" && projects && (
+          {roles.includes("customer") && projects && (
             <div className="rounded-xl border border-border bg-surface shadow-sm">
               <h3 className="border-b border-border px-6 py-4 text-lg font-semibold text-text-primary">
                 Projects ({projects.length})
@@ -226,7 +250,7 @@ export default function UserDetailTabs({
             </div>
           )}
 
-          {profile.role === "bidder" && bids && (
+          {roles.includes("bidder") && bids && (
             <div className="rounded-xl border border-border bg-surface shadow-sm">
               <h3 className="border-b border-border px-6 py-4 text-lg font-semibold text-text-primary">
                 Bids ({bids.length})
@@ -315,7 +339,7 @@ export default function UserDetailTabs({
       )}
 
       {/* Admin Actions */}
-      {profile.role !== "admin" && (
+      {!roles.includes("admin") && (
         <div className="mt-6 flex items-center gap-3 rounded-xl border border-border bg-surface p-4">
           <span className="text-sm font-medium text-text-muted">
             Admin Actions:

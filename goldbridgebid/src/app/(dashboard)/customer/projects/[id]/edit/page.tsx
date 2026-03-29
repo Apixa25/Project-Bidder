@@ -63,10 +63,32 @@ export default function EditProjectPage() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       );
 
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
+
+      const hasCustomerRole = (roleRows || []).some((row) => row.role === "customer");
+
+      if (!hasCustomerRole) {
+        router.replace("/customer");
+        return;
+      }
+
       const { data, error } = await supabase
         .from("projects")
         .select("*")
         .eq("id", params.id)
+        .eq("customer_id", user.id)
         .single();
 
       if (error || !data) {

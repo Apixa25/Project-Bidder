@@ -11,6 +11,7 @@ import {
   MessageSquare,
   ScrollText,
   AlertTriangle,
+  Star,
 } from "lucide-react";
 import AdminStatCard from "@/components/admin/AdminStatCard";
 import ActivityFeed, {
@@ -297,6 +298,7 @@ export default async function AdminDashboard() {
                 icon: MessageSquare,
               },
               { href: "/admin/flags", label: "Flagged Content", icon: Flag },
+              { href: "/admin/reviews", label: "Reviews", icon: Star },
               {
                 href: "/admin/analytics",
                 label: "Analytics",

@@ -35,8 +35,26 @@ export default async function AdminUsersPage({ searchParams }: Props) {
     .select("*")
     .order("created_at", { ascending: false });
 
+  const profileIds = (allProfiles || []).map((p) => p.user_id);
+  const { data: roleRows } = profileIds.length
+    ? await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .in("user_id", profileIds)
+    : { data: [] };
+
+  const roleMap = new Map<string, string[]>();
+  for (const profile of allProfiles || []) {
+    roleMap.set(profile.user_id, [profile.role]);
+  }
+  for (const row of roleRows || []) {
+    const roles = roleMap.get(row.user_id) || [];
+    if (!roles.includes(row.role)) roles.push(row.role);
+    roleMap.set(row.user_id, roles);
+  }
+
   const bidderUserIds = (allProfiles || [])
-    .filter((p) => p.role === "bidder")
+    .filter((p) => (roleMap.get(p.user_id) || []).includes("bidder"))
     .map((p) => p.user_id);
 
   const { data: credentials } =
@@ -54,7 +72,9 @@ export default async function AdminUsersPage({ searchParams }: Props) {
   const searchTerm = (params.q || "").toLowerCase();
 
   let filtered = (allProfiles || []).filter((p) => {
-    if (params.role && p.role !== params.role) return false;
+    const roles = roleMap.get(p.user_id) || [p.role];
+
+    if (params.role && !roles.includes(params.role)) return false;
     if (params.banned === "true" && !p.is_banned) return false;
     if (params.banned === "false" && p.is_banned) return false;
 
@@ -74,7 +94,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
     }
 
     if (params.badge) {
-      if (p.role !== "bidder") return false;
+      if (!roles.includes("bidder")) return false;
       const creds = credMap.get(p.user_id);
       if (params.badge === "none" && creds?.badge_level) return false;
       if (params.badge !== "none" && creds?.badge_level !== params.badge)
@@ -94,7 +114,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
   const exportData = filtered.map((p) => ({
     name: p.full_name,
     email: p.email,
-    role: p.role,
+    role: (roleMap.get(p.user_id) || [p.role]).join(", "),
     business: p.business_name || "",
     phone: p.phone,
     location: p.city && p.state ? `${p.city}, ${p.state}` : "",
@@ -197,6 +217,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                 const creds = credMap.get(p.user_id);
                 const badge = creds?.badge_level as BadgeLevel;
                 const badgeInfo = badge ? BADGE_CONFIG[badge] : null;
+                const roles = roleMap.get(p.user_id) || [p.role];
 
                 return (
                   <tr
@@ -226,17 +247,22 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          p.role === "admin"
-                            ? "bg-purple-100 text-purple-700"
-                            : p.role === "customer"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-secondary/10 text-secondary"
-                        }`}
-                      >
-                        {p.role.charAt(0).toUpperCase() + p.role.slice(1)}
-                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {roles.map((role) => (
+                          <span
+                            key={role}
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              role === "admin"
+                                ? "bg-purple-100 text-purple-700"
+                                : role === "customer"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-secondary/10 text-secondary"
+                            }`}
+                          >
+                            {role.charAt(0).toUpperCase() + role.slice(1)}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       {badgeInfo ? (
@@ -245,7 +271,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                         >
                           {badgeInfo.icon} {badgeInfo.label}
                         </span>
-                      ) : p.role === "bidder" ? (
+                      ) : roles.includes("bidder") ? (
                         <span className="text-xs text-text-muted">None</span>
                       ) : (
                         <span className="text-xs text-text-muted">—</span>
@@ -263,7 +289,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                       {new Date(p.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4">
-                      {p.role !== "admin" && (
+                      {!roles.includes("admin") && (
                         <UserActions
                           userId={p.user_id}
                           userName={p.full_name}

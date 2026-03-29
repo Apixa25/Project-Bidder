@@ -43,12 +43,21 @@ export default async function AdminUserDetailPage({ params }: Props) {
 
   if (!profile) notFound();
 
+  const { data: roleRows } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId);
+
+  const roles = Array.from(
+    new Set([profile.role, ...((roleRows || []).map((row) => row.role))])
+  );
+
   // Fetch role-specific data
   let credentials = null;
   let projects = null;
   let bids = null;
 
-  if (profile.role === "bidder") {
+  if (roles.includes("bidder")) {
     const { data: creds } = await supabase
       .from("bidder_credentials")
       .select("*")
@@ -64,7 +73,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
     bids = bidData;
   }
 
-  if (profile.role === "customer") {
+  if (roles.includes("customer")) {
     const { data: projData } = await supabase
       .from("projects")
       .select("*")
@@ -80,13 +89,6 @@ export default async function AdminUserDetailPage({ params }: Props) {
 
   const badge = credentials?.badge_level as BadgeLevel;
   const badgeInfo = badge ? BADGE_CONFIG[badge] : null;
-
-  const roleColor =
-    profile.role === "admin"
-      ? "bg-purple-100 text-purple-700"
-      : profile.role === "customer"
-        ? "bg-blue-100 text-blue-700"
-        : "bg-secondary/10 text-secondary";
 
   const credentialChecks = credentials
     ? [
@@ -129,12 +131,22 @@ export default async function AdminUserDetailPage({ params }: Props) {
                 <h1 className="text-2xl font-bold text-text-primary">
                   {profile.full_name}
                 </h1>
-                <span
-                  className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${roleColor}`}
-                >
-                  {profile.role.charAt(0).toUpperCase() +
-                    profile.role.slice(1)}
-                </span>
+                <div className="flex flex-wrap gap-2">
+                  {roles.map((role) => (
+                    <span
+                      key={role}
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
+                        role === "admin"
+                          ? "bg-purple-100 text-purple-700"
+                          : role === "customer"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-secondary/10 text-secondary"
+                      }`}
+                    >
+                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                    </span>
+                  ))}
+                </div>
                 {badgeInfo && (
                   <span
                     className={`inline-flex items-center gap-1 rounded-full ${badgeInfo.bgColor} px-2.5 py-1 text-xs font-medium ${badgeInfo.color}`}
@@ -202,6 +214,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
       {/* Tabs */}
       <UserDetailTabs
         profile={profile}
+        roles={roles}
         credentials={credentials}
         credentialChecks={credentialChecks}
         projects={

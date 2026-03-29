@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Upload, X, Loader2, Info, ImageIcon, FileText as FileIcon } from "lucide-react";
 import { createProject } from "../actions";
 import { TRADE_LABELS, FORM_TRADES } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import { compressFiles } from "@/lib/compress-image";
+import { createBrowserClient } from "@supabase/ssr";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
@@ -16,12 +18,48 @@ const US_STATES = [
 ];
 
 export default function NewProjectPage() {
+  const router = useRouter();
   const [selectedTrades, setSelectedTrades] = useState<TradeCategory[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<(string | null)[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [compressing, setCompressing] = useState(false);
+  const [accessReady, setAccessReady] = useState(false);
+
+  useEffect(() => {
+    async function checkAccess() {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
+
+      const hasCustomerRole = (roleRows || []).some((row) => row.role === "customer");
+
+      if (!hasCustomerRole) {
+        router.replace("/customer");
+        return;
+      }
+
+      setAccessReady(true);
+    }
+
+    checkAccess();
+  }, [router]);
 
   useEffect(() => {
     const urls: (string | null)[] = files.map((file) =>
@@ -82,6 +120,14 @@ export default function NewProjectPage() {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
     return (bytes / 1048576).toFixed(1) + " MB";
+  }
+
+  if (!accessReady) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
