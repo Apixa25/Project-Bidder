@@ -51,27 +51,42 @@ export default async function AdminDashboard() {
   ).toISOString();
 
   const [
+    { data: customerRoles },
+    { data: bidderRoles },
+    { data: recentRoleMemberships },
+    { count: totalReviews },
+  ] = await Promise.all([
+    supabase.from("user_roles").select("user_id").eq("role", "customer"),
+    supabase.from("user_roles").select("user_id").eq("role", "bidder"),
+    supabase
+      .from("user_roles")
+      .select("user_id, role, created_at")
+      .gte("created_at", sevenDaysAgo)
+      .order("created_at", { ascending: false })
+      .limit(10),
+    supabase.from("user_reviews").select("*", { count: "exact", head: true }),
+  ]);
+
+  const customerCount = new Set((customerRoles || []).map((row) => row.user_id)).size;
+  const bidderCount = new Set((bidderRoles || []).map((row) => row.user_id)).size;
+  const customerRolesThisWeek = (recentRoleMemberships || []).filter(
+    (row) => row.role === "customer"
+  ).length;
+  const bidderRolesThisWeek = (recentRoleMemberships || []).filter(
+    (row) => row.role === "bidder"
+  ).length;
+
+  const [
     { count: projectCount },
     { count: bidCount },
-    { count: customerCount },
-    { count: bidderCount },
     { count: openProjects },
     { count: flaggedCount },
     { count: bannedCount },
     { count: projectsThisWeek },
     { count: bidsThisWeek },
-    { count: signupsThisWeek },
   ] = await Promise.all([
     supabase.from("projects").select("*", { count: "exact", head: true }),
     supabase.from("bids").select("*", { count: "exact", head: true }),
-    supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "customer"),
-    supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "bidder"),
     supabase
       .from("projects")
       .select("*", { count: "exact", head: true })
@@ -92,17 +107,13 @@ export default async function AdminDashboard() {
       .from("bids")
       .select("*", { count: "exact", head: true })
       .gte("created_at", sevenDaysAgo),
-    supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .gte("created_at", sevenDaysAgo),
   ]);
 
   // Build activity feed from recent items
   const [
     { data: recentProjects },
     { data: recentBids },
-    { data: recentSignups },
+    { data: recentProfiles },
     { data: recentFlags },
   ] = await Promise.all([
     supabase
@@ -117,9 +128,13 @@ export default async function AdminDashboard() {
       .limit(5),
     supabase
       .from("profiles")
-      .select("user_id, full_name, role, created_at")
-      .order("created_at", { ascending: false })
-      .limit(5),
+      .select("user_id, full_name")
+      .in(
+        "user_id",
+        Array.from(
+          new Set((recentRoleMemberships || []).map((entry) => entry.user_id))
+        )
+      ),
     supabase
       .from("flagged_content")
       .select("id, content_type, reason, created_at")
@@ -127,6 +142,10 @@ export default async function AdminDashboard() {
       .order("created_at", { ascending: false })
       .limit(5),
   ]);
+
+  const recentProfileMap = new Map(
+    (recentProfiles || []).map((entry) => [entry.user_id, entry.full_name])
+  );
 
   const activityItems: ActivityItem[] = [
     ...(recentProjects || []).map((p) => ({
@@ -143,12 +162,12 @@ export default async function AdminDashboard() {
       detail: (b.projects as unknown as { title: string }).title,
       time: timeAgo(b.created_at),
     })),
-    ...(recentSignups || []).map((s) => ({
-      id: `signup-${s.user_id}`,
+    ...(recentRoleMemberships || []).map((membership) => ({
+      id: `role-${membership.user_id}-${membership.role}-${membership.created_at}`,
       type: "signup" as const,
-      title: `New ${s.role} signed up`,
-      detail: s.full_name,
-      time: timeAgo(s.created_at),
+      title: `${membership.role === "bidder" ? "Contractor" : "Customer"} mode enabled`,
+      detail: recentProfileMap.get(membership.user_id) || "Unknown user",
+      time: timeAgo(membership.created_at),
     })),
     ...(recentFlags || []).map((f) => ({
       id: `flag-${f.id}`,
@@ -196,13 +215,20 @@ export default async function AdminDashboard() {
       value: customerCount || 0,
       icon: Users,
       color: "bg-blue-100 text-blue-600",
-      trend: { value: signupsThisWeek || 0, label: "new this week" },
+      trend: { value: customerRolesThisWeek || 0, label: "enabled this week" },
     },
     {
       label: "Bidders",
       value: bidderCount || 0,
       icon: Users,
       color: "bg-secondary/10 text-secondary",
+      trend: { value: bidderRolesThisWeek || 0, label: "enabled this week" },
+    },
+    {
+      label: "Reviews",
+      value: totalReviews || 0,
+      icon: Star,
+      color: "bg-primary/10 text-primary",
     },
     {
       label: "Flagged Items",

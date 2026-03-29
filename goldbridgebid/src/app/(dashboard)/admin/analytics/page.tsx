@@ -23,6 +23,23 @@ export default async function AdminAnalyticsPage() {
     Date.now() - 30 * 24 * 60 * 60 * 1000
   ).toISOString();
 
+  const [
+    { data: customerRoles },
+    { data: bidderRoles },
+    { data: recentRoleMemberships },
+  ] = await Promise.all([
+    supabase.from("user_roles").select("user_id").eq("role", "customer"),
+    supabase.from("user_roles").select("user_id").eq("role", "bidder"),
+    supabase
+      .from("user_roles")
+      .select("created_at, role")
+      .gte("created_at", thirtyDaysAgo)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  const totalCustomers = new Set((customerRoles || []).map((row) => row.user_id)).size;
+  const totalBidders = new Set((bidderRoles || []).map((row) => row.user_id)).size;
+
   // Aggregate counts
   const [
     { count: totalProjects },
@@ -30,10 +47,9 @@ export default async function AdminAnalyticsPage() {
     { count: awardedProjects },
     { count: closedProjects },
     { count: totalBids },
-    { count: totalCustomers },
-    { count: totalBidders },
     { count: totalMessages },
     { count: unresolvedFlags },
+    { count: totalReviews },
   ] = await Promise.all([
     supabase.from("projects").select("*", { count: "exact", head: true }),
     supabase
@@ -49,19 +65,12 @@ export default async function AdminAnalyticsPage() {
       .select("*", { count: "exact", head: true })
       .eq("status", "closed"),
     supabase.from("bids").select("*", { count: "exact", head: true }),
-    supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "customer"),
-    supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "bidder"),
     supabase.from("messages").select("*", { count: "exact", head: true }),
     supabase
       .from("flagged_content")
       .select("*", { count: "exact", head: true })
       .eq("resolved", false),
+    supabase.from("user_reviews").select("*", { count: "exact", head: true }),
   ]);
 
   // Projects over time (last 30 days)
@@ -75,13 +84,6 @@ export default async function AdminAnalyticsPage() {
   const { data: recentBids } = await supabase
     .from("bids")
     .select("created_at, price, trade")
-    .gte("created_at", thirtyDaysAgo)
-    .order("created_at", { ascending: true });
-
-  // User signups over time (last 30 days)
-  const { data: recentSignups } = await supabase
-    .from("profiles")
-    .select("created_at, role")
     .gte("created_at", thirtyDaysAgo)
     .order("created_at", { ascending: true });
 
@@ -136,14 +138,18 @@ export default async function AdminAnalyticsPage() {
   const projectsOverTime = dailyCounts(recentProjects);
   const bidsOverTime = dailyCounts(recentBids);
 
-  // User growth (cumulative)
+  // Role growth (cumulative memberships)
   const userGrowth: { date: string; customers: number; bidders: number }[] = [];
-  let custCum = (totalCustomers || 0) - (recentSignups || []).filter((s) => s.role === "customer").length;
-  let bidCum = (totalBidders || 0) - (recentSignups || []).filter((s) => s.role === "bidder").length;
+  let custCum =
+    (totalCustomers || 0) -
+    (recentRoleMemberships || []).filter((s) => s.role === "customer").length;
+  let bidCum =
+    (totalBidders || 0) -
+    (recentRoleMemberships || []).filter((s) => s.role === "bidder").length;
   for (let i = 29; i >= 0; i--) {
     const d = new Date(Date.now() - i * 86400000);
     const dateStr = d.toISOString().slice(0, 10);
-    const daySignups = (recentSignups || []).filter(
+    const daySignups = (recentRoleMemberships || []).filter(
       (s) => s.created_at.slice(0, 10) === dateStr
     );
     custCum += daySignups.filter((s) => s.role === "customer").length;
@@ -227,6 +233,7 @@ export default async function AdminAnalyticsPage() {
         totalBidders: totalBidders || 0,
         totalMessages: totalMessages || 0,
         unresolvedFlags: unresolvedFlags || 0,
+        totalReviews: totalReviews || 0,
         avgBidPrice:
           allBids && allBids.length > 0
             ? Math.round(

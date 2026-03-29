@@ -1,11 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import AdminFilterBar, { FilterDropdown } from "@/components/admin/AdminFilters";
+import AdminSearchBar from "@/components/admin/AdminSearchBar";
+import AdminPagination from "@/components/admin/AdminPagination";
 import ReviewModerationList from "./ReviewModerationList";
 
 interface Props {
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }
+
+const PAGE_SIZE = 20;
 
 export default async function AdminReviewsPage({ searchParams }: Props) {
   const params = await searchParams;
@@ -92,16 +96,30 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
     ...review,
     reviewerName: profileMap.get(review.reviewer_user_id) || "Unknown user",
     revieweeName: profileMap.get(review.reviewee_user_id) || "Unknown user",
+    reviewerUserId: review.reviewer_user_id,
+    revieweeUserId: review.reviewee_user_id,
     reportCount: flagCountMap.get(review.id) || 0,
   }));
 
+  const totalItems = reviewItems.length;
+  const page = Math.max(1, Number(params.page || "1"));
+  const paginatedItems = reviewItems.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  );
+
   return (
     <div>
-      <div className="mb-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
         <h1 className="text-2xl font-bold text-text-primary">Reviews Moderation 📝</h1>
         <p className="mt-1 text-text-secondary">
-          {reviewItems.length} review{reviewItems.length === 1 ? "" : "s"} match the current filters.
+          {totalItems} review{totalItems === 1 ? "" : "s"} match the current filters.
         </p>
+        </div>
+        <div className="max-w-md">
+          <AdminSearchBar placeholder="Search reviewer, reviewee, title, or body..." />
+        </div>
       </div>
 
       <div className="mb-6">
@@ -134,7 +152,10 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
         </AdminFilterBar>
       </div>
 
-      <ReviewModerationList reviews={reviewItems} />
+      <ReviewModerationList reviews={paginatedItems} />
+      <div className="mt-6">
+        <AdminPagination totalItems={totalItems} pageSize={PAGE_SIZE} />
+      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { hideReview, publishReview, deleteReview } from "@/app/(dashboard)/admin/actions";
 
 interface ReviewItem {
@@ -13,7 +14,9 @@ interface ReviewItem {
   created_at: string;
   project_id: string | null;
   reviewerName: string;
+  reviewerUserId: string;
   revieweeName: string;
+  revieweeUserId: string;
   reportCount: number;
 }
 
@@ -76,10 +79,27 @@ export default function ReviewModerationList({ reviews }: { reviews: ReviewItem[
               </p>
 
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-text-muted">
-                <span>Reviewer: {review.reviewerName}</span>
-                <span>Reviewee: {review.revieweeName}</span>
+                <Link
+                  href={`/profile/${review.reviewerUserId}`}
+                  className="text-primary hover:underline"
+                >
+                  Reviewer: {review.reviewerName}
+                </Link>
+                <Link
+                  href={`/profile/${review.revieweeUserId}`}
+                  className="text-primary hover:underline"
+                >
+                  Reviewee: {review.revieweeName}
+                </Link>
                 <span>{new Date(review.created_at).toLocaleString()}</span>
-                {review.project_id && <span>Project-linked</span>}
+                {review.project_id && (
+                  <Link
+                    href={`/admin/projects/${review.project_id}`}
+                    className="text-primary hover:underline"
+                  >
+                    Project-linked
+                  </Link>
+                )}
                 {review.relationship_context && <span>{review.relationship_context}</span>}
               </div>
             </div>

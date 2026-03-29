@@ -26,6 +26,7 @@ import {
   MessageSquare,
   Flag,
   TrendingUp,
+  Star,
 } from "lucide-react";
 import AdminStatCard from "@/components/admin/AdminStatCard";
 
@@ -40,6 +41,7 @@ interface Props {
     totalBidders: number;
     totalMessages: number;
     unresolvedFlags: number;
+    totalReviews: number;
     avgBidPrice: number;
     bidsPerProject: number;
   };
@@ -111,6 +113,12 @@ export default function AnalyticsDashboard({
       value: stats.totalMessages,
       icon: MessageSquare,
       color: "bg-blue-100 text-blue-600",
+    },
+    {
+      label: "Reviews",
+      value: stats.totalReviews,
+      icon: Star,
+      color: "bg-primary/10 text-primary",
     },
     {
       label: "Unresolved Flags",
