@@ -29,7 +29,7 @@ export default async function MyBidsPage() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">My Bids 📋</h1>
           <p className="mt-1 text-text-secondary">
@@ -38,7 +38,7 @@ export default async function MyBidsPage() {
         </div>
         <Link
           href="/bidder/projects"
-          className="flex items-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-secondary-dark transition-colors"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-secondary-dark sm:w-auto sm:py-2.5"
         >
           <FolderOpen className="h-4 w-4" />
           Browse Projects
@@ -65,14 +65,14 @@ export default async function MyBidsPage() {
             return (
               <div
                 key={bid.id}
-                className="rounded-xl border border-border bg-surface p-6 shadow-sm"
+                className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6"
               >
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                       <Link
                         href={`/bidder/projects/${bid.project_id}`}
-                        className="text-lg font-semibold text-text-primary hover:text-primary transition-colors"
+                        className="text-lg font-semibold leading-tight text-text-primary transition-colors hover:text-primary"
                       >
                         {project.title}
                       </Link>
@@ -93,7 +93,7 @@ export default async function MyBidsPage() {
                       </span>
                     </div>
 
-                    <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-text-muted">
+                    <div className="mt-3 grid gap-2 text-sm text-text-muted sm:mt-2 sm:flex sm:flex-wrap sm:items-center sm:gap-4 sm:text-xs">
                       <span className="flex items-center gap-1">
                         <MapPin className="h-3.5 w-3.5" />
                         {project.location_city}, {project.location_state}
@@ -106,18 +106,18 @@ export default async function MyBidsPage() {
                     </div>
                   </div>
 
-                  <div className="ml-6 shrink-0 text-right">
-                    <p className="text-2xl font-bold text-primary">
+                  <div className="rounded-lg bg-bg-warm px-4 py-3 sm:ml-6 sm:shrink-0 sm:bg-transparent sm:px-0 sm:py-0 sm:text-right">
+                    <p className="text-xl font-bold text-primary sm:text-2xl">
                       ${Number(bid.price).toLocaleString()}
                     </p>
-                    <span className="rounded-full bg-secondary/10 px-2.5 py-0.5 text-xs font-medium text-secondary">
+                    <span className="mt-2 inline-flex rounded-full bg-secondary/10 px-2.5 py-0.5 text-xs font-medium text-secondary">
                       {TRADE_LABELS[bid.trade as TradeCategory]}
                     </span>
                   </div>
                 </div>
 
                 {/* Bid Details */}
-                <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
                   <div className="rounded-lg bg-bg-warm px-3 py-2">
                     <p className="text-xs text-text-muted">Timeline</p>
                     <p className="text-sm font-medium text-text-primary">
@@ -131,7 +131,7 @@ export default async function MyBidsPage() {
                     </p>
                   </div>
                   {bid.price_breakdown && (
-                    <div className="col-span-2 rounded-lg bg-bg-warm px-3 py-2">
+                    <div className="rounded-lg bg-bg-warm px-3 py-2 sm:col-span-2">
                       <p className="text-xs text-text-muted">Price Breakdown</p>
                       <p className="text-sm text-text-secondary whitespace-pre-wrap line-clamp-2">
                         {bid.price_breakdown}

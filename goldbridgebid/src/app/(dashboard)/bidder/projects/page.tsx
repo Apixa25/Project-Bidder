@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { FolderOpen, MapPin, Calendar, DollarSign, Search, ImageIcon } from "lucide-react";
+import { MapPin, Calendar, DollarSign, Search, ImageIcon } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 
@@ -48,11 +48,11 @@ export default async function BrowseProjectsPage() {
             <Link
               key={project.id}
               href={`/bidder/projects/${project.id}`}
-              className="block rounded-xl border border-border bg-surface p-6 shadow-sm hover:shadow-md hover:border-secondary/30 transition-all"
+              className="block rounded-xl border border-border bg-surface p-4 shadow-sm transition-all hover:border-secondary/30 hover:shadow-md sm:p-6"
             >
-              <div className="flex items-start gap-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
                 {/* Project Thumbnail */}
-                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-border bg-bg-warm">
+                <div className="h-44 w-full overflow-hidden rounded-lg border border-border bg-bg-warm sm:h-20 sm:w-20 sm:shrink-0">
                   {thumbUrl ? (
                     <img
                       src={thumbUrl}
@@ -67,15 +67,15 @@ export default async function BrowseProjectsPage() {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-lg font-semibold text-text-primary">
+                  <h2 className="text-xl font-semibold leading-tight text-text-primary sm:text-lg">
                     {project.title}
                   </h2>
 
-                  <p className="mt-2 text-sm text-text-secondary line-clamp-2">
+                  <p className="mt-2 text-sm text-text-secondary line-clamp-3 sm:line-clamp-2">
                     {project.description}
                   </p>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-text-muted">
+                  <div className="mt-4 grid gap-2 text-sm text-text-muted sm:mt-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4 sm:text-xs">
                     <span className="flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5" />
                       {project.location_city}, {project.location_state}
@@ -114,8 +114,8 @@ export default async function BrowseProjectsPage() {
                   </div>
                 </div>
 
-                <div className="ml-6 shrink-0">
-                  <span className="inline-flex items-center rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white shadow-sm">
+                <div className="sm:ml-6 sm:shrink-0">
+                  <span className="inline-flex w-full items-center justify-center rounded-lg bg-secondary px-4 py-3 text-sm font-semibold text-white shadow-sm sm:w-auto sm:py-2">
                     View & Bid →
                   </span>
                 </div>

@@ -136,7 +136,7 @@ export default function AvatarUpload({ currentUrl, userName }: AvatarUploadProps
 
   return (
     <>
-      <div className="flex items-center gap-5">
+      <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
         <div className="relative group">
           {avatarUrl ? (
             <img
@@ -163,7 +163,7 @@ export default function AvatarUpload({ currentUrl, userName }: AvatarUploadProps
           </button>
         </div>
 
-        <div>
+        <div className="min-w-0">
           <h3 className="text-sm font-semibold text-text-primary">
             Profile Picture
           </h3>
@@ -173,12 +173,12 @@ export default function AvatarUpload({ currentUrl, userName }: AvatarUploadProps
           {error && (
             <p className="text-xs text-red-600 mb-2">{error}</p>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
-              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-primary-dark transition-colors disabled:opacity-50"
+              className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-slate-950 transition-colors hover:bg-primary-dark disabled:opacity-50 sm:py-1.5"
             >
               {uploading ? "Uploading..." : avatarUrl ? "Change Photo" : "Upload Photo"}
             </button>
@@ -187,7 +187,7 @@ export default function AvatarUpload({ currentUrl, userName }: AvatarUploadProps
                 type="button"
                 onClick={handleRemove}
                 disabled={removing}
-                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50 sm:py-1.5"
               >
                 {removing ? "Removing..." : "Remove"}
               </button>

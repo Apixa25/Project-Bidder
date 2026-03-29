@@ -65,13 +65,13 @@ export default async function BidderProfilePage() {
       </div>
 
       {/* Avatar + Badge Card */}
-      <div className="mb-8 rounded-xl border border-border bg-surface p-6 shadow-sm">
-        <div className="flex items-center justify-between">
+      <div className="mb-8 rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <AvatarUpload
             currentUrl={profile.avatar_url}
             userName={profile.full_name}
           />
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {badgeInfo ? (
               <div
                 className={`flex items-center gap-2 rounded-full ${badgeInfo.bgColor} px-4 py-2`}
@@ -91,14 +91,14 @@ export default async function BidderProfilePage() {
             )}
             <Link
               href="/bidder/credentials"
-              className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-dark transition-colors"
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-colors hover:text-primary-dark"
             >
               Credentials
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
-        <div className="mt-4 flex items-center gap-3 text-xs text-text-muted">
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-text-muted">
           <span className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2.5 py-0.5 font-medium text-secondary capitalize">
             {profile.role}
           </span>

@@ -86,8 +86,8 @@ export default async function CredentialsPage() {
       </div>
 
       {/* Badge Status */}
-      <div className="mb-8 rounded-xl border border-border bg-surface p-6 shadow-sm">
-        <div className="flex items-center justify-between">
+      <div className="mb-8 rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             {badgeInfo ? (
               <div
@@ -100,7 +100,7 @@ export default async function CredentialsPage() {
                 <Star className="h-8 w-8 text-gray-300" />
               </div>
             )}
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-bold text-text-primary">
                 {badgeInfo ? badgeInfo.label : "No Badge Yet"}
               </h2>
@@ -110,9 +110,9 @@ export default async function CredentialsPage() {
             </div>
           </div>
 
-          <div className="text-right">
+          <div className="sm:text-right">
             <p className="text-xs text-text-muted mb-2">Badge Requirements</p>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:gap-3">
               {(["bronze", "silver", "gold"] as const).map((level) => {
                 const cfg = BADGE_CONFIG[level];
                 const isActive =

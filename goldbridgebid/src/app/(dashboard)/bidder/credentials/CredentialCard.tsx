@@ -70,7 +70,7 @@ export default function CredentialCard({
 
   return (
     <div
-      className={`rounded-xl border-2 p-5 shadow-sm transition-colors ${
+      className={`rounded-xl border-2 p-4 shadow-sm transition-colors sm:p-5 ${
         isUploaded
           ? "border-green-200 bg-green-50/50"
           : "border-border bg-surface"
@@ -79,7 +79,7 @@ export default function CredentialCard({
       <div className="flex items-start gap-3">
         <span className="text-2xl">{icon}</span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold text-text-primary">{label}</h3>
             {required && (
               <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
@@ -100,12 +100,12 @@ export default function CredentialCard({
 
           <div className="mt-3">
             {isUploaded ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <a
                   href={currentUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover transition-colors"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover sm:w-auto sm:justify-start sm:py-1.5"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   View Document
@@ -113,7 +113,7 @@ export default function CredentialCard({
                 <button
                   onClick={() => fileRef.current?.click()}
                   disabled={uploading}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover transition-colors disabled:opacity-50"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-50 sm:w-auto sm:justify-start sm:py-1.5"
                 >
                   {uploading ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -125,7 +125,7 @@ export default function CredentialCard({
                 <button
                   onClick={handleRemove}
                   disabled={removing}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50 sm:w-auto sm:justify-start sm:py-1.5"
                 >
                   {removing ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -139,7 +139,7 @@ export default function CredentialCard({
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
-                className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-xs font-semibold text-white hover:bg-secondary-dark transition-colors disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-50 sm:w-auto sm:py-2"
               >
                 {uploading ? (
                   <>
