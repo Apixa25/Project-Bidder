@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import NotificationsList from "@/components/notifications/NotificationsList";
+import { userHasRole } from "@/lib/auth/roles";
 
 export default async function BidderNotificationsPage() {
   const supabase = await createClient();
@@ -10,6 +11,8 @@ export default async function BidderNotificationsPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  if (!(await userHasRole(user.id, "bidder"))) redirect("/login");
 
   const { data: notifications } = await supabase
     .from("notifications")

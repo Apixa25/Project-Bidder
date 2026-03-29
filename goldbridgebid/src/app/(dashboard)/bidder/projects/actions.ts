@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { TradeCategory } from "@/types/database";
+import { userHasRole } from "@/lib/auth/roles";
 
 export async function submitBid(formData: FormData) {
   const supabase = await createClient();
@@ -13,6 +14,10 @@ export async function submitBid(formData: FormData) {
 
   if (!user) {
     return { error: "You must be logged in to submit a bid." };
+  }
+
+  if (!(await userHasRole(user.id, "bidder"))) {
+    return { error: "Enable contractor mode to submit bids." };
   }
 
   const projectId = formData.get("projectId") as string;

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { userHasRole } from "@/lib/auth/roles";
 
 type CredentialField =
   | "license_url"
@@ -28,6 +29,10 @@ export async function uploadCredential(formData: FormData) {
   } = await supabase.auth.getUser();
 
   if (!user) return { error: "Not authenticated" };
+
+  if (!(await userHasRole(user.id, "bidder"))) {
+    return { error: "Enable contractor mode to manage credentials." };
+  }
 
   const field = formData.get("field") as string;
   const file = formData.get("file") as File;
@@ -78,6 +83,10 @@ export async function removeCredential(field: string) {
   } = await supabase.auth.getUser();
 
   if (!user) return { error: "Not authenticated" };
+
+  if (!(await userHasRole(user.id, "bidder"))) {
+    return { error: "Enable contractor mode to manage credentials." };
+  }
 
   if (!VALID_FIELDS.includes(field as CredentialField)) {
     return { error: "Invalid credential type." };

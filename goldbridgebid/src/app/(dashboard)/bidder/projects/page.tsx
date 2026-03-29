@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { MapPin, Calendar, DollarSign, Search, ImageIcon } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
+import { userHasRole } from "@/lib/auth/roles";
 
 export default async function BrowseProjectsPage() {
   const supabase = await createClient();
@@ -13,6 +14,8 @@ export default async function BrowseProjectsPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  if (!(await userHasRole(user.id, "bidder"))) redirect("/login");
 
   const { data: projects } = await supabase
     .from("projects")

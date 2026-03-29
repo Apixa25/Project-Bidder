@@ -22,6 +22,7 @@ import ProfileReviewSummary from "@/components/profile/ProfileReviewSummary";
 import ProfileReviewsList from "@/components/profile/ProfileReviewsList";
 import PublicReviewForm from "@/components/profile/PublicReviewForm";
 import VerifiedReviewForm from "@/components/profile/VerifiedReviewForm";
+import { getUserRoles } from "@/lib/auth/roles";
 
 export default async function PublicProfilePage({
   params,
@@ -87,12 +88,6 @@ export default async function PublicProfilePage({
         References: credentials.references_url,
       }
     : null;
-
-  const { data: viewerProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("user_id", user.id)
-    .single();
 
   const isOwnProfile = user.id === userId;
 
@@ -195,8 +190,12 @@ export default async function PublicProfilePage({
       title: project.title,
     }));
 
-  const backHref =
-    viewerProfile?.role === "customer" ? "/customer" : "/bidder";
+  const viewerRoles = await getUserRoles(user.id);
+  const backHref = viewerRoles.includes("admin")
+    ? "/admin"
+    : viewerRoles.includes("customer")
+      ? "/customer"
+      : "/bidder";
 
   const socialLinks = [
     { url: profile.website_url, label: "Website", icon: Globe },

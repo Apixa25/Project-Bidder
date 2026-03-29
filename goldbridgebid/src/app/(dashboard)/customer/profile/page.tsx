@@ -5,6 +5,7 @@ import ProfileForm from "@/components/profile/ProfileForm";
 import AvatarUpload from "@/components/profile/AvatarUpload";
 import PortfolioGallery from "@/components/profile/PortfolioGallery";
 import SocialLinksForm from "@/components/profile/SocialLinksForm";
+import { userHasRole } from "@/lib/auth/roles";
 
 export default async function CustomerProfilePage() {
   const supabase = await createClient();
@@ -14,6 +15,8 @@ export default async function CustomerProfilePage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  if (!(await userHasRole(user.id, "customer"))) redirect("/login");
 
   const { data: profile } = await supabase
     .from("profiles")

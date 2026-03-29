@@ -17,6 +17,7 @@ import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import BidForm from "./BidForm";
 import ProjectPhotosBidder from "./ProjectPhotosBidder";
+import { userHasRole } from "@/lib/auth/roles";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
   title: "Title",
@@ -46,6 +47,8 @@ export default async function BidderProjectDetailPage({
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  if (!(await userHasRole(user.id, "bidder"))) redirect("/login");
 
   const { data: project } = await supabase
     .from("projects")

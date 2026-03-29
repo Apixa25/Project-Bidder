@@ -30,3 +30,18 @@ export async function userHasRole(userId: string, requiredRole: UserRole) {
   const roles = await getUserRoles(userId);
   return roles.includes(requiredRole);
 }
+
+export async function getProfileRevalidatePaths(userId: string) {
+  const roles = await getUserRoles(userId);
+  const paths = new Set<string>([`/profile/${userId}`]);
+
+  if (roles.includes("customer")) {
+    paths.add("/customer/profile");
+  }
+
+  if (roles.includes("bidder")) {
+    paths.add("/bidder/profile");
+  }
+
+  return [...paths];
+}

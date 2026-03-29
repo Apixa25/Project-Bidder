@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { TradeCategory } from "@/types/database";
 import { generateAndUploadThumbnail } from "@/lib/generate-thumbnail";
+import { userHasRole } from "@/lib/auth/roles";
 
 export async function createProject(formData: FormData) {
   const supabase = await createClient();
@@ -14,6 +15,10 @@ export async function createProject(formData: FormData) {
 
   if (!user) {
     return { error: "You must be logged in to create a project." };
+  }
+
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to post and manage projects." };
   }
 
   const title = formData.get("title") as string;
@@ -136,6 +141,10 @@ export async function updateProjectStatus(projectId: string, status: "open" | "c
 
   if (!user) return { error: "Unauthorized" };
 
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to manage projects." };
+  }
+
   const { error } = await supabase
     .from("projects")
     .update({
@@ -185,6 +194,10 @@ export async function awardBid(projectId: string, bidId: string) {
   } = await supabase.auth.getUser();
 
   if (!user) return { error: "Unauthorized" };
+
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to award projects." };
+  }
 
   const { data: project } = await supabase
     .from("projects")
@@ -270,6 +283,10 @@ export async function deleteProject(projectId: string) {
 
   if (!user) return { error: "Unauthorized" };
 
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to manage projects." };
+  }
+
   const { data: project } = await supabase
     .from("projects")
     .select("id, customer_id, title")
@@ -339,6 +356,10 @@ export async function saveAnnotation(projectFileId: string, formData: FormData) 
 
   if (!user) return { error: "Unauthorized" };
 
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to annotate project files." };
+  }
+
   const blob = formData.get("annotatedImage") as File;
   if (!blob || blob.size === 0) return { error: "No annotated image provided." };
 
@@ -396,6 +417,10 @@ export async function updateProject(projectId: string, formData: FormData) {
   } = await supabase.auth.getUser();
 
   if (!user) return { error: "Unauthorized" };
+
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to update projects." };
+  }
 
   // Fetch current project to compare changes
   const { data: current } = await supabase

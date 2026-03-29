@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import ConversationView from "@/components/messaging/ConversationView";
 import { markMessagesRead } from "@/app/(dashboard)/messages/actions";
+import { userHasRole } from "@/lib/auth/roles";
 
 export default async function CustomerConversationPage({
   params,
@@ -18,6 +19,8 @@ export default async function CustomerConversationPage({
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  if (!(await userHasRole(user.id, "customer"))) redirect("/login");
 
   const { data: project } = await supabase
     .from("projects")

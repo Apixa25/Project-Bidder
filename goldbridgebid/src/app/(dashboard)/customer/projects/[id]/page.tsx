@@ -22,6 +22,7 @@ import type { TradeCategory, BadgeLevel } from "@/types/database";
 import ProjectStatusActions from "./ProjectStatusActions";
 import ProjectPhotos from "./ProjectPhotos";
 import AwardBidButton from "./AwardBidButton";
+import { userHasRole } from "@/lib/auth/roles";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
   title: "Title",
@@ -51,6 +52,8 @@ export default async function ProjectDetailPage({
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  if (!(await userHasRole(user.id, "customer"))) redirect("/login");
 
   const { data: project } = await supabase
     .from("projects")

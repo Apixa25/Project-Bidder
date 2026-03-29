@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
+import { userHasRole } from "@/lib/auth/roles";
 
 export default async function MyBidsPage() {
   const supabase = await createClient();
@@ -20,6 +21,8 @@ export default async function MyBidsPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  if (!(await userHasRole(user.id, "bidder"))) redirect("/login");
 
   const { data: bids } = await supabase
     .from("bids")

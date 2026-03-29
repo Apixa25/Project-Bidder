@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { generateAndUploadThumbnail } from "@/lib/generate-thumbnail";
+import { getProfileRevalidatePaths } from "@/lib/auth/roles";
 
 export async function uploadAvatar(formData: FormData) {
   const supabase = await createClient();
@@ -55,14 +56,8 @@ export async function uploadAvatar(formData: FormData) {
     return { error: "Failed to save avatar." };
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("user_id", user.id)
-    .single();
-
-  const basePath = profile?.role === "bidder" ? "/bidder" : "/customer";
-  revalidatePath(`${basePath}/profile`);
+  const revalidatePaths = await getProfileRevalidatePaths(user.id);
+  revalidatePaths.forEach((path) => revalidatePath(path));
 
   return { success: true, url: publicUrl };
 }
@@ -81,14 +76,8 @@ export async function removeAvatar() {
     .update({ avatar_url: null })
     .eq("user_id", user.id);
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("user_id", user.id)
-    .single();
-
-  const basePath = profile?.role === "bidder" ? "/bidder" : "/customer";
-  revalidatePath(`${basePath}/profile`);
+  const revalidatePaths = await getProfileRevalidatePaths(user.id);
+  revalidatePaths.forEach((path) => revalidatePath(path));
 
   return { success: true };
 }

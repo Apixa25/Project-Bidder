@@ -4,6 +4,7 @@ import { BADGE_CONFIG } from "@/lib/badges";
 import type { BadgeLevel } from "@/types/database";
 import { Shield, Star } from "lucide-react";
 import CredentialCard from "./CredentialCard";
+import { userHasRole } from "@/lib/auth/roles";
 
 const CREDENTIAL_FIELDS = [
   {
@@ -58,6 +59,8 @@ export default async function CredentialsPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  if (!(await userHasRole(user.id, "bidder"))) redirect("/login");
 
   const { data: credentials } = await supabase
     .from("bidder_credentials")

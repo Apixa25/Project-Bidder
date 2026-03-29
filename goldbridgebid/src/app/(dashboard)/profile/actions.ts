@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { getProfileRevalidatePaths } from "@/lib/auth/roles";
 
 export async function updateProfile(formData: FormData) {
   const supabase = await createClient();
@@ -49,14 +50,8 @@ export async function updateProfile(formData: FormData) {
     return { error: "Failed to update profile." };
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("user_id", user.id)
-    .single();
-
-  const basePath = profile?.role === "bidder" ? "/bidder" : "/customer";
-  revalidatePath(`${basePath}/profile`);
+  const revalidatePaths = await getProfileRevalidatePaths(user.id);
+  revalidatePaths.forEach((path) => revalidatePath(path));
 
   return { success: true };
 }

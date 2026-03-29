@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { MessageSquare, FolderOpen } from "lucide-react";
+import { userHasRole } from "@/lib/auth/roles";
 
 export default async function CustomerMessagesPage() {
   const supabase = await createClient();
@@ -11,6 +12,8 @@ export default async function CustomerMessagesPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  if (!(await userHasRole(user.id, "customer"))) redirect("/login");
 
   const { data: messages } = await supabase
     .from("messages")
