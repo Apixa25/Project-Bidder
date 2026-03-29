@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import DashboardNav from "@/components/layout/DashboardNav";
+import DashboardShell from "@/components/layout/DashboardShell";
 
 export default async function DashboardLayout({
   children,
@@ -34,15 +34,12 @@ export default async function DashboardLayout({
     .eq("read", false);
 
   return (
-    <div className="flex h-screen bg-bg-warm">
-      <DashboardNav
-        role={profile.role}
-        userName={profile.full_name || profile.email}
-        unreadNotifications={unreadCount || 0}
-      />
-      <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-6xl px-8 py-8">{children}</div>
-      </main>
-    </div>
+    <DashboardShell
+      role={profile.role}
+      userName={profile.full_name || profile.email}
+      unreadNotifications={unreadCount || 0}
+    >
+      {children}
+    </DashboardShell>
   );
 }

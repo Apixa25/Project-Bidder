@@ -16,6 +16,7 @@ import {
   BarChart3,
   Flag,
   ScrollText,
+  X,
 } from "lucide-react";
 import { signOut } from "@/app/(auth)/actions";
 import type { UserRole } from "@/types/database";
@@ -25,6 +26,8 @@ interface DashboardNavProps {
   role: UserRole;
   userName: string;
   unreadNotifications?: number;
+  isMobileOpen?: boolean;
+  onClose?: () => void;
 }
 
 const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof LayoutDashboard }[]> = {
@@ -58,14 +61,31 @@ export default function DashboardNav({
   role,
   userName,
   unreadNotifications = 0,
+  isMobileOpen = false,
+  onClose,
 }: DashboardNavProps) {
   const pathname = usePathname();
   const items = NAV_ITEMS[role];
 
   return (
-    <nav className="flex h-screen w-64 flex-col border-r border-border bg-surface">
+    <nav
+      id="dashboard-navigation"
+      className={`fixed inset-y-0 left-0 z-40 flex h-full w-[85vw] max-w-72 flex-col border-r border-border bg-surface shadow-2xl transition-transform duration-300 ease-out lg:static lg:h-screen lg:w-64 lg:max-w-none lg:translate-x-0 lg:shadow-none ${
+        isMobileOpen ? "translate-x-0" : "-translate-x-full"
+      }`}
+    >
       {/* Logo */}
       <div className="border-b border-border px-6 py-4">
+        <div className="mb-3 flex items-center justify-end lg:hidden">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+            aria-label="Close navigation menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
         <Link href="/" className="flex flex-col items-center gap-2">
           <Image
             src="/logo-mark.png"
@@ -101,6 +121,7 @@ export default function DashboardNav({
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  onClick={onClose}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                     isActive
                       ? "bg-primary/10 text-primary"
@@ -120,6 +141,7 @@ export default function DashboardNav({
       <div className="border-t border-border px-3 py-4 space-y-1">
         <Link
           href={`/${role}/notifications`}
+          onClick={onClose}
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors"
         >
           <Bell className="h-5 w-5 shrink-0" />
