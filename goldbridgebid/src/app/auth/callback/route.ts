@@ -22,6 +22,14 @@ export async function GET(request: Request) {
         .single();
 
       if (existingProfile) {
+        await supabase.from("user_roles").upsert(
+          {
+            user_id: sessionData.user.id,
+            role: existingProfile.role as UserRole,
+          },
+          { onConflict: "user_id,role", ignoreDuplicates: true }
+        );
+
         // Existing user — redirect based on their STORED role
         const storedRole = existingProfile.role as UserRole;
         const redirectPath =
@@ -47,6 +55,14 @@ export async function GET(request: Request) {
         phone: "",
         address: "",
       });
+
+      await supabase.from("user_roles").upsert(
+        {
+          user_id: sessionData.user.id,
+          role,
+        },
+        { onConflict: "user_id,role", ignoreDuplicates: true }
+      );
 
       if (role === "bidder") {
         await supabase.from("bidder_credentials").insert({

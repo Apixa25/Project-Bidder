@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Award, XCircle, Loader2, Trash2, Pencil } from "lucide-react";
+import { XCircle, Loader2, Trash2, Pencil } from "lucide-react";
 import { updateProjectStatus, deleteProject } from "../actions";
 import Link from "next/link";
 
@@ -11,18 +11,13 @@ interface ProjectStatusActionsProps {
   currentStatus: string;
 }
 
-export default function ProjectStatusActions({
-  projectId,
-  currentStatus,
-}: ProjectStatusActionsProps) {
+export default function ProjectStatusActions({ projectId, currentStatus }: ProjectStatusActionsProps) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
 
-  async function handleStatusChange(status: "awarded" | "closed") {
+  async function handleStatusChange(status: "closed") {
     const confirmed = window.confirm(
-      status === "awarded"
-        ? "Award this project? All bidders will be notified that the project has been awarded."
-        : "Close this project? It will no longer accept bids."
+      "Close this project? It will no longer accept bids."
     );
 
     if (!confirmed) return;
@@ -69,18 +64,6 @@ export default function ProjectStatusActions({
 
       {currentStatus === "open" && (
         <>
-          <button
-            onClick={() => handleStatusChange("awarded")}
-            disabled={loading !== null}
-            className="flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-secondary-dark transition-colors disabled:opacity-60"
-          >
-            {loading === "awarded" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Award className="h-4 w-4" />
-            )}
-            Award Project
-          </button>
           <button
             onClick={() => handleStatusChange("closed")}
             disabled={loading !== null}

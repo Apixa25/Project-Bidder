@@ -4,6 +4,8 @@ export type ProjectStatus = "open" | "awarded" | "closed";
 
 export type BadgeLevel = "gold" | "silver" | "bronze" | null;
 
+export type ReviewType = "verified_platform" | "public_reference";
+
 export type TradeCategory =
   // Legacy values (kept for backward compatibility with existing data)
   | "electrical"
@@ -205,6 +207,13 @@ export interface AdminAuditLog {
   created_at: string;
 }
 
+export interface UserRoleMembership {
+  id: string;
+  user_id: string;
+  role: UserRole;
+  created_at: string;
+}
+
 export type PortfolioItemType = "showcase" | "before_after";
 
 export interface PortfolioItem {
@@ -250,7 +259,36 @@ export interface Project {
   desired_start_date: string | null;
   timeline: string | null;
   status: ProjectStatus;
+  awarded_bid_id: string | null;
+  awarded_bidder_id: string | null;
+  awarded_at: string | null;
   bid_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProfileHeart {
+  id: string;
+  giver_user_id: string;
+  target_user_id: string;
+  created_at: string;
+}
+
+export interface UserReview {
+  id: string;
+  review_type: ReviewType;
+  reviewer_user_id: string;
+  reviewee_user_id: string;
+  project_id: string | null;
+  rating_overall: number;
+  rating_communication: number | null;
+  rating_quality: number | null;
+  rating_reliability: number | null;
+  review_title: string | null;
+  review_body: string;
+  relationship_context: string | null;
+  would_work_again: boolean | null;
+  status: "published" | "flagged" | "hidden";
   created_at: string;
   updated_at: string;
 }
@@ -324,7 +362,7 @@ export interface Notification {
 export interface FlaggedContent {
   id: string;
   reporter_id: string;
-  content_type: "project" | "bid" | "user" | "message";
+  content_type: "project" | "bid" | "user" | "message" | "review";
   content_id: string;
   reason: string;
   resolved: boolean;
@@ -400,6 +438,9 @@ type ProjectInsert = {
   budget_max?: number | null;
   desired_start_date?: string | null;
   timeline?: string | null;
+  awarded_bid_id?: string | null;
+  awarded_bidder_id?: string | null;
+  awarded_at?: string | null;
 };
 
 type BidInsert = {
@@ -430,6 +471,32 @@ type NotificationInsert = {
   link?: string | null;
 };
 
+type UserRoleMembershipInsert = {
+  user_id: string;
+  role: UserRole;
+};
+
+type ProfileHeartInsert = {
+  giver_user_id: string;
+  target_user_id: string;
+};
+
+type UserReviewInsert = {
+  review_type: ReviewType;
+  reviewer_user_id: string;
+  reviewee_user_id: string;
+  review_body: string;
+  rating_overall: number;
+  project_id?: string | null;
+  rating_communication?: number | null;
+  rating_quality?: number | null;
+  rating_reliability?: number | null;
+  review_title?: string | null;
+  relationship_context?: string | null;
+  would_work_again?: boolean | null;
+  status?: "published" | "flagged" | "hidden";
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -449,6 +516,24 @@ export interface Database {
         Row: Project;
         Insert: ProjectInsert;
         Update: Partial<Omit<ProjectInsert, "customer_id">> & { status?: ProjectStatus };
+        Relationships: [];
+      };
+      user_roles: {
+        Row: UserRoleMembership;
+        Insert: UserRoleMembershipInsert;
+        Update: never;
+        Relationships: [];
+      };
+      profile_hearts: {
+        Row: ProfileHeart;
+        Insert: ProfileHeartInsert;
+        Update: never;
+        Relationships: [];
+      };
+      user_reviews: {
+        Row: UserReview;
+        Insert: UserReviewInsert;
+        Update: Partial<Omit<UserReviewInsert, "review_type" | "reviewer_user_id" | "reviewee_user_id">>;
         Relationships: [];
       };
       project_files: {
@@ -515,6 +600,7 @@ export interface Database {
       user_role: UserRole;
       project_status: ProjectStatus;
       trade_category: TradeCategory;
+      review_type: ReviewType;
     };
   };
 }

@@ -17,6 +17,11 @@ import {
 import { BADGE_CONFIG } from "@/lib/badges";
 import type { BadgeLevel } from "@/types/database";
 import PortfolioGallery from "@/components/profile/PortfolioGallery";
+import ProfileHeartButton from "@/components/profile/ProfileHeartButton";
+import ProfileReviewSummary from "@/components/profile/ProfileReviewSummary";
+import ProfileReviewsList from "@/components/profile/ProfileReviewsList";
+import PublicReviewForm from "@/components/profile/PublicReviewForm";
+import VerifiedReviewForm from "@/components/profile/VerifiedReviewForm";
 
 export default async function PublicProfilePage({
   params,
@@ -89,6 +94,107 @@ export default async function PublicProfilePage({
     .eq("user_id", user.id)
     .single();
 
+  const isOwnProfile = user.id === userId;
+
+  const { count: heartCount } = await supabase
+    .from("profile_hearts")
+    .select("*", { count: "exact", head: true })
+    .eq("target_user_id", userId);
+
+  const { count: viewerHeartCount } = isOwnProfile
+    ? { count: 0 }
+    : await supabase
+        .from("profile_hearts")
+        .select("*", { count: "exact", head: true })
+        .eq("target_user_id", userId)
+        .eq("giver_user_id", user.id);
+
+  const { data: reviews } = await supabase
+    .from("user_reviews")
+    .select("*")
+    .eq("reviewee_user_id", userId)
+    .eq("status", "published")
+    .order("created_at", { ascending: false });
+
+  const reviewerIds = Array.from(new Set((reviews || []).map((review) => review.reviewer_user_id)));
+  const { data: reviewerProfiles } = reviewerIds.length
+    ? await supabase
+        .from("profiles")
+        .select("user_id, full_name, role")
+        .in("user_id", reviewerIds)
+    : { data: [] };
+
+  const reviewerMap = new Map(
+    (reviewerProfiles || []).map((reviewer) => [reviewer.user_id, reviewer])
+  );
+
+  const verifiedReviews = (reviews || []).filter(
+    (review) => review.review_type === "verified_platform"
+  );
+  const publicReviews = (reviews || []).filter(
+    (review) => review.review_type === "public_reference"
+  );
+  const verifiedAverageRating =
+    verifiedReviews.length > 0
+      ? verifiedReviews.reduce((sum, review) => sum + review.rating_overall, 0) /
+        verifiedReviews.length
+      : null;
+
+  const reviewItems = (reviews || []).slice(0, 10).map((review) => ({
+    ...review,
+    reviewer: reviewerMap.get(review.reviewer_user_id) || null,
+  }));
+
+  const { data: existingPublicReview } = isOwnProfile
+    ? { data: null }
+    : await supabase
+        .from("user_reviews")
+        .select("id")
+        .eq("reviewer_user_id", user.id)
+        .eq("reviewee_user_id", userId)
+        .eq("review_type", "public_reference")
+        .maybeSingle();
+
+  const { data: existingVerifiedReviews } = isOwnProfile
+    ? { data: [] }
+    : await supabase
+        .from("user_reviews")
+        .select("project_id")
+        .eq("reviewer_user_id", user.id)
+        .eq("reviewee_user_id", userId)
+        .eq("review_type", "verified_platform");
+
+  const reviewedProjectIds = new Set(
+    (existingVerifiedReviews || [])
+      .map((review) => review.project_id)
+      .filter(Boolean)
+  );
+
+  const { data: customerAwardedProjects } = isOwnProfile
+    ? { data: [] }
+    : await supabase
+        .from("projects")
+        .select("id, title")
+        .eq("status", "awarded")
+        .eq("customer_id", user.id)
+        .eq("awarded_bidder_id", userId);
+
+  const { data: bidderAwardedProjects } = isOwnProfile
+    ? { data: [] }
+    : await supabase
+        .from("projects")
+        .select("id, title")
+        .eq("status", "awarded")
+        .eq("customer_id", userId)
+        .eq("awarded_bidder_id", user.id);
+
+  const eligibleProjects = [...(customerAwardedProjects || []), ...(bidderAwardedProjects || [])]
+    .filter((project) => !reviewedProjectIds.has(project.id))
+    .map((project) => ({
+      id: project.id,
+      title: project.title,
+    }));
+
   const backHref =
     viewerProfile?.role === "customer" ? "/customer" : "/bidder";
 
@@ -118,22 +224,30 @@ export default async function PublicProfilePage({
       <div className="mb-8 rounded-xl border border-border bg-surface p-8 shadow-sm">
         <div className="flex items-start gap-6">
           {/* Avatar */}
-          {profile.avatar_url ? (
-            <img
-              src={profile.avatar_url}
-              alt={profile.full_name}
-              className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg shrink-0"
+          <div className="relative shrink-0">
+            {profile.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={profile.full_name}
+                className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg"
+              />
+            ) : (
+              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-dark text-2xl font-bold text-white border-4 border-white shadow-lg">
+                {profile.full_name
+                  .split(" ")
+                  .map((n: string) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2)}
+              </div>
+            )}
+            <ProfileHeartButton
+              targetUserId={userId}
+              initialCount={heartCount || 0}
+              viewerHasHearted={(viewerHeartCount || 0) > 0}
+              isOwnProfile={isOwnProfile}
             />
-          ) : (
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-dark text-2xl font-bold text-white border-4 border-white shadow-lg shrink-0">
-              {profile.full_name
-                .split(" ")
-                .map((n: string) => n[0])
-                .join("")
-                .toUpperCase()
-                .slice(0, 2)}
-            </div>
-          )}
+          </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
@@ -201,6 +315,18 @@ export default async function PublicProfilePage({
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
+          <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-text-primary">
+              Reputation Snapshot
+            </h2>
+            <ProfileReviewSummary
+              heartCount={heartCount || 0}
+              verifiedAverageRating={verifiedAverageRating}
+              verifiedReviewCount={verifiedReviews.length}
+              publicReviewCount={publicReviews.length}
+            />
+          </div>
+
           {/* Portfolio */}
           {(portfolioItems && portfolioItems.length > 0) && (
             <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
@@ -211,10 +337,50 @@ export default async function PublicProfilePage({
               />
             </div>
           )}
+
+          <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-text-primary">
+              Reviews
+            </h2>
+            <ProfileReviewsList reviews={reviewItems} />
+          </div>
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {!isOwnProfile && (
+            <>
+              <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+                <h3 className="mb-3 text-sm font-semibold text-text-primary">
+                  Verified Project Review
+                </h3>
+                <p className="mb-4 text-xs text-text-muted">
+                  Available only after an awarded GoldBridgeBid project with this user.
+                </p>
+                <VerifiedReviewForm
+                  revieweeUserId={userId}
+                  eligibleProjects={eligibleProjects}
+                />
+              </div>
+
+              <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+                <h3 className="mb-3 text-sm font-semibold text-text-primary">
+                  Public Reference
+                </h3>
+                <p className="mb-4 text-xs text-text-muted">
+                  Share past real-world experience with this user. Public references are labeled separately from verified platform reviews.
+                </p>
+                {existingPublicReview ? (
+                  <p className="text-sm text-text-secondary">
+                    You already posted a public reference for this user.
+                  </p>
+                ) : (
+                  <PublicReviewForm revieweeUserId={userId} />
+                )}
+              </div>
+            </>
+          )}
+
           {/* Credentials (bidder only) */}
           {credChecks && (
             <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">

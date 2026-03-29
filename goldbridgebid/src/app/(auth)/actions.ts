@@ -54,6 +54,16 @@ export async function signup(formData: FormData) {
       return { error: "Account created but profile setup failed. Please contact support." };
     }
 
+    const { error: roleError } = await supabase.from("user_roles").insert({
+      user_id: authData.user.id,
+      role,
+    });
+
+    if (roleError) {
+      console.error("User role creation error:", roleError);
+      return { error: "Account created but role setup failed. Please contact support." };
+    }
+
     if (role === "bidder") {
       await supabase.from("bidder_credentials").insert({
         user_id: authData.user.id,
@@ -74,7 +84,7 @@ export async function login(formData: FormData) {
     return { error: "Email and password are required." };
   }
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: loginData, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
@@ -87,6 +97,16 @@ export async function login(formData: FormData) {
     .from("profiles")
     .select("role")
     .single();
+
+  if (profile?.role && loginData.user) {
+    await supabase.from("user_roles").upsert(
+      {
+        user_id: loginData.user.id,
+        role: profile.role,
+      },
+      { onConflict: "user_id,role", ignoreDuplicates: true }
+    );
+  }
 
   if (profile?.role === "admin") {
     redirect("/admin");

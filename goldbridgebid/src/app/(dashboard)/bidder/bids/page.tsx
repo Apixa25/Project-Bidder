@@ -23,7 +23,9 @@ export default async function MyBidsPage() {
 
   const { data: bids } = await supabase
     .from("bids")
-    .select("*, bid_files(*), projects!inner(title, status, location_city, location_state, trades)")
+    .select(
+      "*, bid_files(*), projects!inner(title, status, location_city, location_state, trades, awarded_bid_id)"
+    )
     .eq("bidder_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -54,6 +56,7 @@ export default async function MyBidsPage() {
               location_city: string;
               location_state: string;
               trades: TradeCategory[];
+              awarded_bid_id: string | null;
             };
             const bidFiles = bid.bid_files as unknown as {
               id: string;
@@ -80,15 +83,19 @@ export default async function MyBidsPage() {
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                           project.status === "open"
                             ? "bg-green-100 text-green-700"
-                            : project.status === "awarded"
-                              ? "bg-amber-100 text-amber-700"
+                            : project.status === "awarded" && project.awarded_bid_id === bid.id
+                              ? "bg-secondary/15 text-secondary"
+                              : project.status === "awarded"
+                                ? "bg-amber-100 text-amber-700"
                               : "bg-gray-100 text-gray-600"
                         }`}
                       >
                         {project.status === "open"
                           ? "Open"
-                          : project.status === "awarded"
-                            ? "Awarded"
+                          : project.status === "awarded" && project.awarded_bid_id === bid.id
+                            ? "Awarded to You"
+                            : project.status === "awarded"
+                              ? "Awarded Elsewhere"
                             : "Closed"}
                       </span>
                     </div>

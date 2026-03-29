@@ -21,6 +21,7 @@ import { BADGE_CONFIG } from "@/lib/badges";
 import type { TradeCategory, BadgeLevel } from "@/types/database";
 import ProjectStatusActions from "./ProjectStatusActions";
 import ProjectPhotos from "./ProjectPhotos";
+import AwardBidButton from "./AwardBidButton";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
   title: "Title",
@@ -101,6 +102,9 @@ export default async function ProjectDetailPage({
   const credentialMap = new Map(
     (bidderCredentials || []).map((c) => [c.user_id, c])
   );
+  const awardedProfile = project.awarded_bidder_id
+    ? profileMap.get(project.awarded_bidder_id)
+    : null;
 
   return (
     <div>
@@ -231,6 +235,24 @@ export default async function ProjectDetailPage({
             <ProjectPhotos files={projectFiles} />
           )}
 
+          {project.status === "awarded" && (
+            <section className="rounded-xl border border-secondary/30 bg-secondary/10 p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-text-primary">
+                Winning Bid Selected
+              </h2>
+              <p className="mt-2 text-sm text-text-secondary">
+                {awardedProfile
+                  ? `${awardedProfile.full_name}${awardedProfile.business_name ? ` • ${awardedProfile.business_name}` : ""}`
+                  : "A winning contractor has been selected for this project."}
+              </p>
+              {project.awarded_at && (
+                <p className="mt-1 text-xs text-text-muted">
+                  Awarded on {new Date(project.awarded_at).toLocaleString()}
+                </p>
+              )}
+            </section>
+          )}
+
           {/* Bids Section */}
           <section className="rounded-xl border border-border bg-surface shadow-sm">
             <div className="border-b border-border px-6 py-4">
@@ -303,6 +325,11 @@ export default async function ProjectDetailPage({
                           </div>
                         </div>
                         <div className="text-right">
+                          {project.awarded_bid_id === bid.id && (
+                            <span className="mb-2 inline-flex items-center rounded-full bg-secondary/15 px-2.5 py-0.5 text-xs font-semibold text-secondary">
+                              Winning Bid
+                            </span>
+                          )}
                           <p className="text-2xl font-bold text-primary">
                             ${Number(bid.price).toLocaleString()}
                           </p>
@@ -400,6 +427,13 @@ export default async function ProjectDetailPage({
                           <MessageSquare className="h-4 w-4" />
                           Message
                         </Link>
+                        {project.status === "open" && (
+                          <AwardBidButton
+                            projectId={project.id}
+                            bidId={bid.id}
+                            bidderName={profile?.full_name || "this contractor"}
+                          />
+                        )}
                       </div>
 
                       {/* Bid date stamp */}

@@ -127,10 +127,7 @@ export async function createProject(formData: FormData) {
   redirect(`/customer/projects/${project.id}`);
 }
 
-export async function updateProjectStatus(
-  projectId: string,
-  status: "open" | "awarded" | "closed"
-) {
+export async function updateProjectStatus(projectId: string, status: "open" | "closed") {
   const supabase = await createClient();
 
   const {
@@ -141,7 +138,16 @@ export async function updateProjectStatus(
 
   const { error } = await supabase
     .from("projects")
-    .update({ status })
+    .update({
+      status,
+      ...(status === "closed"
+        ? {}
+        : {
+            awarded_bid_id: null,
+            awarded_bidder_id: null,
+            awarded_at: null,
+          }),
+    })
     .eq("id", projectId)
     .eq("customer_id", user.id);
 
@@ -149,8 +155,7 @@ export async function updateProjectStatus(
     return { error: "Failed to update project status." };
   }
 
-  // If awarding, notify all bidders who bid on this project
-  if (status === "awarded" || status === "closed") {
+  if (status === "closed") {
     const { data: bids } = await supabase
       .from("bids")
       .select("bidder_id")
@@ -159,20 +164,98 @@ export async function updateProjectStatus(
     if (bids) {
       const notifications = bids.map((bid) => ({
         user_id: bid.bidder_id,
-        type: status === "awarded" ? "project_awarded" : "project_closed",
-        title:
-          status === "awarded"
-            ? "Project has been awarded"
-            : "Project has been closed",
-        message:
-          status === "awarded"
-            ? "A project you bid on has been awarded to a contractor."
-            : "A project you bid on has been closed.",
+        type: "project_closed",
+        title: "Project has been closed",
+        message: "A project you bid on has been closed.",
         link: `/bidder/bids`,
       }));
 
       await supabase.from("notifications").insert(notifications);
     }
+  }
+
+  return { success: true };
+}
+
+export async function awardBid(projectId: string, bidId: string) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Unauthorized" };
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id, title, status, customer_id, awarded_bid_id")
+    .eq("id", projectId)
+    .eq("customer_id", user.id)
+    .single();
+
+  if (!project) {
+    return { error: "Project not found." };
+  }
+
+  if (project.status !== "open") {
+    return { error: "Only open projects can be awarded." };
+  }
+
+  if (project.awarded_bid_id) {
+    return { error: "This project already has a winning bid." };
+  }
+
+  const { data: bid } = await supabase
+    .from("bids")
+    .select("id, bidder_id")
+    .eq("id", bidId)
+    .eq("project_id", projectId)
+    .single();
+
+  if (!bid) {
+    return { error: "Winning bid not found." };
+  }
+
+  const awardedAt = new Date().toISOString();
+
+  const { error: updateError } = await supabase
+    .from("projects")
+    .update({
+      status: "awarded",
+      awarded_bid_id: bid.id,
+      awarded_bidder_id: bid.bidder_id,
+      awarded_at: awardedAt,
+    })
+    .eq("id", projectId)
+    .eq("customer_id", user.id)
+    .eq("status", "open");
+
+  if (updateError) {
+    console.error("Award bid error:", updateError);
+    return { error: "Failed to award this bid. Please try again." };
+  }
+
+  const { data: allBids } = await supabase
+    .from("bids")
+    .select("bidder_id")
+    .eq("project_id", projectId);
+
+  if (allBids && allBids.length > 0) {
+    const notifications = allBids.map((projectBid) => {
+      const isWinner = projectBid.bidder_id === bid.bidder_id;
+
+      return {
+        user_id: projectBid.bidder_id,
+        type: "project_awarded",
+        title: isWinner ? "Your bid was awarded" : "Project has been awarded",
+        message: isWinner
+          ? `Congratulations! Your bid for "${project.title}" was selected.`
+          : `The project "${project.title}" has been awarded to another contractor.`,
+        link: `/bidder/bids`,
+      };
+    });
+
+    await supabase.from("notifications").insert(notifications);
   }
 
   return { success: true };
