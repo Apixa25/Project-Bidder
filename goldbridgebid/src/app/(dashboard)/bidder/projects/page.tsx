@@ -210,7 +210,7 @@ export default async function BrowseProjectsPage() {
                             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-secondary/15 text-xs font-semibold text-text-primary">
                               {(customer?.full_name || "Project Owner")
                                 .split(" ")
-                                .map((namePart) => namePart[0])
+                                .map((namePart: string) => namePart[0])
                                 .join("")
                                 .toUpperCase()
                                 .slice(0, 2)}

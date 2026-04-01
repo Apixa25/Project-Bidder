@@ -736,7 +736,7 @@ export default async function CustomerContractorDirectoryPage({
                       <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-secondary/15 text-sm font-semibold text-text-primary">
                         {contractor.profile.full_name
                           .split(" ")
-                          .map((namePart) => namePart[0])
+                          .map((namePart: string) => namePart[0])
                           .join("")
                           .toUpperCase()
                           .slice(0, 2)}
