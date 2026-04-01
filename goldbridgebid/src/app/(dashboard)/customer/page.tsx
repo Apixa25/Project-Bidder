@@ -9,6 +9,7 @@ import {
   MessageSquare,
   TrendingUp,
   ImageIcon,
+  Users,
 } from "lucide-react";
 
 export default async function CustomerDashboard() {
@@ -47,7 +48,7 @@ export default async function CustomerDashboard() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
             Welcome back, {profile.full_name.split(" ")[0]}! 👋
@@ -56,13 +57,22 @@ export default async function CustomerDashboard() {
             Here&apos;s what&apos;s happening with your projects.
           </p>
         </div>
-        <Link
-          href="/customer/projects/new"
-          className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-sm hover:bg-primary-dark transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Post New Project
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/customer/contractors"
+            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-5 py-2.5 text-sm font-semibold text-text-primary shadow-sm hover:bg-surface-hover transition-colors"
+          >
+            <Users className="h-4 w-4" />
+            Find Contractors
+          </Link>
+          <Link
+            href="/customer/projects/new"
+            className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-sm hover:bg-primary-dark transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Post New Project
+          </Link>
+        </div>
       </div>
 
       {/* Stats Cards */}

@@ -20,10 +20,16 @@ type CoreCredentialShape = Pick<
   (typeof CORE_CREDENTIAL_FIELDS)[number]
 >;
 
+export function countUploadedCredentials(credentials: BidderCredentials | null | undefined) {
+  if (!credentials) {
+    return 0;
+  }
+
+  return CREDENTIAL_FIELDS.filter((field) => credentials[field] !== null).length;
+}
+
 export function calculateBadgeLevel(credentials: BidderCredentials): BadgeLevel {
-  const uploadedCount = CREDENTIAL_FIELDS.filter(
-    (field) => credentials[field] !== null
-  ).length;
+  const uploadedCount = countUploadedCredentials(credentials);
 
   if (uploadedCount === 6) return "gold";
   if (uploadedCount >= 4) return "silver";

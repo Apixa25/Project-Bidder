@@ -5,16 +5,22 @@ import {
   ArrowLeft,
   MapPin,
   Calendar,
-  Mail,
-  Phone,
   Globe,
   ExternalLink,
   Shield,
   Link2,
+  BriefcaseBusiness,
 } from "lucide-react";
-import { BADGE_CONFIG } from "@/lib/badges";
-import { hasCoreCredentials } from "@/lib/badges";
-import type { BadgeLevel } from "@/types/database";
+import {
+  BADGE_CONFIG,
+  countUploadedCredentials,
+  hasCoreCredentials,
+} from "@/lib/badges";
+import {
+  TRADE_LABELS,
+  type BadgeLevel,
+  type TradeCategory,
+} from "@/types/database";
 import PortfolioGallery from "@/components/profile/PortfolioGallery";
 import ProfileHeartButton from "@/components/profile/ProfileHeartButton";
 import ProfileReviewSummary from "@/components/profile/ProfileReviewSummary";
@@ -76,9 +82,22 @@ export default async function PublicProfilePage({
     media: (allMedia || []).filter((m) => m.portfolio_item_id === item.id),
   }));
 
+  const { data: specialties } =
+    profile.role === "bidder"
+      ? await supabase
+          .from("bidder_specialties")
+          .select("trade, display_order")
+          .eq("user_id", userId)
+          .order("display_order", { ascending: true })
+      : { data: [] };
+
   const badgeLevel = credentials?.badge_level as BadgeLevel;
   const badgeInfo = badgeLevel ? BADGE_CONFIG[badgeLevel] : null;
   const hasCoreCheck = hasCoreCredentials(credentials);
+  const qualificationCount = countUploadedCredentials(credentials);
+  const specialtyLabels = (specialties || []).map(
+    (specialty) => TRADE_LABELS[specialty.trade as TradeCategory]
+  );
 
   const credChecks = credentials
     ? [
@@ -294,22 +313,18 @@ export default async function PublicProfilePage({
               </span>
             </div>
 
-            {/* Contact */}
-            <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
-              <a
-                href={`mailto:${profile.email}`}
-                className="flex items-center gap-1 text-primary hover:text-primary-dark transition-colors"
-              >
-                <Mail className="h-4 w-4" />
-                {profile.email}
-              </a>
-              <a
-                href={`tel:${profile.phone}`}
-                className="flex items-center gap-1 text-primary hover:text-primary-dark transition-colors"
-              >
-                <Phone className="h-4 w-4" />
-                {profile.phone}
-              </a>
+            <div className="mt-4 rounded-lg border border-border bg-bg-warm px-4 py-3 text-sm text-text-secondary">
+              {isOwnProfile ? (
+                <p>
+                  Your phone and email stay available in project and messaging
+                  flows when they are needed.
+                </p>
+              ) : (
+                <p>
+                  Contact details stay private here. Connect through project
+                  bids and in-platform messaging instead.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -394,10 +409,28 @@ export default async function PublicProfilePage({
                 Qualifications
               </h3>
               <p className="mb-3 text-xs text-text-muted">
-                Open uploaded files to verify licenses, bonds, insurance, and
-                other qualifications.
+                {qualificationCount} of 6 credential types uploaded.
               </p>
               <CredentialChecklist items={credChecks} />
+            </div>
+          )}
+
+          {specialtyLabels.length > 0 && (
+            <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-primary">
+                <BriefcaseBusiness className="h-4 w-4" />
+                Specialties
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {specialtyLabels.map((label) => (
+                  <span
+                    key={label}
+                    className="rounded-full bg-secondary/10 px-3 py-1 text-xs font-medium text-secondary"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
 

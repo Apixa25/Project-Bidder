@@ -12,6 +12,8 @@ import {
   MessageSquare,
   User,
   History,
+  Heart,
+  Star,
 } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
@@ -64,6 +66,34 @@ export default async function BidderProjectDetailPage({
     .select("*")
     .eq("project_id", id)
     .order("uploaded_at", { ascending: false });
+
+  const { data: customerProfile } = await supabase
+    .from("profiles")
+    .select("user_id, full_name, business_name, city, state, created_at")
+    .eq("user_id", project.customer_id)
+    .single();
+
+  const { count: customerHeartCount } = await supabase
+    .from("profile_hearts")
+    .select("*", { count: "exact", head: true })
+    .eq("target_user_id", project.customer_id);
+
+  const { data: customerReviews } = await supabase
+    .from("user_reviews")
+    .select("rating_overall, review_type")
+    .eq("reviewee_user_id", project.customer_id)
+    .eq("status", "published");
+
+  const customerVerifiedReviews = (customerReviews || []).filter(
+    (review) => review.review_type === "verified_platform"
+  );
+  const customerVerifiedAverage =
+    customerVerifiedReviews.length > 0
+      ? customerVerifiedReviews.reduce(
+          (sum, review) => sum + review.rating_overall,
+          0
+        ) / customerVerifiedReviews.length
+      : null;
 
   const { data: existingBids } = await supabase
     .from("bids")
@@ -362,6 +392,60 @@ export default async function BidderProjectDetailPage({
 
           {/* Customer Actions */}
           <div className="space-y-2">
+            <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Customer Snapshot
+              </p>
+              <h3 className="mt-2 text-base font-semibold text-text-primary">
+                {customerProfile?.full_name || "Project Owner"}
+              </h3>
+              {customerProfile?.business_name && (
+                <p className="mt-1 text-sm text-text-secondary">
+                  {customerProfile.business_name}
+                </p>
+              )}
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-bg-warm px-3 py-2">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                    Rating
+                  </p>
+                  <p className="mt-1 text-base font-bold text-text-primary">
+                    {customerVerifiedAverage === null
+                      ? "New"
+                      : customerVerifiedAverage.toFixed(1)}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-bg-warm px-3 py-2">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                    Reviews
+                  </p>
+                  <p className="mt-1 flex items-center gap-1 text-base font-bold text-text-primary">
+                    <Star className="h-3.5 w-3.5 text-amber-500" />
+                    {customerReviews?.length || 0}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-bg-warm px-3 py-2">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                    Hearts
+                  </p>
+                  <p className="mt-1 flex items-center gap-1 text-base font-bold text-text-primary">
+                    <Heart className="h-3.5 w-3.5 text-primary" />
+                    {customerHeartCount || 0}
+                  </p>
+                </div>
+              </div>
+              {customerProfile?.city && customerProfile?.state && (
+                <p className="mt-3 text-sm text-text-secondary">
+                  {customerProfile.city}, {customerProfile.state}
+                </p>
+              )}
+              {customerProfile?.created_at && (
+                <p className="mt-1 text-xs text-text-muted">
+                  Member since{" "}
+                  {new Date(customerProfile.created_at).toLocaleDateString()}
+                </p>
+              )}
+            </div>
             <Link
               href={`/profile/${project.customer_id}`}
               className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface p-4 text-sm font-semibold text-text-primary hover:bg-surface-hover transition-colors"

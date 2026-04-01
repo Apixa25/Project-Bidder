@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { updateProfile } from "@/app/(dashboard)/profile/actions";
 import { Loader2, CheckCircle2 } from "lucide-react";
+import {
+  FORM_TRADES,
+  TRADE_LABELS,
+  type TradeCategory,
+} from "@/types/database";
 
 interface ProfileData {
   full_name: string;
@@ -20,9 +25,11 @@ interface ProfileData {
 export default function ProfileForm({
   profile,
   editorRole = profile.role,
+  selectedSpecialties = [],
 }: {
   profile: ProfileData;
   editorRole?: string;
+  selectedSpecialties?: TradeCategory[];
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -191,6 +198,36 @@ export default function ProfileForm({
           className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
         />
       </div>
+
+      {editorRole === "bidder" && (
+        <div>
+          <label className="block text-sm font-semibold text-text-primary mb-1.5">
+            Contractor Specialties{" "}
+            <span className="font-normal text-text-muted">(recommended)</span>
+          </label>
+          <p className="mb-3 text-sm text-text-muted">
+            Pick the trades you want customers to find you under in the
+            contractor directory.
+          </p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {FORM_TRADES.map((trade) => (
+              <label
+                key={trade}
+                className="flex items-start gap-3 rounded-lg border border-border bg-bg-warm px-3 py-2.5 text-sm text-text-primary transition-colors hover:border-primary/40"
+              >
+                <input
+                  type="checkbox"
+                  name="specialties"
+                  value={trade}
+                  defaultChecked={selectedSpecialties.includes(trade)}
+                  className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <span>{TRADE_LABELS[trade]}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Submit */}
       <div className="flex justify-end">

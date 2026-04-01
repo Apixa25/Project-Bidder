@@ -243,6 +243,14 @@ export interface BidderCredentials {
   updated_at: string;
 }
 
+export interface BidderSpecialty {
+  id: string;
+  user_id: string;
+  trade: TradeCategory;
+  display_order: number;
+  created_at: string;
+}
+
 export interface Project {
   id: string;
   customer_id: string;
@@ -424,6 +432,12 @@ type CredentialsInsert = {
   references_url?: string | null;
 };
 
+type BidderSpecialtyInsert = {
+  user_id: string;
+  trade: TradeCategory;
+  display_order?: number;
+};
+
 type ProjectInsert = {
   customer_id: string;
   title: string;
@@ -510,6 +524,12 @@ export interface Database {
         Row: BidderCredentials;
         Insert: CredentialsInsert;
         Update: Partial<CredentialsInsert>;
+        Relationships: [];
+      };
+      bidder_specialties: {
+        Row: BidderSpecialty;
+        Insert: BidderSpecialtyInsert;
+        Update: Partial<Omit<BidderSpecialtyInsert, "user_id">>;
         Relationships: [];
       };
       projects: {

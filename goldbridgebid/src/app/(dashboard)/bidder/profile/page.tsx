@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Calendar, Shield, ArrowRight } from "lucide-react";
 import { BADGE_CONFIG } from "@/lib/badges";
-import type { BadgeLevel } from "@/types/database";
+import { TRADE_LABELS, type BadgeLevel, type TradeCategory } from "@/types/database";
 import ProfileForm from "@/components/profile/ProfileForm";
 import AvatarUpload from "@/components/profile/AvatarUpload";
 import PortfolioGallery from "@/components/profile/PortfolioGallery";
@@ -55,8 +55,17 @@ export default async function BidderProfilePage() {
     media: (allMedia || []).filter((m) => m.portfolio_item_id === item.id),
   }));
 
+  const { data: specialties } = await supabase
+    .from("bidder_specialties")
+    .select("trade, display_order")
+    .eq("user_id", user.id)
+    .order("display_order", { ascending: true });
+
   const badgeLevel = credentials?.badge_level as BadgeLevel;
   const badgeInfo = badgeLevel ? BADGE_CONFIG[badgeLevel] : null;
+  const selectedSpecialties = (specialties || []).map(
+    (specialty) => specialty.trade as TradeCategory
+  );
 
   return (
     <div>
@@ -117,7 +126,38 @@ export default async function BidderProfilePage() {
         <h2 className="mb-6 text-lg font-semibold text-text-primary">
           Edit Profile
         </h2>
-        <ProfileForm profile={profile} editorRole="bidder" />
+        <ProfileForm
+          profile={profile}
+          editorRole="bidder"
+          selectedSpecialties={selectedSpecialties}
+        />
+      </div>
+
+      <div className="mb-8 rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-4 text-lg font-semibold text-text-primary">
+          Directory Preview
+        </h2>
+        <p className="mb-4 text-sm text-text-muted">
+          Customers will use these specialties to find you in the contractor
+          directory.
+        </p>
+        {selectedSpecialties.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {selectedSpecialties.map((trade) => (
+              <span
+                key={trade}
+                className="rounded-full bg-secondary/10 px-3 py-1 text-xs font-medium text-secondary"
+              >
+                {TRADE_LABELS[trade]}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-text-secondary">
+            Add at least one specialty so customers can discover your profile
+            beyond individual bids.
+          </p>
+        )}
       </div>
 
       {/* Social Links */}
