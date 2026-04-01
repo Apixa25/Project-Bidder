@@ -1,8 +1,28 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { UserRole } from "@/types/database";
+
+async function getRequestOrigin() {
+  const headerStore = await headers();
+  const origin = headerStore.get("origin");
+
+  if (origin) {
+    return origin;
+  }
+
+  const forwardedHost =
+    headerStore.get("x-forwarded-host") || headerStore.get("host");
+  const forwardedProto = headerStore.get("x-forwarded-proto") || "https";
+
+  if (forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  return process.env.NEXT_PUBLIC_SITE_URL!;
+}
 
 export async function signup(formData: FormData) {
   const supabase = await createClient();
@@ -125,10 +145,11 @@ export async function signOut() {
 
 export async function signInWithGoogle(role?: string) {
   const supabase = await createClient();
+  const baseUrl = await getRequestOrigin();
 
   const redirectUrl = role
-    ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?role=${role}`
-    : `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`;
+    ? `${baseUrl}/auth/callback?role=${role}`
+    : `${baseUrl}/auth/callback`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",

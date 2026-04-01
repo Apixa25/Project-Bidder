@@ -22,6 +22,22 @@ const VALID_FIELDS: CredentialField[] = [
   "references_url",
 ];
 
+function formatActionError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return "Unknown error";
+  }
+
+  const maybeError = error as {
+    message?: string;
+    error?: string;
+    statusCode?: string | number;
+  };
+
+  return [maybeError.message, maybeError.error, maybeError.statusCode]
+    .filter(Boolean)
+    .join(" | ");
+}
+
 export async function uploadCredential(formData: FormData) {
   const supabase = await createClient();
 
@@ -64,8 +80,17 @@ export async function uploadCredential(formData: FormData) {
     });
 
   if (uploadError) {
-    console.error("Upload error:", uploadError);
-    return { error: "File upload failed. Please try again." };
+    console.error("Credential upload error:", {
+      field,
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      filePath,
+      uploadError,
+    });
+    return {
+      error: `File upload failed: ${formatActionError(uploadError)}`,
+    };
   }
 
   const {
@@ -78,8 +103,15 @@ export async function uploadCredential(formData: FormData) {
     .eq("user_id", user.id);
 
   if (updateError) {
-    console.error("Update error:", updateError);
-    return { error: "Failed to save credential. Please try again." };
+    console.error("Credential update error:", {
+      field,
+      filePath,
+      publicUrl,
+      updateError,
+    });
+    return {
+      error: `Failed to save credential: ${formatActionError(updateError)}`,
+    };
   }
 
   revalidatePath("/bidder/credentials");

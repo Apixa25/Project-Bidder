@@ -52,6 +52,13 @@ export default function CredentialCard({
 
     const result = await uploadCredential(formData);
     if (result.error) {
+      console.error("Credential upload failed", {
+        field,
+        fileName: compressed.name,
+        fileType: compressed.type,
+        fileSize: compressed.size,
+        error: result.error,
+      });
       setError(result.error);
     }
     setUploading(false);
