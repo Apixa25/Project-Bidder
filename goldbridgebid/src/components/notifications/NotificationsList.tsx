@@ -8,6 +8,7 @@ import {
   MessageSquare,
   AlertTriangle,
   CheckCheck,
+  Users,
 } from "lucide-react";
 import {
   markNotificationRead,
@@ -30,6 +31,7 @@ const TYPE_ICONS: Record<string, typeof Bell> = {
   project_awarded: CheckCheck,
   project_closed: AlertTriangle,
   bid_not_selected: AlertTriangle,
+  contractor_search_alert: Users,
 };
 
 export default function NotificationsList({

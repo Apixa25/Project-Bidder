@@ -372,6 +372,8 @@ export interface CustomerSavedContractorSearch {
   user_id: string;
   label: string;
   query_string: string;
+  notify_on_new_matches: boolean;
+  last_notified_at: string | null;
   created_at: string;
 }
 
@@ -497,6 +499,8 @@ type CustomerSavedContractorSearchInsert = {
   user_id: string;
   label: string;
   query_string?: string;
+  notify_on_new_matches?: boolean;
+  last_notified_at?: string | null;
 };
 
 type UserRoleMembershipInsert = {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import {
@@ -128,12 +129,14 @@ export default async function BrowseProjectsPage() {
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
                 {/* Project Thumbnail */}
-                <div className="h-44 w-full overflow-hidden rounded-lg border border-border bg-bg-warm sm:h-20 sm:w-20 sm:shrink-0">
+                <div className="relative h-44 w-full overflow-hidden rounded-lg border border-border bg-bg-warm sm:h-20 sm:w-20 sm:shrink-0">
                   {thumbUrl ? (
-                    <img
+                    <Image
                       src={thumbUrl}
                       alt={project.title}
-                      className="h-full w-full object-cover"
+                      fill
+                      sizes="(max-width: 640px) 100vw, 80px"
+                      className="object-cover"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center">

@@ -6,6 +6,7 @@ import AdminSearchBar from "@/components/admin/AdminSearchBar";
 import AdminFilterBar, { FilterDropdown } from "@/components/admin/AdminFilters";
 import AdminPagination from "@/components/admin/AdminPagination";
 import {
+  checkContractorSearchAlerts,
   deleteContractorSearch,
   saveContractorSearch,
 } from "./actions";
@@ -29,6 +30,9 @@ import {
   Heart,
   Bookmark,
   Trash2,
+  Sparkles,
+  RefreshCcw,
+  X,
 } from "lucide-react";
 
 const PAGE_SIZE = 12;
@@ -77,6 +81,31 @@ function toTitleCase(value: string) {
     .join(" ");
 }
 
+function buildContractorDirectoryHref(
+  currentParams: { [key: string]: string | undefined },
+  overrides: Record<string, string | null | undefined>
+) {
+  const next = new URLSearchParams();
+
+  for (const key of SEARCH_PARAM_KEYS) {
+    const value = currentParams[key];
+    if (value && value.trim()) {
+      next.set(key, value.trim());
+    }
+  }
+
+  for (const [key, value] of Object.entries(overrides)) {
+    if (!value || !value.trim()) {
+      next.delete(key);
+    } else {
+      next.set(key, value.trim());
+    }
+  }
+
+  const query = next.toString();
+  return query ? `/customer/contractors?${query}` : "/customer/contractors";
+}
+
 export default async function CustomerContractorDirectoryPage({
   searchParams,
 }: Props) {
@@ -89,6 +118,12 @@ export default async function CustomerContractorDirectoryPage({
 
   if (!user) redirect("/login");
   if (!(await userHasRole(user.id, "customer"))) redirect("/login");
+
+  const { data: customerProfile } = await supabase
+    .from("profiles")
+    .select("city, state")
+    .eq("user_id", user.id)
+    .single();
 
   const { data: savedSearches } = await supabase
     .from("customer_saved_contractor_searches")
@@ -238,6 +273,10 @@ export default async function CustomerContractorDirectoryPage({
     }
   }
   const activeQueryString = activeQuery.toString();
+  const hasActiveFilters = SEARCH_PARAM_KEYS.some((key) => {
+    const value = params[key];
+    return Boolean(value && value.trim());
+  });
 
   const contractors = (profiles || [])
     .map((profile) => {
@@ -355,6 +394,83 @@ export default async function CustomerContractorDirectoryPage({
       );
     });
 
+  const savedSearchNewMatchCounts = new Map<string, number>();
+  for (const saved of savedSearches || []) {
+    const since = new Date(saved.last_notified_at || saved.created_at).getTime();
+    const newMatchCount = contractors.filter((contractor) => {
+      const createdAt = new Date(contractor.profile.created_at).getTime();
+      if (createdAt <= since) return false;
+
+      const savedParams = new URLSearchParams(saved.query_string);
+      const searchTerm = (savedParams.get("q") || "").trim().toLowerCase();
+      const savedBadge = (savedParams.get("badge") || "").trim();
+      const savedTrade = (savedParams.get("trade") || "").trim();
+      const savedState = (savedParams.get("state") || "").trim().toUpperCase();
+      const savedCity = (savedParams.get("city") || "").trim().toLowerCase();
+
+      if (savedBadge) {
+        if (savedBadge === "none" && contractor.badgeLevel) return false;
+        if (savedBadge !== "none" && contractor.badgeLevel !== savedBadge) {
+          return false;
+        }
+      }
+
+      if (
+        savedTrade &&
+        !contractor.specialties.includes(savedTrade as TradeCategory)
+      ) {
+        return false;
+      }
+
+      if (
+        savedState &&
+        contractor.profile.state?.trim().toUpperCase() !== savedState
+      ) {
+        return false;
+      }
+
+      if (
+        savedCity &&
+        contractor.profile.city?.trim().toLowerCase() !== savedCity
+      ) {
+        return false;
+      }
+
+      if (!searchTerm) return true;
+
+      const searchable = [
+        contractor.profile.full_name,
+        contractor.profile.business_name,
+        contractor.profile.city,
+        contractor.profile.state,
+        contractor.profile.bio,
+        ...contractor.specialtyLabels,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchable.includes(searchTerm);
+    }).length;
+
+    savedSearchNewMatchCounts.set(saved.id, newMatchCount);
+  }
+
+  const cityQuickHref =
+    customerProfile?.city && customerProfile?.state
+      ? buildContractorDirectoryHref(params, {
+          state: customerProfile.state,
+          city: customerProfile.city,
+        })
+      : null;
+  const stateQuickHref = customerProfile?.state
+    ? buildContractorDirectoryHref(params, {
+        state: customerProfile.state,
+        city: null,
+      })
+    : null;
+  const clearFiltersHref = "/customer/contractors";
+
   const totalItems = contractors.length;
   const page = Math.max(1, Number(params.page || "1"));
   const paginated = contractors.slice(
@@ -385,6 +501,35 @@ export default async function CustomerContractorDirectoryPage({
         <div className="space-y-4 rounded-xl border border-border bg-surface p-4 shadow-sm">
           <div className="max-w-xl">
             <AdminSearchBar placeholder="Search by name, company, location, specialty..." />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {cityQuickHref && (
+              <Link
+                href={cityQuickHref}
+                className="inline-flex items-center gap-2 rounded-full bg-secondary/10 px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:bg-secondary/15"
+              >
+                <Sparkles className="h-4 w-4" />
+                Nearby in {toTitleCase(customerProfile.city!)}
+              </Link>
+            )}
+            {stateQuickHref && (
+              <Link
+                href={stateQuickHref}
+                className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/15"
+              >
+                <MapPin className="h-4 w-4" />
+                Same state: {customerProfile.state!.toUpperCase()}
+              </Link>
+            )}
+            {hasActiveFilters && (
+              <Link
+                href={clearFiltersHref}
+                className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+              >
+                <X className="h-4 w-4" />
+                Clear all filters
+              </Link>
+            )}
           </div>
           <AdminFilterBar>
             <FilterDropdown
@@ -437,7 +582,8 @@ export default async function CustomerContractorDirectoryPage({
             </h2>
             <p className="mt-1 text-sm text-text-secondary">
               Save filtered contractor views by location, badge, and trade so
-              you can revisit them quickly.
+              you can revisit them quickly and optionally alert yourself when
+              new matches show up.
             </p>
           </div>
 
@@ -457,12 +603,30 @@ export default async function CustomerContractorDirectoryPage({
               }
               className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
+            <label className="flex items-center gap-3 rounded-lg border border-border bg-bg-warm px-3 py-3 text-sm text-text-primary">
+              <input
+                type="checkbox"
+                name="notifyOnNewMatches"
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+              />
+              <span>Alert me when new contractors match this search</span>
+            </label>
             <button
               type="submit"
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-sm transition-colors hover:bg-primary-dark"
             >
               <Bookmark className="h-4 w-4" />
               Save Current Search
+            </button>
+          </form>
+
+          <form action={checkContractorSearchAlerts}>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-hover"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Check Alert Matches Now
             </button>
           </form>
 
@@ -484,9 +648,24 @@ export default async function CustomerContractorDirectoryPage({
                     >
                       {saved.label}
                     </Link>
-                    <p className="mt-1 text-xs text-text-muted">
-                      Saved {new Date(saved.created_at).toLocaleDateString()}
-                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
+                      <span>
+                        Saved {new Date(saved.created_at).toLocaleDateString()}
+                      </span>
+                      {saved.notify_on_new_matches && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+                          Alerts on
+                        </span>
+                      )}
+                      {(savedSearchNewMatchCounts.get(saved.id) || 0) > 0 && (
+                        <span className="rounded-full bg-secondary/10 px-2 py-0.5 font-medium text-secondary">
+                          {savedSearchNewMatchCounts.get(saved.id)} new match
+                          {(savedSearchNewMatchCounts.get(saved.id) || 0) === 1
+                            ? ""
+                            : "es"}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <form action={deleteContractorSearch}>
                     <input type="hidden" name="searchId" value={saved.id} />

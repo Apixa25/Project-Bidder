@@ -28,7 +28,8 @@ export default async function CustomerNotificationsPage() {
           Notifications 🔔
         </h1>
         <p className="mt-1 text-text-secondary">
-          Stay updated on bids, messages, and project activity.
+          Stay updated on bids, messages, project activity, and saved contractor
+          search alerts.
         </p>
       </div>
       <NotificationsList notifications={notifications || []} basePath="/customer" />
