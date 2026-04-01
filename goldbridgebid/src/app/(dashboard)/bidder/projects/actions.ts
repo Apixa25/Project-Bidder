@@ -81,7 +81,7 @@ export async function submitBid(formData: FormData) {
 
       const { error: uploadError } = await supabase.storage
         .from("bid-files")
-        .upload(filePath, file);
+        .upload(filePath, file, { contentType: file.type || undefined });
 
       if (!uploadError) {
         const {

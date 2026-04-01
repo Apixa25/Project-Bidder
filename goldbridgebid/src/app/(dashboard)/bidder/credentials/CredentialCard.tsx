@@ -6,12 +6,12 @@ import {
   Upload,
   CheckCircle2,
   XCircle,
-  FileText,
   Loader2,
   Trash2,
   ExternalLink,
 } from "lucide-react";
 import { compressImage } from "@/lib/compress-image";
+import { CREDENTIAL_FILE_ACCEPT } from "@/lib/file-uploads";
 
 interface CredentialCardProps {
   field: string;
@@ -108,7 +108,7 @@ export default function CredentialCard({
                   className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover sm:w-auto sm:justify-start sm:py-1.5"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
-                  View Document
+                  Open File
                 </a>
                 <button
                   onClick={() => fileRef.current?.click()}
@@ -161,7 +161,7 @@ export default function CredentialCard({
       <input
         ref={fileRef}
         type="file"
-        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+        accept={CREDENTIAL_FILE_ACCEPT}
         className="hidden"
         onChange={handleUpload}
       />

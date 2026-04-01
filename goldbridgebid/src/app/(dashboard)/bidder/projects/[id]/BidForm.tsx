@@ -6,6 +6,7 @@ import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import { Upload, X, FileText, Loader2 } from "lucide-react";
 import { compressFiles } from "@/lib/compress-image";
+import { BID_ATTACHMENT_FILE_ACCEPT } from "@/lib/file-uploads";
 
 interface BidFormProps {
   projectId: string;
@@ -179,6 +180,7 @@ export default function BidForm({ projectId, availableTrades }: BidFormProps) {
             ref={fileInputRef}
             type="file"
             multiple
+            accept={BID_ATTACHMENT_FILE_ACCEPT}
             className="hidden"
             onChange={(e) => addFiles(e.target.files)}
           />

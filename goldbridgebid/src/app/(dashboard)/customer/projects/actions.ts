@@ -86,7 +86,7 @@ export async function createProject(formData: FormData) {
 
         const { error: uploadError } = await supabase.storage
           .from("project-files")
-          .upload(filePath, file);
+          .upload(filePath, file, { contentType: file.type || undefined });
 
         if (uploadError) {
           console.error("Storage upload error:", uploadError);
@@ -537,7 +537,7 @@ export async function updateProject(projectId: string, formData: FormData) {
 
         const { error: uploadError } = await supabase.storage
           .from("project-files")
-          .upload(filePath, file);
+          .upload(filePath, file, { contentType: file.type || undefined });
 
         if (uploadError) {
           console.error("Storage upload error:", uploadError);

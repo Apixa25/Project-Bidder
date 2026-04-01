@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { userHasRole } from "@/lib/auth/roles";
+import { isAllowedCredentialFile } from "@/lib/file-uploads";
 
 type CredentialField =
   | "license_url"
@@ -45,12 +46,22 @@ export async function uploadCredential(formData: FormData) {
     return { error: "Please select a file to upload." };
   }
 
+  if (!isAllowedCredentialFile(file)) {
+    return {
+      error:
+        "Supported credential files are images, PDFs, Word documents, and text files.",
+    };
+  }
+
   const fileExt = file.name.split(".").pop();
   const filePath = `credentials/${user.id}/${field}-${Date.now()}.${fileExt}`;
 
   const { error: uploadError } = await supabase.storage
     .from("credential-files")
-    .upload(filePath, file, { upsert: true });
+    .upload(filePath, file, {
+      contentType: file.type || undefined,
+      upsert: true,
+    });
 
   if (uploadError) {
     console.error("Upload error:", uploadError);

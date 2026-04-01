@@ -18,6 +18,10 @@ import { TRADE_LABELS, FORM_TRADES } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import { createBrowserClient } from "@supabase/ssr";
 import { compressFiles } from "@/lib/compress-image";
+import {
+  IMAGE_FILE_ACCEPT,
+  PROJECT_DOCUMENT_FILE_ACCEPT,
+} from "@/lib/file-uploads";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
@@ -532,7 +536,7 @@ export default function EditProjectPage() {
                 id="photo-upload"
                 type="file"
                 multiple
-                accept="image/*"
+                accept={IMAGE_FILE_ACCEPT}
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -551,7 +555,7 @@ export default function EditProjectPage() {
                 id="doc-upload"
                 type="file"
                 multiple
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,video/*"
+                accept={PROJECT_DOCUMENT_FILE_ACCEPT}
                 onChange={handleFileChange}
                 className="hidden"
               />

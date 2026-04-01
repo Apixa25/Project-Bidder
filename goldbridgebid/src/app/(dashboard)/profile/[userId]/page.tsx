@@ -11,8 +11,6 @@ import {
   ExternalLink,
   Shield,
   Link2,
-  CheckCircle2,
-  XCircle,
 } from "lucide-react";
 import { BADGE_CONFIG } from "@/lib/badges";
 import type { BadgeLevel } from "@/types/database";
@@ -23,6 +21,7 @@ import ProfileReviewsList from "@/components/profile/ProfileReviewsList";
 import PublicReviewForm from "@/components/profile/PublicReviewForm";
 import VerifiedReviewForm from "@/components/profile/VerifiedReviewForm";
 import { getUserRoles } from "@/lib/auth/roles";
+import CredentialChecklist from "@/components/credentials/CredentialChecklist";
 
 export default async function PublicProfilePage({
   params,
@@ -79,14 +78,14 @@ export default async function PublicProfilePage({
   const badgeInfo = badgeLevel ? BADGE_CONFIG[badgeLevel] : null;
 
   const credChecks = credentials
-    ? {
-        License: credentials.license_url,
-        Bond: credentials.bond_url,
-        Insurance: credentials.insurance_url,
-        "Workers' Comp": credentials.workers_comp_url,
-        EIN: credentials.ein_url,
-        References: credentials.references_url,
-      }
+    ? [
+        { label: "License", url: credentials.license_url },
+        { label: "Bond", url: credentials.bond_url },
+        { label: "Insurance", url: credentials.insurance_url },
+        { label: "Workers' Comp", url: credentials.workers_comp_url },
+        { label: "EIN", url: credentials.ein_url },
+        { label: "References", url: credentials.references_url },
+      ]
     : null;
 
   const isOwnProfile = user.id === userId;
@@ -390,23 +389,11 @@ export default async function PublicProfilePage({
                 <Shield className="h-4 w-4" />
                 Qualifications
               </h3>
-              <div className="space-y-2">
-                {Object.entries(credChecks).map(([label, url]) => (
-                  <div
-                    key={label}
-                    className={`flex items-center gap-2 text-sm ${
-                      url ? "text-green-700" : "text-gray-400"
-                    }`}
-                  >
-                    {url ? (
-                      <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    ) : (
-                      <XCircle className="h-4 w-4 shrink-0" />
-                    )}
-                    {label}
-                  </div>
-                ))}
-              </div>
+              <p className="mb-3 text-xs text-text-muted">
+                Open uploaded files to verify licenses, bonds, insurance, and
+                other qualifications.
+              </p>
+              <CredentialChecklist items={credChecks} />
             </div>
           )}
 

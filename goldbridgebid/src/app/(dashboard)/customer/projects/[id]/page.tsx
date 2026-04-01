@@ -8,8 +8,6 @@ import {
   DollarSign,
   Clock,
   ClipboardCheck,
-  CheckCircle2,
-  XCircle,
   User,
   Phone,
   Mail,
@@ -23,6 +21,7 @@ import ProjectStatusActions from "./ProjectStatusActions";
 import ProjectPhotos from "./ProjectPhotos";
 import AwardBidButton from "./AwardBidButton";
 import { userHasRole } from "@/lib/auth/roles";
+import CredentialChecklist from "@/components/credentials/CredentialChecklist";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
   title: "Title",
@@ -274,14 +273,14 @@ export default async function ProjectDetailPage({
                     ? BADGE_CONFIG[badgeLevel]
                     : null;
 
-                  const credChecks = {
-                    License: creds?.license_url,
-                    Bond: creds?.bond_url,
-                    Insurance: creds?.insurance_url,
-                    "Workers' Comp": creds?.workers_comp_url,
-                    EIN: creds?.ein_url,
-                    References: creds?.references_url,
-                  };
+                  const credChecks = [
+                    { label: "License", url: creds?.license_url },
+                    { label: "Bond", url: creds?.bond_url },
+                    { label: "Insurance", url: creds?.insurance_url },
+                    { label: "Workers' Comp", url: creds?.workers_comp_url },
+                    { label: "EIN", url: creds?.ein_url },
+                    { label: "References", url: creds?.references_url },
+                  ];
 
                   return (
                     <div key={bid.id} className="p-6">
@@ -383,24 +382,11 @@ export default async function ProjectDetailPage({
                       )}
 
                       {/* Credential Checks */}
-                      <div className="mb-4 flex flex-wrap gap-2">
-                        {Object.entries(credChecks).map(([label, url]) => (
-                          <span
-                            key={label}
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                              url
-                                ? "bg-green-100 text-green-700"
-                                : "bg-gray-100 text-gray-400"
-                            }`}
-                          >
-                            {url ? (
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                            ) : (
-                              <XCircle className="h-3.5 w-3.5" />
-                            )}
-                            {label}
-                          </span>
-                        ))}
+                      <div className="mb-4">
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
+                          Qualifications
+                        </p>
+                        <CredentialChecklist items={credChecks} />
                       </div>
 
                       {/* Contact Info */}
