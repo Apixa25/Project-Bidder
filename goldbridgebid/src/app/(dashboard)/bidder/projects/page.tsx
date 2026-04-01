@@ -10,7 +10,6 @@ import {
   ImageIcon,
   Heart,
   Star,
-  User,
 } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
@@ -40,7 +39,7 @@ export default async function BrowseProjectsPage() {
   const { data: customerProfiles } = customerIds.length
     ? await supabase
         .from("profiles")
-        .select("user_id, full_name, business_name, city, state, created_at")
+        .select("user_id, full_name, business_name, city, state, created_at, avatar_url")
         .in("user_id", customerIds)
     : { data: [] };
 
@@ -197,10 +196,31 @@ export default async function BrowseProjectsPage() {
                       Customer Snapshot
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-text-secondary">
-                      <span className="flex items-center gap-1 font-medium text-text-primary">
-                        <User className="h-4 w-4 text-primary" />
-                        {customer?.full_name || "Project Owner"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-border bg-surface">
+                          {customer?.avatar_url ? (
+                            <Image
+                              src={customer.avatar_url}
+                              alt={customer.full_name}
+                              fill
+                              sizes="36px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-secondary/15 text-xs font-semibold text-text-primary">
+                              {(customer?.full_name || "Project Owner")
+                                .split(" ")
+                                .map((namePart) => namePart[0])
+                                .join("")
+                                .toUpperCase()
+                                .slice(0, 2)}
+                            </div>
+                          )}
+                        </div>
+                        <span className="font-medium text-text-primary">
+                          {customer?.full_name || "Project Owner"}
+                        </span>
+                      </div>
                       {customer?.city && customer?.state && (
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5" />

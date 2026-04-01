@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowLeft,
   MapPin,
@@ -69,7 +70,7 @@ export default async function BidderProjectDetailPage({
 
   const { data: customerProfile } = await supabase
     .from("profiles")
-    .select("user_id, full_name, business_name, city, state, created_at")
+    .select("user_id, full_name, business_name, city, state, created_at, avatar_url")
     .eq("user_id", project.customer_id)
     .single();
 
@@ -396,14 +397,38 @@ export default async function BidderProjectDetailPage({
               <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
                 Customer Snapshot
               </p>
-              <h3 className="mt-2 text-base font-semibold text-text-primary">
-                {customerProfile?.full_name || "Project Owner"}
-              </h3>
-              {customerProfile?.business_name && (
-                <p className="mt-1 text-sm text-text-secondary">
-                  {customerProfile.business_name}
-                </p>
-              )}
+              <div className="mt-2 flex items-center gap-3">
+                <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-border bg-bg-warm">
+                  {customerProfile?.avatar_url ? (
+                    <Image
+                      src={customerProfile.avatar_url}
+                      alt={customerProfile.full_name}
+                      fill
+                      sizes="44px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-secondary/15 text-sm font-semibold text-text-primary">
+                      {(customerProfile?.full_name || "Project Owner")
+                        .split(" ")
+                        .map((namePart) => namePart[0])
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2)}
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-semibold text-text-primary">
+                    {customerProfile?.full_name || "Project Owner"}
+                  </h3>
+                  {customerProfile?.business_name && (
+                    <p className="mt-1 text-sm text-text-secondary">
+                      {customerProfile.business_name}
+                    </p>
+                  )}
+                </div>
+              </div>
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <div className="rounded-lg bg-bg-warm px-3 py-2">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
