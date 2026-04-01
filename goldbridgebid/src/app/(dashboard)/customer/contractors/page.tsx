@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -721,34 +722,56 @@ export default async function CustomerContractorDirectoryPage({
               className="rounded-xl border border-border bg-surface p-5 shadow-sm"
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-lg font-semibold text-text-primary">
-                      {contractor.profile.full_name}
-                    </h2>
-                    {contractor.badgeInfo ? (
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full ${contractor.badgeInfo.bgColor} px-2.5 py-0.5 text-xs font-medium ${contractor.badgeInfo.color}`}
-                      >
-                        {contractor.badgeInfo.icon} {contractor.badgeInfo.label}
-                      </span>
+                <div className="min-w-0 flex items-start gap-3">
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border bg-bg-warm">
+                    {contractor.profile.avatar_url ? (
+                      <Image
+                        src={contractor.profile.avatar_url}
+                        alt={contractor.profile.full_name}
+                        fill
+                        sizes="48px"
+                        className="object-cover"
+                      />
                     ) : (
-                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
-                        No Badge
-                      </span>
-                    )}
-                    {contractor.hasCoreCheck && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        Core docs ready
-                      </span>
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-secondary/15 text-sm font-semibold text-text-primary">
+                        {contractor.profile.full_name
+                          .split(" ")
+                          .map((namePart) => namePart[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)}
+                      </div>
                     )}
                   </div>
-                  {contractor.profile.business_name && (
-                    <p className="mt-1 text-sm text-text-secondary">
-                      {contractor.profile.business_name}
-                    </p>
-                  )}
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-lg font-semibold text-text-primary">
+                        {contractor.profile.full_name}
+                      </h2>
+                      {contractor.badgeInfo ? (
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full ${contractor.badgeInfo.bgColor} px-2.5 py-0.5 text-xs font-medium ${contractor.badgeInfo.color}`}
+                        >
+                          {contractor.badgeInfo.icon} {contractor.badgeInfo.label}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
+                          No Badge
+                        </span>
+                      )}
+                      {contractor.hasCoreCheck && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          Core docs ready
+                        </span>
+                      )}
+                    </div>
+                    {contractor.profile.business_name && (
+                      <p className="mt-1 text-sm text-text-secondary">
+                        {contractor.profile.business_name}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <Link
                   href={`/profile/${contractor.profile.user_id}`}
