@@ -375,7 +375,7 @@ export default async function PublicProfilePage({
                   Verified Project Review
                 </h3>
                 <p className="mb-4 text-xs text-text-muted">
-                  Available only after an awarded GoldBridgeBid project with this user.
+                  Available only after an awarded project with this user on projectxbidx.
                 </p>
                 <VerifiedReviewForm
                   revieweeUserId={userId}

@@ -1,8 +1,8 @@
-# 🏗️ GoldBridgeBid.com
+# 🏗️ ProjectXBidX.com
 
 > **Where qualified contractors compete for your project.**
 
-A construction bidding marketplace connecting customers who have projects with verified contractors who want to bid on them. Sealed bids, qualification badges, in-platform messaging, and full project tracking — all in one place.
+**ProjectXBidX.com** — a construction bidding marketplace connecting customers who have projects with verified contractors who want to bid on them. Sealed bids, qualification badges, in-platform messaging, and full project tracking — all in one place.
 
 ## Tech Stack
 
@@ -24,7 +24,7 @@ A construction bidding marketplace connecting customers who have projects with v
 
    ```bash
    git clone <your-repo-url>
-   cd goldbridgebid
+   cd goldbridgebid   # app folder (legacy path name; product is ProjectXBidX.com)
    ```
 
 2. **Install dependencies:**
@@ -56,7 +56,7 @@ A construction bidding marketplace connecting customers who have projects with v
 ## Project Structure
 
 ```
-goldbridgebid/
+goldbridgebid/              # Next.js app root (legacy folder name)
 ├── public/                   # Static assets
 ├── src/
 │   ├── app/                  # Next.js App Router pages
@@ -76,10 +76,11 @@ goldbridgebid/
 │   └── middleware.ts          # Auth middleware
 ├── supabase/
 │   └── migrations/           # SQL migration files
-├── project-vision.md         # Complete project vision & specs
 ├── .env.local.example        # Environment variables template
 └── package.json
 ```
+
+`project-vision.md` lives at the **repository root** (`../project-vision.md`).
 
 ## Key Features
 

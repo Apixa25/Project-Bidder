@@ -1,4 +1,4 @@
-# 🏗️ GoldBridgeBid.com — Project Vision
+# 🏗️ ProjectXBidX.com — Project Vision
 
 > **"Where qualified contractors compete for your project."**
 
@@ -31,7 +31,7 @@
 
 ## Overview
 
-**GoldBridgeBid.com** is a construction bidding marketplace that connects **customers** who have projects with **qualified contractors** who want to bid on them. Customers post projects with detailed descriptions, documents, photos, and videos. Pre-qualified bidders browse available projects and submit sealed bids. The platform provides clear tracking, visual qualification badges, in-platform messaging, and a streamlined experience for both sides.
+**ProjectXBidX.com** is a construction bidding marketplace that connects **customers** who have projects with **qualified contractors** who want to bid on them. Customers post projects with detailed descriptions, documents, photos, and videos. Pre-qualified bidders browse available projects and submit sealed bids. The platform provides clear tracking, visual qualification badges, in-platform messaging, and a streamlined experience for both sides.
 
 - **Industry:** All types of construction
 - **Launch Market:** Crescent City, California
@@ -109,8 +109,14 @@ This is a **sealed-bid marketplace** for construction projects:
 ## Design & Branding
 
 ### Name & Domain
-- **Platform Name:** GoldBridgeBid.com
+- **Platform Name:** ProjectXBidX.com
 - **Working Tagline:** "Where qualified contractors compete for your project."
+
+### Naming & repository (for contributors and tooling)
+- **Public product / brand:** **ProjectXBidX.com** in prose; **projectxbidx.com** is the live domain (and addresses like `support@projectxbidx.com`). The UI often uses the stylized **`projectxbidx`** wordmark — that is the same product, not a different name.
+- **Early working name:** The product was previously referred to as *GoldBridgeBid.com* in some docs and paths; treat **ProjectXBidX.com** / **projectxbidx** as canonical for product questions.
+- **This repo:** The Next.js app lives in the **`goldbridgebid/`** directory (legacy folder name). Renaming it would touch Vercel root, imports, and scripts — only do that as a deliberate migration.
+- **`package.json` name:** The internal npm name (`projectxbidx`) is a stable technical identifier and may differ from the marketing domain.
 
 ### Color Palette
 Warm, earthy, construction-appropriate tones inspired by [duda.com](https://www.duda.com/):
@@ -471,7 +477,7 @@ Supabase RLS policies will enforce:
 
 ## Summary
 
-**GoldBridgeBid.com** is a clean, practical, construction-focused sealed-bid marketplace. It solves a real problem: connecting project owners with qualified contractors through a transparent, trackable, professional platform. The qualification badge system provides visual trust signals without creating barriers. Sealed bids keep competition fair. In-platform messaging keeps communication professional and logged.
+**ProjectXBidX.com** is a clean, practical, construction-focused sealed-bid marketplace. It solves a real problem: connecting project owners with qualified contractors through a transparent, trackable, professional platform. The qualification badge system provides visual trust signals without creating barriers. Sealed bids keep competition fair. In-platform messaging keeps communication professional and logged.
 
 Starting in Crescent City, California with a nationwide-ready database, this platform is built to grow — from a local construction tool to a national bidding marketplace.
 
