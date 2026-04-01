@@ -120,7 +120,7 @@ export default function Home() {
           <div className="flex shrink-0 items-center gap-3 sm:gap-4">
             <Link
               href="/login"
-              className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+              className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-secondary-dark"
             >
               Log In
             </Link>
@@ -162,14 +162,14 @@ export default function Home() {
                   href="/signup?role=customer"
                   className="flex items-center gap-2 rounded-lg bg-primary px-8 py-3.5 text-base font-semibold text-slate-950 shadow-lg hover:bg-primary-light transition-colors"
                 >
-                  Post a Project
+                  Post a Project / Make a Customer Account
                   <ArrowRight className="h-5 w-5" />
                 </Link>
                 <Link
                   href="/signup?role=bidder"
                   className="flex items-center gap-2 rounded-lg border-2 border-white/30 bg-white/10 px-8 py-3.5 text-base font-semibold text-white shadow-lg hover:bg-white/20 transition-colors backdrop-blur-sm"
                 >
-                  Join as a Contractor
+                  Look For Work / Make a Contractor Account
                   <ArrowRight className="h-5 w-5" />
                 </Link>
               </div>
