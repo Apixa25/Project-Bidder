@@ -16,12 +16,14 @@ import {
 } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
 import { BADGE_CONFIG } from "@/lib/badges";
+import { hasCoreCredentials } from "@/lib/badges";
 import type { TradeCategory, BadgeLevel } from "@/types/database";
 import ProjectStatusActions from "./ProjectStatusActions";
 import ProjectPhotos from "./ProjectPhotos";
 import AwardBidButton from "./AwardBidButton";
 import { userHasRole } from "@/lib/auth/roles";
 import CredentialChecklist from "@/components/credentials/CredentialChecklist";
+import CoreCredentialsCheck from "@/components/credentials/CoreCredentialsCheck";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
   title: "Title",
@@ -272,6 +274,7 @@ export default async function ProjectDetailPage({
                   const badgeInfo = badgeLevel
                     ? BADGE_CONFIG[badgeLevel]
                     : null;
+                  const hasCoreCheck = hasCoreCredentials(creds);
 
                   const credChecks = [
                     { label: "License", url: creds?.license_url },
@@ -311,6 +314,7 @@ export default async function ProjectDetailPage({
                               >
                                 {profile?.full_name || "Unknown Bidder"}
                               </Link>
+                              {hasCoreCheck && <CoreCredentialsCheck />}
                               {badgeInfo && (
                                 <span
                                   className={`inline-flex items-center gap-1 rounded-full ${badgeInfo.bgColor} px-2 py-0.5 text-xs font-medium ${badgeInfo.color}`}

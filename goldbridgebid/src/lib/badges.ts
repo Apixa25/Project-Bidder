@@ -9,6 +9,17 @@ const CREDENTIAL_FIELDS = [
   "references_url",
 ] as const;
 
+export const CORE_CREDENTIAL_FIELDS = [
+  "license_url",
+  "bond_url",
+  "insurance_url",
+] as const;
+
+type CoreCredentialShape = Pick<
+  BidderCredentials,
+  (typeof CORE_CREDENTIAL_FIELDS)[number]
+>;
+
 export function calculateBadgeLevel(credentials: BidderCredentials): BadgeLevel {
   const uploadedCount = CREDENTIAL_FIELDS.filter(
     (field) => credentials[field] !== null
@@ -29,6 +40,16 @@ export function getCredentialStatus(credentials: BidderCredentials) {
     ein: credentials.ein_url !== null,
     references: credentials.references_url !== null,
   };
+}
+
+export function hasCoreCredentials(
+  credentials: CoreCredentialShape | null | undefined
+) {
+  if (!credentials) {
+    return false;
+  }
+
+  return CORE_CREDENTIAL_FIELDS.every((field) => credentials[field] !== null);
 }
 
 export const BADGE_CONFIG: Record<

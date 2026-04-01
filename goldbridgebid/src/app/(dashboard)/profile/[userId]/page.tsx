@@ -13,6 +13,7 @@ import {
   Link2,
 } from "lucide-react";
 import { BADGE_CONFIG } from "@/lib/badges";
+import { hasCoreCredentials } from "@/lib/badges";
 import type { BadgeLevel } from "@/types/database";
 import PortfolioGallery from "@/components/profile/PortfolioGallery";
 import ProfileHeartButton from "@/components/profile/ProfileHeartButton";
@@ -22,6 +23,7 @@ import PublicReviewForm from "@/components/profile/PublicReviewForm";
 import VerifiedReviewForm from "@/components/profile/VerifiedReviewForm";
 import { getUserRoles } from "@/lib/auth/roles";
 import CredentialChecklist from "@/components/credentials/CredentialChecklist";
+import CoreCredentialsCheck from "@/components/credentials/CoreCredentialsCheck";
 
 export default async function PublicProfilePage({
   params,
@@ -76,6 +78,7 @@ export default async function PublicProfilePage({
 
   const badgeLevel = credentials?.badge_level as BadgeLevel;
   const badgeInfo = badgeLevel ? BADGE_CONFIG[badgeLevel] : null;
+  const hasCoreCheck = hasCoreCredentials(credentials);
 
   const credChecks = credentials
     ? [
@@ -252,6 +255,7 @@ export default async function PublicProfilePage({
               <h1 className="text-2xl font-bold text-text-primary">
                 {profile.full_name}
               </h1>
+              {hasCoreCheck && <CoreCredentialsCheck showLabel />}
               {badgeInfo && (
                 <span
                   className={`inline-flex items-center gap-1 rounded-full ${badgeInfo.bgColor} px-3 py-1 text-sm font-medium ${badgeInfo.color}`}

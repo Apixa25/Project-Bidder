@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { BADGE_CONFIG } from "@/lib/badges";
+import { hasCoreCredentials } from "@/lib/badges";
 import type { BadgeLevel } from "@/types/database";
-import { Shield, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import CredentialCard from "./CredentialCard";
 import { userHasRole } from "@/lib/auth/roles";
 
@@ -72,6 +73,7 @@ export default async function CredentialsPage() {
 
   const badgeLevel = credentials.badge_level as BadgeLevel;
   const badgeInfo = badgeLevel ? BADGE_CONFIG[badgeLevel] : null;
+  const hasCoreCheck = hasCoreCredentials(credentials);
 
   const uploadedCount = CREDENTIAL_FIELDS.filter(
     (c) => credentials[c.field as keyof typeof credentials] !== null
@@ -162,6 +164,17 @@ export default async function CredentialsPage() {
               style={{ width: `${(uploadedCount / 6) * 100}%` }}
             />
           </div>
+          <p className="mt-3 text-xs text-text-muted">
+            <span className="font-semibold text-text-primary">Core</span> means
+            your contractor license, surety bond, and general liability
+            insurance. Upload all 3 core documents to earn the green check that
+            customers will see next to your name.
+          </p>
+          {hasCoreCheck && (
+            <p className="mt-2 text-xs font-medium text-emerald-700">
+              Core Verified achieved: customers can spot this next to your name.
+            </p>
+          )}
         </div>
       </div>
 
