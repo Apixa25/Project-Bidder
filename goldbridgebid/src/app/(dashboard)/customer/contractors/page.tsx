@@ -463,13 +463,37 @@ export default async function CustomerContractorDirectoryPage({
           city: customerProfile.city,
         })
       : null;
+  const cityQuickLabel = customerProfile?.city
+    ? toTitleCase(customerProfile.city)
+    : null;
   const stateQuickHref = customerProfile?.state
     ? buildContractorDirectoryHref(params, {
         state: customerProfile.state,
         city: null,
       })
     : null;
+  const stateQuickLabel = customerProfile?.state
+    ? customerProfile.state.toUpperCase()
+    : null;
   const clearFiltersHref = "/customer/contractors";
+
+  async function handleSaveSearch(formData: FormData) {
+    "use server";
+
+    await saveContractorSearch(formData);
+  }
+
+  async function handleCheckAlerts() {
+    "use server";
+
+    await checkContractorSearchAlerts();
+  }
+
+  async function handleDeleteSearch(formData: FormData) {
+    "use server";
+
+    await deleteContractorSearch(formData);
+  }
 
   const totalItems = contractors.length;
   const page = Math.max(1, Number(params.page || "1"));
@@ -509,7 +533,7 @@ export default async function CustomerContractorDirectoryPage({
                 className="inline-flex items-center gap-2 rounded-full bg-secondary/10 px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:bg-secondary/15"
               >
                 <Sparkles className="h-4 w-4" />
-                Nearby in {toTitleCase(customerProfile.city!)}
+                Nearby in {cityQuickLabel}
               </Link>
             )}
             {stateQuickHref && (
@@ -518,7 +542,7 @@ export default async function CustomerContractorDirectoryPage({
                 className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/15"
               >
                 <MapPin className="h-4 w-4" />
-                Same state: {customerProfile.state!.toUpperCase()}
+                Same state: {stateQuickLabel}
               </Link>
             )}
             {hasActiveFilters && (
@@ -587,7 +611,7 @@ export default async function CustomerContractorDirectoryPage({
             </p>
           </div>
 
-          <form action={saveContractorSearch} className="space-y-3">
+          <form action={handleSaveSearch} className="space-y-3">
             <input type="hidden" name="queryString" value={activeQueryString} />
             <input
               type="text"
@@ -620,7 +644,7 @@ export default async function CustomerContractorDirectoryPage({
             </button>
           </form>
 
-          <form action={checkContractorSearchAlerts}>
+          <form action={handleCheckAlerts}>
             <button
               type="submit"
               className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-hover"
@@ -667,7 +691,7 @@ export default async function CustomerContractorDirectoryPage({
                       )}
                     </div>
                   </div>
-                  <form action={deleteContractorSearch}>
+                  <form action={handleDeleteSearch}>
                     <input type="hidden" name="searchId" value={saved.id} />
                     <button
                       type="submit"

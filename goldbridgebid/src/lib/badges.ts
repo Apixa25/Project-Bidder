@@ -20,7 +20,14 @@ type CoreCredentialShape = Pick<
   (typeof CORE_CREDENTIAL_FIELDS)[number]
 >;
 
-export function countUploadedCredentials(credentials: BidderCredentials | null | undefined) {
+type CredentialCountShape = Pick<
+  BidderCredentials,
+  (typeof CREDENTIAL_FIELDS)[number]
+>;
+
+export function countUploadedCredentials(
+  credentials: CredentialCountShape | null | undefined
+) {
   if (!credentials) {
     return 0;
   }
