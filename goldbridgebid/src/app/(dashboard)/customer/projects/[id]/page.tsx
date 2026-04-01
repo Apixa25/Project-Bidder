@@ -13,6 +13,7 @@ import {
   Mail,
   MessageSquare,
   History,
+  BriefcaseBusiness,
 } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
 import { BADGE_CONFIG } from "@/lib/badges";
@@ -93,6 +94,14 @@ export default async function ProjectDetailPage({
         .in("user_id", bidderIds)
     : { data: [] };
 
+  const { data: bidderSpecialties } = bidderIds.length > 0
+    ? await supabase
+        .from("bidder_specialties")
+        .select("user_id, trade, display_order")
+        .in("user_id", bidderIds)
+        .order("display_order", { ascending: true })
+    : { data: [] };
+
   // Fetch edit history
   const { data: projectEdits } = await supabase
     .from("project_edits")
@@ -106,6 +115,12 @@ export default async function ProjectDetailPage({
   const credentialMap = new Map(
     (bidderCredentials || []).map((c) => [c.user_id, c])
   );
+  const specialtyMap = new Map<string, string[]>();
+  for (const specialty of bidderSpecialties || []) {
+    const current = specialtyMap.get(specialty.user_id) || [];
+    current.push(TRADE_LABELS[specialty.trade as TradeCategory]);
+    specialtyMap.set(specialty.user_id, current);
+  }
   const awardedProfile = project.awarded_bidder_id
     ? profileMap.get(project.awarded_bidder_id)
     : null;
@@ -275,6 +290,7 @@ export default async function ProjectDetailPage({
                     ? BADGE_CONFIG[badgeLevel]
                     : null;
                   const hasCoreCheck = hasCoreCredentials(creds);
+                  const specialtyLabels = specialtyMap.get(bid.bidder_id) || [];
 
                   const credChecks = [
                     { label: "License", url: creds?.license_url },
@@ -327,6 +343,19 @@ export default async function ProjectDetailPage({
                               <p className="text-sm text-text-muted">
                                 {profile.business_name}
                               </p>
+                            )}
+                            {specialtyLabels.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {specialtyLabels.slice(0, 4).map((label) => (
+                                  <span
+                                    key={`${bid.bidder_id}-${label}`}
+                                    className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-[11px] font-medium text-secondary"
+                                  >
+                                    <BriefcaseBusiness className="h-3 w-3" />
+                                    {label}
+                                  </span>
+                                ))}
+                              </div>
                             )}
                           </div>
                         </div>

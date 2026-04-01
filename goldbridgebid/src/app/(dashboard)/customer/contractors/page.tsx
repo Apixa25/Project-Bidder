@@ -6,6 +6,10 @@ import AdminSearchBar from "@/components/admin/AdminSearchBar";
 import AdminFilterBar, { FilterDropdown } from "@/components/admin/AdminFilters";
 import AdminPagination from "@/components/admin/AdminPagination";
 import {
+  deleteContractorSearch,
+  saveContractorSearch,
+} from "./actions";
+import {
   BADGE_CONFIG,
   countUploadedCredentials,
   hasCoreCredentials,
@@ -23,6 +27,8 @@ import {
   ShieldCheck,
   Star,
   Heart,
+  Bookmark,
+  Trash2,
 } from "lucide-react";
 
 const PAGE_SIZE = 12;
@@ -38,6 +44,8 @@ type SortKey =
 interface Props {
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }
+
+const SEARCH_PARAM_KEYS = ["q", "badge", "trade", "state", "city", "sort"] as const;
 
 function getBadgeRank(level: BadgeLevel) {
   if (level === "gold") return 3;
@@ -61,6 +69,14 @@ function getSortValue(sort: string | undefined): SortKey {
     : "recommended";
 }
 
+function toTitleCase(value: string) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
 export default async function CustomerContractorDirectoryPage({
   searchParams,
 }: Props) {
@@ -73,6 +89,12 @@ export default async function CustomerContractorDirectoryPage({
 
   if (!user) redirect("/login");
   if (!(await userHasRole(user.id, "customer"))) redirect("/login");
+
+  const { data: savedSearches } = await supabase
+    .from("customer_saved_contractor_searches")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
 
   const { data: credentialRows } = await supabase
     .from("bidder_credentials")
@@ -167,6 +189,8 @@ export default async function CustomerContractorDirectoryPage({
 
   const searchTerm = (params.q || "").trim().toLowerCase();
   const sort = getSortValue(params.sort);
+  const selectedState = (params.state || "").trim();
+  const selectedCity = (params.city || "").trim();
 
   const tradeOptions = FORM_TRADES.filter((trade) =>
     (specialties || []).some((specialty) => specialty.trade === trade)
@@ -174,6 +198,46 @@ export default async function CustomerContractorDirectoryPage({
     value: trade,
     label: TRADE_LABELS[trade],
   }));
+
+  const stateOptions = Array.from(
+    new Set(
+      (profiles || [])
+        .map((profile) => profile.state?.trim().toUpperCase())
+        .filter(Boolean)
+    )
+  )
+    .sort()
+    .map((state) => ({
+      value: state!,
+      label: state!,
+    }));
+
+  const cityOptions = Array.from(
+    new Set(
+      (profiles || [])
+        .filter((profile) =>
+          selectedState
+            ? profile.state?.trim().toUpperCase() === selectedState.toUpperCase()
+            : true
+        )
+        .map((profile) => profile.city?.trim())
+        .filter(Boolean)
+    )
+  )
+    .sort((a, b) => a!.localeCompare(b!))
+    .map((city) => ({
+      value: city!,
+      label: toTitleCase(city!),
+    }));
+
+  const activeQuery = new URLSearchParams();
+  for (const key of SEARCH_PARAM_KEYS) {
+    const value = params[key];
+    if (value && value.trim()) {
+      activeQuery.set(key, value.trim());
+    }
+  }
+  const activeQueryString = activeQuery.toString();
 
   const contractors = (profiles || [])
     .map((profile) => {
@@ -213,6 +277,21 @@ export default async function CustomerContractorDirectoryPage({
         if (!contractor.specialties.includes(params.trade as TradeCategory)) {
           return false;
         }
+      }
+
+      if (
+        selectedState &&
+        contractor.profile.state?.trim().toUpperCase() !==
+          selectedState.toUpperCase()
+      ) {
+        return false;
+      }
+
+      if (
+        selectedCity &&
+        contractor.profile.city?.trim().toLowerCase() !== selectedCity.toLowerCase()
+      ) {
+        return false;
       }
 
       if (!searchTerm) return true;
@@ -302,40 +381,133 @@ export default async function CustomerContractorDirectoryPage({
         </div>
       </div>
 
-      <div className="mb-6 space-y-4 rounded-xl border border-border bg-surface p-4 shadow-sm">
-        <div className="max-w-xl">
-          <AdminSearchBar placeholder="Search by name, company, location, specialty..." />
+      <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        <div className="space-y-4 rounded-xl border border-border bg-surface p-4 shadow-sm">
+          <div className="max-w-xl">
+            <AdminSearchBar placeholder="Search by name, company, location, specialty..." />
+          </div>
+          <AdminFilterBar>
+            <FilterDropdown
+              paramName="badge"
+              label="Badge"
+              options={[
+                { value: "gold", label: "Gold" },
+                { value: "silver", label: "Silver" },
+                { value: "bronze", label: "Bronze" },
+                { value: "none", label: "None" },
+              ]}
+            />
+            <FilterDropdown
+              paramName="trade"
+              label="Specialty"
+              options={tradeOptions}
+            />
+            <FilterDropdown
+              paramName="state"
+              label="State"
+              options={stateOptions}
+              resetParams={["city"]}
+            />
+            <FilterDropdown
+              paramName="city"
+              label="City"
+              options={cityOptions}
+            />
+            <FilterDropdown
+              paramName="sort"
+              label="Sort"
+              includeAll={false}
+              options={[
+                { value: "", label: "Recommended" },
+                { value: "badge", label: "Badge level" },
+                { value: "qualifications", label: "Most qualifications" },
+                { value: "rating", label: "Highest rated" },
+                { value: "newest", label: "Newest members" },
+                { value: "name", label: "Name A-Z" },
+              ]}
+            />
+          </AdminFilterBar>
         </div>
-        <AdminFilterBar>
-          <FilterDropdown
-            paramName="badge"
-            label="Badge"
-            options={[
-              { value: "gold", label: "Gold" },
-              { value: "silver", label: "Silver" },
-              { value: "bronze", label: "Bronze" },
-              { value: "none", label: "None" },
-            ]}
-          />
-          <FilterDropdown
-            paramName="trade"
-            label="Specialty"
-            options={tradeOptions}
-          />
-          <FilterDropdown
-            paramName="sort"
-            label="Sort"
-            includeAll={false}
-            options={[
-              { value: "", label: "Recommended" },
-              { value: "badge", label: "Badge level" },
-              { value: "qualifications", label: "Most qualifications" },
-              { value: "rating", label: "Highest rated" },
-              { value: "newest", label: "Newest members" },
-              { value: "name", label: "Name A-Z" },
-            ]}
-          />
-        </AdminFilterBar>
+
+        <div className="space-y-4 rounded-xl border border-border bg-surface p-4 shadow-sm">
+          <div>
+            <h2 className="flex items-center gap-2 text-base font-semibold text-text-primary">
+              <Bookmark className="h-4 w-4" />
+              Saved Searches
+            </h2>
+            <p className="mt-1 text-sm text-text-secondary">
+              Save filtered contractor views by location, badge, and trade so
+              you can revisit them quickly.
+            </p>
+          </div>
+
+          <form action={saveContractorSearch} className="space-y-3">
+            <input type="hidden" name="queryString" value={activeQueryString} />
+            <input
+              type="text"
+              name="label"
+              maxLength={80}
+              placeholder="Name this search"
+              defaultValue={
+                selectedCity
+                  ? `${toTitleCase(selectedCity)} contractors`
+                  : selectedState
+                    ? `${selectedState.toUpperCase()} contractors`
+                    : ""
+              }
+              className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-sm transition-colors hover:bg-primary-dark"
+            >
+              <Bookmark className="h-4 w-4" />
+              Save Current Search
+            </button>
+          </form>
+
+          {savedSearches && savedSearches.length > 0 ? (
+            <div className="space-y-2">
+              {savedSearches.slice(0, 6).map((saved) => (
+                <div
+                  key={saved.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border bg-bg-warm px-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <Link
+                      href={
+                        saved.query_string
+                          ? `/customer/contractors?${saved.query_string}`
+                          : "/customer/contractors"
+                      }
+                      className="block truncate text-sm font-semibold text-text-primary hover:text-primary"
+                    >
+                      {saved.label}
+                    </Link>
+                    <p className="mt-1 text-xs text-text-muted">
+                      Saved {new Date(saved.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <form action={deleteContractorSearch}>
+                    <input type="hidden" name="searchId" value={saved.id} />
+                    <button
+                      type="submit"
+                      className="rounded-lg p-2 text-text-muted transition-colors hover:bg-red-50 hover:text-red-600"
+                      aria-label={`Delete saved search ${saved.label}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </form>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-text-secondary">
+              No saved searches yet. Save one after setting a location, badge,
+              or specialty filter.
+            </p>
+          )}
+        </div>
       </div>
 
       {paginated.length > 0 ? (

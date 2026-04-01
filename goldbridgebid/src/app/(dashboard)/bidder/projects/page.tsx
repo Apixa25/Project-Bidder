@@ -1,7 +1,16 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { MapPin, Calendar, DollarSign, Search, ImageIcon } from "lucide-react";
+import {
+  MapPin,
+  Calendar,
+  DollarSign,
+  Search,
+  ImageIcon,
+  Heart,
+  Star,
+  User,
+} from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import { userHasRole } from "@/lib/auth/roles";
@@ -22,6 +31,64 @@ export default async function BrowseProjectsPage() {
     .select("*, project_files(id, file_url, thumbnail_url, file_type, annotated_url)")
     .eq("status", "open")
     .order("created_at", { ascending: false });
+
+  const customerIds = Array.from(
+    new Set((projects || []).map((project) => project.customer_id))
+  );
+
+  const { data: customerProfiles } = customerIds.length
+    ? await supabase
+        .from("profiles")
+        .select("user_id, full_name, business_name, city, state, created_at")
+        .in("user_id", customerIds)
+    : { data: [] };
+
+  const { data: customerReviewRows } = customerIds.length
+    ? await supabase
+        .from("user_reviews")
+        .select("reviewee_user_id, rating_overall, review_type, status")
+        .in("reviewee_user_id", customerIds)
+        .eq("status", "published")
+    : { data: [] };
+
+  const { data: customerHearts } = customerIds.length
+    ? await supabase
+        .from("profile_hearts")
+        .select("target_user_id")
+        .in("target_user_id", customerIds)
+    : { data: [] };
+
+  const customerProfileMap = new Map(
+    (customerProfiles || []).map((profile) => [profile.user_id, profile])
+  );
+  const customerHeartCounts = new Map<string, number>();
+  for (const heart of customerHearts || []) {
+    customerHeartCounts.set(
+      heart.target_user_id,
+      (customerHeartCounts.get(heart.target_user_id) || 0) + 1
+    );
+  }
+
+  const customerReviewStats = new Map<
+    string,
+    { verifiedAverageRating: number | null; totalReviewCount: number }
+  >();
+  for (const customerId of customerIds) {
+    const reviews = (customerReviewRows || []).filter(
+      (review) => review.reviewee_user_id === customerId
+    );
+    const verified = reviews.filter(
+      (review) => review.review_type === "verified_platform"
+    );
+    customerReviewStats.set(customerId, {
+      verifiedAverageRating:
+        verified.length > 0
+          ? verified.reduce((sum, review) => sum + review.rating_overall, 0) /
+            verified.length
+          : null,
+      totalReviewCount: reviews.length,
+    });
+  }
 
   return (
     <div>
@@ -46,6 +113,12 @@ export default async function BrowseProjectsPage() {
             const thumbUrl = firstImage
               ? firstImage.annotated_url || firstImage.thumbnail_url || firstImage.file_url
               : null;
+            const customer = customerProfileMap.get(project.customer_id);
+            const reviewStats = customerReviewStats.get(project.customer_id) || {
+              verifiedAverageRating: null,
+              totalReviewCount: 0,
+            };
+            const heartCount = customerHeartCounts.get(project.customer_id) || 0;
 
             return (
             <Link
@@ -114,6 +187,37 @@ export default async function BrowseProjectsPage() {
                         {TRADE_LABELS[trade]}
                       </span>
                     ))}
+                  </div>
+
+                  <div className="mt-4 rounded-lg border border-border bg-bg-warm px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                      Customer Snapshot
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-text-secondary">
+                      <span className="flex items-center gap-1 font-medium text-text-primary">
+                        <User className="h-4 w-4 text-primary" />
+                        {customer?.full_name || "Project Owner"}
+                      </span>
+                      {customer?.city && customer?.state && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {customer.city}, {customer.state}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <Star className="h-3.5 w-3.5 text-amber-500" />
+                        {reviewStats.verifiedAverageRating === null
+                          ? "New"
+                          : reviewStats.verifiedAverageRating.toFixed(1)}
+                        {" · "}
+                        {reviewStats.totalReviewCount} review
+                        {reviewStats.totalReviewCount === 1 ? "" : "s"}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Heart className="h-3.5 w-3.5 text-primary" />
+                        {heartCount} heart{heartCount === 1 ? "" : "s"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

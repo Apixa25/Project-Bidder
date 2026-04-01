@@ -13,6 +13,7 @@ interface FilterDropdownProps {
   label: string;
   options: FilterOption[];
   includeAll?: boolean;
+  resetParams?: string[];
 }
 
 export function FilterDropdown({
@@ -20,6 +21,7 @@ export function FilterDropdown({
   label,
   options,
   includeAll = true,
+  resetParams = [],
 }: FilterDropdownProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -33,6 +35,11 @@ export function FilterDropdown({
     } else {
       params.delete(paramName);
     }
+
+    for (const resetParam of resetParams) {
+      params.delete(resetParam);
+    }
+
     params.delete("page");
     startTransition(() => {
       router.push(`?${params.toString()}`);

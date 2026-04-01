@@ -367,6 +367,14 @@ export interface Notification {
   created_at: string;
 }
 
+export interface CustomerSavedContractorSearch {
+  id: string;
+  user_id: string;
+  label: string;
+  query_string: string;
+  created_at: string;
+}
+
 export interface FlaggedContent {
   id: string;
   reporter_id: string;
@@ -485,6 +493,12 @@ type NotificationInsert = {
   link?: string | null;
 };
 
+type CustomerSavedContractorSearchInsert = {
+  user_id: string;
+  label: string;
+  query_string?: string;
+};
+
 type UserRoleMembershipInsert = {
   user_id: string;
   role: UserRole;
@@ -593,6 +607,12 @@ export interface Database {
         Row: Notification;
         Insert: NotificationInsert;
         Update: { read?: boolean };
+        Relationships: [];
+      };
+      customer_saved_contractor_searches: {
+        Row: CustomerSavedContractorSearch;
+        Insert: CustomerSavedContractorSearchInsert;
+        Update: never;
         Relationships: [];
       };
       flagged_content: {
