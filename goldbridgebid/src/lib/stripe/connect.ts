@@ -1,9 +1,8 @@
 import type Stripe from "stripe";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function syncBidderPayoutAccountFromStripe(options: {
-  admin: SupabaseClient<Database>;
+  admin: ReturnType<typeof createAdminClient>;
   stripe: Stripe;
   stripeAccountId: string;
   fallbackUserId?: string | null;

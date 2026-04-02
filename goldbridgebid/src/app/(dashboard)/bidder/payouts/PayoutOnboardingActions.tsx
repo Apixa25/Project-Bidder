@@ -37,7 +37,7 @@ export default function PayoutOnboardingActions({
                   return;
                 }
 
-                if (result?.url) {
+                if (result && "url" in result && result.url) {
                   window.location.href = result.url;
                 }
               })

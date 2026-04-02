@@ -1,11 +1,10 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
-  Database,
   PaidEstimateClaim,
   ProjectPaidEstimatePool,
 } from "@/types/database";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-type AdminClient = SupabaseClient<Database>;
+type AdminClient = ReturnType<typeof createAdminClient>;
 
 type PayoutClaimLike = Pick<
   PaidEstimateClaim,
