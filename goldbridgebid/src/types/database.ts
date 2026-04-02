@@ -415,6 +415,7 @@ export interface PaidEstimateClaim {
   platform_fee_amount: number | null;
   reserved_at: string | null;
   payout_due_at: string | null;
+  stripe_transfer_id: string | null;
   paid_out_at: string | null;
   denied_refunded_at: string | null;
   created_at: string;
@@ -625,6 +626,7 @@ type PaidEstimateClaimInsert = {
   platform_fee_amount?: number | null;
   reserved_at?: string | null;
   payout_due_at?: string | null;
+  stripe_transfer_id?: string | null;
   paid_out_at?: string | null;
   denied_refunded_at?: string | null;
 };

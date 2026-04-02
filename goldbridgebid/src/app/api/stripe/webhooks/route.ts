@@ -5,6 +5,7 @@ import {
   getStripeServerClient,
   getStripeWebhookSecret,
 } from "@/lib/stripe/server";
+import { syncBidderPayoutAccountFromStripe } from "@/lib/stripe/connect";
 
 async function markPoolFunded(
   metadata: Record<string, string | undefined>,
@@ -129,6 +130,17 @@ export async function POST(request: Request) {
             paymentIntentId: paymentIntent.id,
           }
         );
+        break;
+      }
+      case "account.updated": {
+        const account = event.data.object as Stripe.Account;
+        const supabase = createAdminClient();
+
+        await syncBidderPayoutAccountFromStripe({
+          admin: supabase,
+          stripe,
+          stripeAccountId: account.id,
+        });
         break;
       }
       default:

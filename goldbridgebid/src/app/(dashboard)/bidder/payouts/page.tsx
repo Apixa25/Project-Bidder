@@ -252,6 +252,16 @@ export default async function BidderPayoutsPage({ searchParams }: Props) {
                         : "Not yet"}
                     </p>
                   </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-text-muted">
+                      Transfer
+                    </p>
+                    <p className="mt-1 font-medium text-text-primary">
+                      {claim.stripe_transfer_id
+                        ? `${claim.stripe_transfer_id.slice(0, 18)}...`
+                        : "Not issued"}
+                    </p>
+                  </div>
                 </div>
               </div>
             ))}

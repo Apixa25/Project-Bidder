@@ -13,6 +13,7 @@ import {
   forceCloseProject,
   deleteProject,
   resolvePaidEstimateDispute,
+  markPaidEstimateClaimPaidOutManually,
 } from "@/app/(dashboard)/admin/actions";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 
@@ -105,6 +106,9 @@ export default function ProjectDetailTabs({
     disputeId: string;
     decision: "pay" | "deny";
   } | null>(null);
+  const [manualPayoutClaimId, setManualPayoutClaimId] = useState<string | null>(
+    null
+  );
   const disputeMap = new Map(
     paidEstimateDisputes.map((dispute) => [dispute.claim_id, dispute])
   );
@@ -386,6 +390,12 @@ export default function ProjectDetailTabs({
                                 ? new Date(claim.payout_due_at).toLocaleString()
                                 : "N/A"}
                             </div>
+                            <div>
+                              Paid{" "}
+                              {claim.paid_out_at
+                                ? new Date(claim.paid_out_at).toLocaleString()
+                                : "Not yet"}
+                            </div>
                           </td>
                           <td className="px-6 py-4">
                             {dispute ? (
@@ -426,7 +436,23 @@ export default function ProjectDetailTabs({
                                 )}
                               </div>
                             ) : (
-                              <span className="text-xs text-text-muted">None</span>
+                              <div className="space-y-2">
+                                <span className="text-xs text-text-muted">None</span>
+                                {claim.claim_status === "payout_pending" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setManualPayoutClaimId(claim.id)}
+                                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+                                  >
+                                    Mark Paid
+                                  </button>
+                                )}
+                                {claim.stripe_transfer_id && (
+                                  <p className="text-[11px] text-text-muted">
+                                    Transfer: {claim.stripe_transfer_id.slice(0, 18)}...
+                                  </p>
+                                )}
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -615,6 +641,21 @@ export default function ProjectDetailTabs({
           disputeResolution?.decision === "deny" ? "Deny Payout" : "Approve Payout"
         }
         confirmColor={disputeResolution?.decision === "deny" ? "red" : "amber"}
+        showReasonInput
+      />
+
+      <ConfirmDialog
+        open={Boolean(manualPayoutClaimId)}
+        onClose={() => setManualPayoutClaimId(null)}
+        onConfirm={async (reason) => {
+          if (!manualPayoutClaimId) return;
+          await markPaidEstimateClaimPaidOutManually(manualPayoutClaimId, reason);
+          window.location.reload();
+        }}
+        title="Mark Paid Estimate As Paid Out"
+        description="Use this fallback only when the payout should be considered completed by operations."
+        confirmLabel="Mark Paid Out"
+        confirmColor="amber"
         showReasonInput
       />
     </div>

@@ -55,6 +55,7 @@
    Add authenticated scheduled calls for:
 
    - `/api/cron/release-paid-estimates`
+   - `/api/cron/process-paid-estimate-payouts`
    - `/api/cron/refund-unused-paid-estimates`
 
    Send either:

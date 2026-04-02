@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { markPaidEstimateClaimPaidOut } from "@/lib/paid-estimates/payout-processing";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -445,5 +446,88 @@ export async function resolvePaidEstimateDispute(
   revalidatePath(`/admin/projects/${dispute.project_id}`);
   revalidatePath(`/customer/projects/${dispute.project_id}`);
   revalidatePath("/bidder/bids");
+  return { success: true };
+}
+
+export async function markPaidEstimateClaimPaidOutManually(
+  claimId: string,
+  note: string
+) {
+  const { supabase, adminUserId } = await requireAdmin();
+  const admin = createAdminClient();
+
+  const { data: claim } = await admin
+    .from("paid_estimate_claims")
+    .select("*")
+    .eq("id", claimId)
+    .single();
+
+  if (!claim) {
+    return { error: "Claim not found." };
+  }
+
+  if (claim.claim_status !== "payout_pending") {
+    return {
+      error: "Only payout-pending paid estimate claims can be marked as paid out.",
+    };
+  }
+
+  const payoutResult = await markPaidEstimateClaimPaidOut({
+    admin,
+    claim,
+  });
+
+  if ("error" in payoutResult) {
+    return { error: payoutResult.error };
+  }
+
+  const { data: project } = await admin
+    .from("projects")
+    .select("customer_id, title")
+    .eq("id", claim.project_id)
+    .maybeSingle();
+
+  const notifications = [
+    {
+      user_id: claim.bidder_id,
+      type: "paid_estimate_paid_out",
+      title: "Paid estimate paid out",
+      message:
+        "Your paid estimate was manually marked as paid out by the platform team.",
+      link: "/bidder/payouts",
+    },
+  ];
+
+  if (project?.customer_id) {
+    notifications.push({
+      user_id: project.customer_id,
+      type: "paid_estimate_paid_out",
+      title: "Paid estimate paid out",
+      message: `A paid estimate on "${project.title}" was manually marked as paid out.`,
+      link: `/customer/projects/${claim.project_id}`,
+    });
+  }
+
+  await supabase.from("notifications").insert(notifications);
+
+  await logAudit(
+    supabase,
+    adminUserId,
+    "manual_paid_estimate_paid_out",
+    "paid_estimate_claim",
+    claimId,
+    {
+      project_id: claim.project_id,
+      bid_id: claim.bid_id,
+      bidder_id: claim.bidder_id,
+      note: note || null,
+    }
+  );
+
+  revalidatePath("/admin/paid-estimates");
+  revalidatePath(`/admin/projects/${claim.project_id}`);
+  revalidatePath(`/customer/projects/${claim.project_id}`);
+  revalidatePath("/bidder/bids");
+  revalidatePath("/bidder/payouts");
   return { success: true };
 }

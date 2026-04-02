@@ -9,6 +9,7 @@ import {
   getStripeConnectReturnUrl,
   getStripeServerClient,
 } from "@/lib/stripe/server";
+import { syncBidderPayoutAccountFromStripe } from "@/lib/stripe/connect";
 
 async function requireBidderUser() {
   const supabase = await createClient();
@@ -27,36 +28,6 @@ async function requireBidderUser() {
   }
 
   return { user, supabase } as const;
-}
-
-async function syncBidderPayoutAccount(userId: string, stripeAccountId: string) {
-  const admin = createAdminClient();
-  const stripe = getStripeServerClient();
-  const { data: existingRow } = await admin
-    .from("bidder_payout_accounts")
-    .select("onboarding_started_at, onboarding_completed_at")
-    .eq("user_id", userId)
-    .maybeSingle();
-  const account = await stripe.accounts.retrieve(stripeAccountId);
-  const nowIso = new Date().toISOString();
-  const isReady = account.charges_enabled && account.payouts_enabled;
-
-  await admin.from("bidder_payout_accounts").upsert(
-    {
-      user_id: userId,
-      stripe_account_id: stripeAccountId,
-      charges_enabled: account.charges_enabled,
-      payouts_enabled: account.payouts_enabled,
-      details_submitted: account.details_submitted,
-      onboarding_started_at: existingRow?.onboarding_started_at ?? nowIso,
-      onboarding_completed_at:
-        existingRow?.onboarding_completed_at ?? (isReady ? nowIso : null),
-      last_status_sync_at: nowIso,
-    },
-    { onConflict: "user_id" }
-  );
-
-  return account;
 }
 
 export async function beginBidderPayoutOnboarding() {
@@ -101,7 +72,12 @@ export async function beginBidderPayoutOnboarding() {
         { onConflict: "user_id" }
       );
     } else {
-      await syncBidderPayoutAccount(bidder.user.id, stripeAccountId);
+      await syncBidderPayoutAccountFromStripe({
+        admin,
+        stripe,
+        stripeAccountId,
+        fallbackUserId: bidder.user.id,
+      });
     }
 
     const link = await stripe.accountLinks.create({
@@ -131,6 +107,7 @@ export async function refreshBidderPayoutStatus() {
 
   try {
     const admin = createAdminClient();
+    const stripe = getStripeServerClient();
     const { data: payoutAccount } = await admin
       .from("bidder_payout_accounts")
       .select("stripe_account_id")
@@ -141,7 +118,12 @@ export async function refreshBidderPayoutStatus() {
       return { error: "Start payout onboarding before refreshing status." };
     }
 
-    await syncBidderPayoutAccount(bidder.user.id, payoutAccount.stripe_account_id);
+    await syncBidderPayoutAccountFromStripe({
+      admin,
+      stripe,
+      stripeAccountId: payoutAccount.stripe_account_id,
+      fallbackUserId: bidder.user.id,
+    });
 
     revalidatePath("/bidder/payouts");
     revalidatePath("/bidder");
