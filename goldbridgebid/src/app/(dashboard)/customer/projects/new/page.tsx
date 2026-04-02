@@ -42,6 +42,8 @@ export default function NewProjectPage() {
   const [compressing, setCompressing] = useState(false);
   const [accessReady, setAccessReady] = useState(false);
   const [enablePaidEstimate, setEnablePaidEstimate] = useState(false);
+  const [rewardAmount, setRewardAmount] = useState("100");
+  const [maxPaidSlots, setMaxPaidSlots] = useState("3");
   const [paidEstimateFilter, setPaidEstimateFilter] = useState<
     "open_to_anyone" | "core_verified_only"
   >("open_to_anyone");
@@ -52,6 +54,15 @@ export default function NewProjectPage() {
       ),
     [files]
   );
+  const paidEstimateReward = Number.parseFloat(rewardAmount);
+  const paidEstimateSlots = Number.parseInt(maxPaidSlots, 10);
+  const estimatedFundingTotal =
+    Number.isFinite(paidEstimateReward) &&
+    Number.isInteger(paidEstimateSlots) &&
+    paidEstimateReward > 0 &&
+    paidEstimateSlots > 0
+      ? paidEstimateReward * paidEstimateSlots
+      : 0;
 
   useEffect(() => {
     async function checkAccess() {
@@ -185,6 +196,69 @@ export default function NewProjectPage() {
           bids.
         </p>
       </div>
+
+      <section className="mb-6 rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
+              Project Type
+            </p>
+            <h2 className="mt-2 text-lg font-semibold text-text-primary">
+              Choose how you want contractors to respond
+            </h2>
+            <p className="mt-1 text-sm text-text-secondary">
+              Start with a normal free project, or launch with a funded paid
+              estimate offer immediately.
+            </p>
+          </div>
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              enablePaidEstimate
+                ? "bg-primary/15 text-primary"
+                : "bg-gray-100 text-gray-700"
+            }`}
+          >
+            {enablePaidEstimate ? "Paid estimate project" : "Free project"}
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setEnablePaidEstimate(false)}
+            className={`rounded-xl border px-4 py-4 text-left transition-colors ${
+              !enablePaidEstimate
+                ? "border-secondary bg-secondary/10 shadow-sm"
+                : "border-border bg-bg-warm hover:border-secondary/40"
+            }`}
+          >
+            <p className="text-sm font-semibold text-text-primary">
+              Free project
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-text-muted">
+              Post normally and let contractors submit unpaid bids right away.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setEnablePaidEstimate(true)}
+            className={`rounded-xl border px-4 py-4 text-left transition-colors ${
+              enablePaidEstimate
+                ? "border-primary bg-primary/10 shadow-sm"
+                : "border-border bg-bg-warm hover:border-primary/40"
+            }`}
+          >
+            <p className="text-sm font-semibold text-text-primary">
+              Paid estimate project
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-text-muted">
+              Post the project first, then continue to Stripe so you can fund
+              paid estimate slots.
+            </p>
+          </button>
+        </div>
+      </section>
 
       {error && (
         <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -482,27 +556,7 @@ export default function NewProjectPage() {
             </div>
           </div>
 
-          <div className="mt-5 rounded-lg border border-border bg-surface px-4 py-4">
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={enablePaidEstimate}
-                onChange={(event) => setEnablePaidEstimate(event.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
-              />
-              <div>
-                <p className="text-sm font-semibold text-text-primary">
-                  Offer paid estimates on this project
-                </p>
-                <p className="mt-1 text-xs text-text-muted">
-                  If enabled, the app will create the project first and then send
-                  you to Stripe Checkout to fund the paid estimate pool.
-                </p>
-              </div>
-            </label>
-          </div>
-
-          {enablePaidEstimate && (
+          {enablePaidEstimate ? (
             <div className="mt-5 space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
@@ -518,7 +572,8 @@ export default function NewProjectPage() {
                     type="number"
                     min="1"
                     step="0.01"
-                    defaultValue="100"
+                    value={rewardAmount}
+                    onChange={(event) => setRewardAmount(event.target.value)}
                     required={enablePaidEstimate}
                     className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
@@ -537,7 +592,8 @@ export default function NewProjectPage() {
                     type="number"
                     min="1"
                     step="1"
-                    defaultValue="3"
+                    value={maxPaidSlots}
+                    onChange={(event) => setMaxPaidSlots(event.target.value)}
                     required={enablePaidEstimate}
                     className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
@@ -573,6 +629,29 @@ export default function NewProjectPage() {
                 </div>
               </div>
 
+              <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                  Estimated Funding Summary
+                </p>
+                <p className="mt-2 text-lg font-bold text-text-primary">
+                  ${estimatedFundingTotal.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+                <p className="mt-1 text-sm text-text-secondary">
+                  ${Number.isFinite(paidEstimateReward) ? paidEstimateReward.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }) : "0.00"} per estimate x{" "}
+                  {Number.isInteger(paidEstimateSlots) && paidEstimateSlots > 0
+                    ? paidEstimateSlots
+                    : 0}{" "}
+                  paid slot
+                  {paidEstimateSlots === 1 ? "" : "s"}.
+                </p>
+              </div>
+
               <div className="rounded-lg border border-border bg-surface px-4 py-4 text-sm text-text-secondary">
                 <div className="flex items-start gap-2">
                   <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
@@ -585,6 +664,14 @@ export default function NewProjectPage() {
                   </p>
                 </div>
               </div>
+            </div>
+          ) : (
+            <div className="mt-5 rounded-lg border border-border bg-surface px-4 py-4 text-sm text-text-secondary">
+              <p>
+                This will post as a normal free project. You can still turn on a
+                funded paid estimate offer later from the project detail page if
+                you want to attract more serious bidders.
+              </p>
             </div>
           )}
         </section>
