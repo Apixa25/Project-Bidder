@@ -321,3 +321,129 @@ export async function dismissFlag(flagId: string, note: string) {
   revalidatePath("/admin");
   return { success: true };
 }
+
+export async function resolvePaidEstimateDispute(
+  disputeId: string,
+  decision: "pay" | "deny",
+  reviewNotes: string
+) {
+  const { supabase, adminUserId } = await requireAdmin();
+  const admin = createAdminClient();
+
+  const { data: dispute } = await admin
+    .from("paid_estimate_disputes")
+    .select("*")
+    .eq("id", disputeId)
+    .single();
+
+  if (!dispute) {
+    return { error: "Dispute not found." };
+  }
+
+  if (dispute.review_status !== "open") {
+    return { error: "This dispute has already been resolved." };
+  }
+
+  const { data: claim } = await admin
+    .from("paid_estimate_claims")
+    .select("*")
+    .eq("id", dispute.claim_id)
+    .single();
+
+  if (!claim) {
+    return { error: "Claim not found for this dispute." };
+  }
+
+  const nowIso = new Date().toISOString();
+  const nextReviewStatus =
+    decision === "pay" ? "resolved_paid" : "resolved_denied";
+  const nextClaimStatus =
+    decision === "pay" ? "payout_pending" : "payout_denied_refunded";
+
+  const { error: disputeUpdateError } = await admin
+    .from("paid_estimate_disputes")
+    .update({
+      review_status: nextReviewStatus,
+      review_notes: reviewNotes || null,
+      resolved_by: adminUserId,
+      resolved_at: nowIso,
+    })
+    .eq("id", disputeId);
+
+  if (disputeUpdateError) {
+    return { error: "Failed to update dispute status." };
+  }
+
+  const claimUpdate: Record<string, unknown> = {
+    claim_status: nextClaimStatus,
+  };
+
+  if (decision === "deny") {
+    claimUpdate.denied_refunded_at = nowIso;
+  }
+
+  const { error: claimUpdateError } = await admin
+    .from("paid_estimate_claims")
+    .update(claimUpdate)
+    .eq("id", claim.id);
+
+  if (claimUpdateError) {
+    return { error: "Failed to update the paid estimate claim." };
+  }
+
+  if (decision === "deny" && claim.pool_id && claim.reward_amount) {
+    const { data: pool } = await admin
+      .from("project_paid_estimate_pools")
+      .select("id, reserved_total_amount, refunded_total_amount")
+      .eq("id", claim.pool_id)
+      .single();
+
+    if (pool) {
+      await admin
+        .from("project_paid_estimate_pools")
+        .update({
+          reserved_total_amount: Math.max(
+            0,
+            Number(pool.reserved_total_amount) - Number(claim.reward_amount)
+          ),
+          refunded_total_amount:
+            Number(pool.refunded_total_amount) + Number(claim.reward_amount),
+        })
+        .eq("id", pool.id);
+    }
+  }
+
+  const notificationMessage =
+    decision === "pay"
+      ? "Your paid estimate dispute was reviewed and the estimate remains payable."
+      : "Your paid estimate dispute was reviewed and the estimate payout was denied.";
+
+  await supabase.from("notifications").insert({
+    user_id: dispute.bidder_id,
+    type: "paid_estimate_dispute_resolved",
+    title: "Paid estimate dispute resolved",
+    message: notificationMessage,
+    link: `/bidder/bids`,
+  });
+
+  await logAudit(
+    supabase,
+    adminUserId,
+    "resolve_paid_estimate_dispute",
+    "paid_estimate_dispute",
+    disputeId,
+    {
+      decision,
+      claim_id: dispute.claim_id,
+      project_id: dispute.project_id,
+      review_notes: reviewNotes || null,
+    }
+  );
+
+  revalidatePath("/admin/disputes");
+  revalidatePath("/admin/paid-estimates");
+  revalidatePath(`/admin/projects/${dispute.project_id}`);
+  revalidatePath(`/customer/projects/${dispute.project_id}`);
+  revalidatePath("/bidder/bids");
+  return { success: true };
+}

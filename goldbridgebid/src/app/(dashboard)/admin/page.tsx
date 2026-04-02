@@ -12,11 +12,17 @@ import {
   ScrollText,
   AlertTriangle,
   Star,
+  BadgeDollarSign,
+  Scale,
 } from "lucide-react";
 import AdminStatCard from "@/components/admin/AdminStatCard";
 import ActivityFeed, {
   type ActivityItem,
 } from "@/components/admin/ActivityFeed";
+
+const SEVEN_DAYS_AGO_ISO = new Date(
+  Date.now() - 7 * 24 * 60 * 60 * 1000
+).toISOString();
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -46,10 +52,6 @@ export default async function AdminDashboard() {
 
   if (!profile || profile.role !== "admin") redirect("/login");
 
-  const sevenDaysAgo = new Date(
-    Date.now() - 7 * 24 * 60 * 60 * 1000
-  ).toISOString();
-
   const [
     { data: customerRoles },
     { data: bidderRoles },
@@ -61,7 +63,7 @@ export default async function AdminDashboard() {
     supabase
       .from("user_roles")
       .select("user_id, role, created_at")
-      .gte("created_at", sevenDaysAgo)
+      .gte("created_at", SEVEN_DAYS_AGO_ISO)
       .order("created_at", { ascending: false })
       .limit(10),
     supabase.from("user_reviews").select("*", { count: "exact", head: true }),
@@ -325,6 +327,16 @@ export default async function AdminDashboard() {
               },
               { href: "/admin/flags", label: "Flagged Content", icon: Flag },
               { href: "/admin/reviews", label: "Reviews", icon: Star },
+              {
+                href: "/admin/paid-estimates",
+                label: "Paid Estimates",
+                icon: BadgeDollarSign,
+              },
+              {
+                href: "/admin/disputes",
+                label: "Disputes",
+                icon: Scale,
+              },
               {
                 href: "/admin/analytics",
                 label: "Analytics",

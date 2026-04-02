@@ -24,6 +24,8 @@ import type {
   TradeCategory,
   BadgeLevel,
   ProjectPaidEstimatePool,
+  PaidEstimateClaim,
+  PaidEstimateDispute,
 } from "@/types/database";
 import ProjectStatusActions from "./ProjectStatusActions";
 import ProjectPhotos from "./ProjectPhotos";
@@ -32,6 +34,7 @@ import { userHasRole } from "@/lib/auth/roles";
 import CredentialChecklist from "@/components/credentials/CredentialChecklist";
 import CoreCredentialsCheck from "@/components/credentials/CoreCredentialsCheck";
 import PaidEstimatePoolPanel from "./PaidEstimatePoolPanel";
+import DisputePaidEstimateButton from "./DisputePaidEstimateButton";
 import { isPaidEstimatePoolVisibleAsPaid } from "@/lib/paid-estimates/pools";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
@@ -96,6 +99,11 @@ export default async function ProjectDetailPage({
     .eq("project_id", id)
     .order("created_at", { ascending: true });
 
+  const { data: paidEstimateClaims } = await admin
+    .from("paid_estimate_claims")
+    .select("*")
+    .eq("project_id", id);
+
   // Fetch bidder profiles and credentials for each bid
   const bidderIds = bids?.map((b) => b.bidder_id) || [];
   const { data: bidderProfiles } = bidderIds.length > 0
@@ -127,11 +135,31 @@ export default async function ProjectDetailPage({
     .eq("project_id", id)
     .order("edited_at", { ascending: false });
 
+  const claimIds = (paidEstimateClaims || []).map((claim) => claim.id);
+  const { data: paidEstimateDisputes } = claimIds.length
+    ? await admin
+        .from("paid_estimate_disputes")
+        .select("*")
+        .in("claim_id", claimIds)
+    : { data: [] };
+
   const profileMap = new Map(
     (bidderProfiles || []).map((p) => [p.user_id, p])
   );
   const credentialMap = new Map(
     (bidderCredentials || []).map((c) => [c.user_id, c])
+  );
+  const claimMap = new Map(
+    ((paidEstimateClaims || []) as PaidEstimateClaim[]).map((claim) => [
+      claim.bid_id,
+      claim,
+    ])
+  );
+  const disputeMap = new Map(
+    ((paidEstimateDisputes || []) as PaidEstimateDispute[]).map((dispute) => [
+      dispute.claim_id,
+      dispute,
+    ])
   );
   const specialtyMap = new Map<string, string[]>();
   for (const specialty of bidderSpecialties || []) {
@@ -334,6 +362,8 @@ export default async function ProjectDetailPage({
                     : null;
                   const hasCoreCheck = hasCoreCredentials(creds);
                   const specialtyLabels = specialtyMap.get(bid.bidder_id) || [];
+                  const claim = claimMap.get(bid.id) || null;
+                  const dispute = claim ? disputeMap.get(claim.id) || null : null;
 
                   const credChecks = [
                     { label: "License", url: creds?.license_url },
@@ -409,6 +439,42 @@ export default async function ProjectDetailPage({
                             <span className="mb-2 inline-flex items-center rounded-full bg-secondary/15 px-2.5 py-0.5 text-xs font-semibold text-secondary">
                               Winning Bid
                             </span>
+                          )}
+                          {claim && (
+                            <div className="mb-2 flex flex-col items-end gap-1">
+                              <span
+                                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                                  claim.claim_status === "paid_reserved"
+                                    ? "bg-primary/15 text-primary"
+                                    : claim.claim_status === "disputed"
+                                      ? "bg-amber-100 text-amber-800"
+                                      : claim.claim_status === "payout_pending"
+                                        ? "bg-blue-100 text-blue-700"
+                                        : claim.claim_status === "paid_out"
+                                          ? "bg-green-100 text-green-700"
+                                          : "bg-gray-100 text-gray-600"
+                                }`}
+                              >
+                                {claim.claim_status === "paid_reserved"
+                                  ? "Paid Slot Reserved"
+                                  : claim.claim_status === "disputed"
+                                    ? "Under Dispute Review"
+                                    : claim.claim_status === "payout_pending"
+                                      ? "Payout Pending"
+                                      : claim.claim_status === "paid_out"
+                                        ? "Paid Out"
+                                        : "Unpaid Bid"}
+                              </span>
+                              {claim.claim_status === "paid_reserved" &&
+                                claim.payout_due_at && (
+                                  <span className="text-[11px] text-text-muted">
+                                    Auto-pays after{" "}
+                                    {new Date(
+                                      claim.payout_due_at
+                                    ).toLocaleString()}
+                                  </span>
+                                )}
+                            </div>
                           )}
                           <p className="text-2xl font-bold text-primary">
                             ${Number(bid.price).toLocaleString()}
@@ -508,6 +574,26 @@ export default async function ProjectDetailPage({
                         Bid submitted:{" "}
                         {new Date(bid.created_at).toLocaleString()}
                       </p>
+
+                      {claim?.claim_status === "paid_reserved" && !dispute && (
+                        <DisputePaidEstimateButton claimId={claim.id} />
+                      )}
+
+                      {dispute && (
+                        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                          <p className="font-semibold">
+                            Paid estimate dispute is open
+                          </p>
+                          <p className="mt-1">
+                            Reason: {dispute.reason.replace(/_/g, " ")}.
+                          </p>
+                          {dispute.customer_message && (
+                            <p className="mt-1 text-amber-900">
+                              Notes: {dispute.customer_message}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

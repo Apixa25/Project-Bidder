@@ -200,3 +200,110 @@ export async function createPaidEstimateCheckoutSession(
     checkoutUrl: session.url ?? null,
   };
 }
+
+export async function openPaidEstimateDispute(
+  claimId: string,
+  reason:
+    | "blank_or_spam"
+    | "wrong_trade"
+    | "duplicate_submission"
+    | "abusive_or_irrelevant"
+    | "not_qualified_at_submission",
+  customerMessage: string
+) {
+  const supabase = await createClient();
+  const admin = createAdminClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "You must be signed in." };
+  }
+
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to manage paid estimate disputes." };
+  }
+
+  const { data: claim } = await admin
+    .from("paid_estimate_claims")
+    .select("*, projects!inner(customer_id)")
+    .eq("id", claimId)
+    .single();
+
+  if (!claim) {
+    return { error: "Claim not found." };
+  }
+
+  const projectOwnerId = (
+    claim.projects as unknown as { customer_id: string }
+  ).customer_id;
+
+  if (projectOwnerId !== user.id) {
+    return { error: "You can only dispute claims on your own projects." };
+  }
+
+  if (claim.claim_status !== "paid_reserved") {
+    return {
+      error: "Only reserved paid estimates can be disputed at this stage.",
+    };
+  }
+
+  const reservedAt = claim.reserved_at || claim.created_at;
+  const reservedAtTime = new Date(reservedAt).getTime();
+  const disputeDeadline = reservedAtTime + 48 * 60 * 60 * 1000;
+  if (Date.now() > disputeDeadline) {
+    return {
+      error:
+        "The 48-hour dispute window has passed for this paid estimate claim.",
+    };
+  }
+
+  const { data: existingDispute } = await admin
+    .from("paid_estimate_disputes")
+    .select("id")
+    .eq("claim_id", claimId)
+    .maybeSingle();
+
+  if (existingDispute) {
+    return { error: "A dispute has already been opened for this claim." };
+  }
+
+  const { error: insertError } = await admin
+    .from("paid_estimate_disputes")
+    .insert({
+      claim_id: claim.id,
+      project_id: claim.project_id,
+      bid_id: claim.bid_id,
+      customer_id: user.id,
+      bidder_id: claim.bidder_id,
+      reason,
+      customer_message: customerMessage || null,
+      review_status: "open",
+    });
+
+  if (insertError) {
+    console.error("Open paid estimate dispute error:", insertError);
+    return { error: "Could not open the dispute right now." };
+  }
+
+  await admin
+    .from("paid_estimate_claims")
+    .update({ claim_status: "disputed" })
+    .eq("id", claim.id);
+
+  await supabase.from("notifications").insert({
+    user_id: claim.bidder_id,
+    type: "paid_estimate_disputed",
+    title: "A paid estimate was disputed",
+    message:
+      "The project owner opened a dispute on your paid estimate. Our team will review it.",
+    link: "/bidder/bids",
+  });
+
+  revalidatePath(`/customer/projects/${claim.project_id}`);
+  revalidatePath("/admin/disputes");
+  revalidatePath(`/admin/projects/${claim.project_id}`);
+  return { success: true };
+}

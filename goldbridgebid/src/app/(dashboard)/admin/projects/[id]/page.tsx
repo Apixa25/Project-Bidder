@@ -1,8 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { TRADE_LABELS } from "@/types/database";
-import type { TradeCategory, BadgeLevel } from "@/types/database";
+import type {
+  TradeCategory,
+  BadgeLevel,
+  ProjectPaidEstimatePool,
+  PaidEstimateClaim,
+  PaidEstimateDispute,
+} from "@/types/database";
 import { BADGE_CONFIG } from "@/lib/badges";
 import {
   ArrowLeft,
@@ -21,6 +28,7 @@ interface Props {
 export default async function AdminProjectDetailPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   const {
     data: { user },
@@ -48,6 +56,8 @@ export default async function AdminProjectDetailPage({ params }: Props) {
     { data: edits },
     { data: messages },
     { data: files },
+    { data: paidEstimatePool },
+    { data: paidEstimateClaims },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -74,7 +84,25 @@ export default async function AdminProjectDetailPage({ params }: Props) {
       .select("*")
       .eq("project_id", id)
       .order("uploaded_at", { ascending: true }),
+    admin
+      .from("project_paid_estimate_pools")
+      .select("*")
+      .eq("project_id", id)
+      .maybeSingle(),
+    admin
+      .from("paid_estimate_claims")
+      .select("*")
+      .eq("project_id", id)
+      .order("created_at", { ascending: false }),
   ]);
+
+  const claimIds = (paidEstimateClaims || []).map((claim) => claim.id);
+  const { data: paidEstimateDisputes } = claimIds.length
+    ? await admin
+        .from("paid_estimate_disputes")
+        .select("*")
+        .in("claim_id", claimIds)
+    : { data: [] };
 
   // Fetch bidder profiles
   const bidderIds = [...new Set((bids || []).map((b) => b.bidder_id))];
@@ -232,6 +260,17 @@ export default async function AdminProjectDetailPage({ params }: Props) {
           senderRole: msgProfileMap[m.sender_id]?.role || "unknown",
         }))}
         files={files || []}
+        paidEstimatePool={
+          (paidEstimatePool as ProjectPaidEstimatePool | null | undefined) ||
+          null
+        }
+        paidEstimateClaims={
+          (paidEstimateClaims as PaidEstimateClaim[] | null | undefined) || []
+        }
+        paidEstimateDisputes={
+          (paidEstimateDisputes as PaidEstimateDispute[] | null | undefined) ||
+          []
+        }
         badgeConfig={BADGE_CONFIG}
         tradeLabels={TRADE_LABELS}
       />
