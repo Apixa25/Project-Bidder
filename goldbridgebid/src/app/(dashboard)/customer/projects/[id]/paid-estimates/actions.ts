@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { userHasRole } from "@/lib/auth/roles";
 import {
   calculatePaidEstimateSplit,
@@ -30,6 +31,7 @@ export async function createPaidEstimateCheckoutSession(
 ): Promise<PaidEstimateCheckoutActionState> {
   void prevState;
   const supabase = await createClient();
+  const admin = createAdminClient();
   const stripe = getStripeServerClient();
 
   const {
@@ -91,7 +93,7 @@ export async function createPaidEstimateCheckoutSession(
     };
   }
 
-  const { data: existingPool } = await supabase
+  const { data: existingPool } = await admin
     .from("project_paid_estimate_pools")
     .select("id, funded_at, status")
     .eq("project_id", projectId)
@@ -108,7 +110,7 @@ export async function createPaidEstimateCheckoutSession(
   const split = calculatePaidEstimateSplit(rewardAmount);
   const fundedTotalAmount = calculatePoolFundingTotal(rewardAmount, maxPaidSlots);
 
-  const { data: pool, error: poolError } = await supabase
+  const { data: pool, error: poolError } = await admin
     .from("project_paid_estimate_pools")
     .upsert(
       {
@@ -178,7 +180,7 @@ export async function createPaidEstimateCheckoutSession(
     ],
   });
 
-  const { error: sessionUpdateError } = await supabase
+  const { error: sessionUpdateError } = await admin
     .from("project_paid_estimate_pools")
     .update({
       stripe_checkout_session_id: session.id,

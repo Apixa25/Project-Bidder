@@ -21,6 +21,12 @@ export const PAID_ESTIMATE_FILTER_LABELS: Record<PaidEstimateFilter, string> = {
   core_verified_only: "Core verified only",
 };
 
+export const CORE_CREDENTIAL_LABELS: Record<CoreCredentialField, string> = {
+  license_url: "Contractor license",
+  bond_url: "Surety bond",
+  insurance_url: "Liability insurance",
+};
+
 export function getMissingCoreCredentialFields(
   credentials: BidderCredentials | null | undefined
 ): CoreCredentialField[] {

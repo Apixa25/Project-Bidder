@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -58,6 +59,7 @@ export default async function ProjectDetailPage({
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   const {
     data: { user },
@@ -82,7 +84,7 @@ export default async function ProjectDetailPage({
     .eq("project_id", id)
     .order("uploaded_at", { ascending: false });
 
-  const { data: paidEstimatePool } = await supabase
+  const { data: paidEstimatePool } = await admin
     .from("project_paid_estimate_pools")
     .select("*")
     .eq("project_id", id)

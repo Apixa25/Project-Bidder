@@ -8,12 +8,28 @@ import { Upload, X, FileText, Loader2 } from "lucide-react";
 import { compressFiles } from "@/lib/compress-image";
 import { BID_ATTACHMENT_FILE_ACCEPT } from "@/lib/file-uploads";
 
+type PaidEstimateMode =
+  | "not_available"
+  | "eligible"
+  | "ineligible"
+  | "full"
+  | "already_claimed";
+
 interface BidFormProps {
   projectId: string;
   availableTrades: TradeCategory[];
+  paidEstimateMode: PaidEstimateMode;
+  paidEstimateReward: number | null;
+  paidEstimateRemainingSlots: number;
 }
 
-export default function BidForm({ projectId, availableTrades }: BidFormProps) {
+export default function BidForm({
+  projectId,
+  availableTrades,
+  paidEstimateMode,
+  paidEstimateReward,
+  paidEstimateRemainingSlots,
+}: BidFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -44,6 +60,37 @@ export default function BidForm({ projectId, availableTrades }: BidFormProps) {
     }
   }
 
+  const paidEstimateNotice =
+    paidEstimateMode === "eligible"
+      ? {
+          tone: "green",
+          title: "Eligible for a paid estimate slot",
+          body: `This project currently offers $${paidEstimateReward?.toLocaleString()} for each of the first ${paidEstimateRemainingSlots} remaining eligible estimate slot${paidEstimateRemainingSlots === 1 ? "" : "s"}.`,
+          submitLabel: "Submit Bid For Paid Estimate Slot 🔒",
+        }
+      : paidEstimateMode === "ineligible"
+        ? {
+            tone: "amber",
+            title: "You may still bid, but this estimate will be unpaid",
+            body: "This project has a paid estimate pool, but you do not meet the paid eligibility filter right now.",
+            submitLabel: "Submit Unpaid Sealed Bid 🔒",
+          }
+        : paidEstimateMode === "full"
+          ? {
+              tone: "amber",
+              title: "Paid slots are already full",
+              body: "You can still submit a sealed bid, but it will be unpaid because the funded estimate slots were claimed already.",
+              submitLabel: "Submit Unpaid Sealed Bid 🔒",
+            }
+          : paidEstimateMode === "already_claimed"
+            ? {
+                tone: "blue",
+                title: "You already claimed a paid slot on this project",
+                body: "You may still submit another sealed bid on a different trade, but any additional bids on this project will be unpaid.",
+                submitLabel: "Submit Additional Unpaid Bid 🔒",
+              }
+            : null;
+
   return (
     <form action={handleSubmit} className="space-y-6">
       <input type="hidden" name="projectId" value={projectId} />
@@ -51,6 +98,21 @@ export default function BidForm({ projectId, availableTrades }: BidFormProps) {
       {error && (
         <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 border border-red-200">
           {error}
+        </div>
+      )}
+
+      {paidEstimateNotice && (
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            paidEstimateNotice.tone === "green"
+              ? "border-green-200 bg-green-50 text-green-800"
+              : paidEstimateNotice.tone === "amber"
+                ? "border-amber-200 bg-amber-50 text-amber-800"
+                : "border-blue-200 bg-blue-50 text-blue-800"
+          }`}
+        >
+          <p className="font-semibold">{paidEstimateNotice.title}</p>
+          <p className="mt-1">{paidEstimateNotice.body}</p>
         </div>
       )}
 
@@ -227,7 +289,7 @@ export default function BidForm({ projectId, availableTrades }: BidFormProps) {
             Submitting Bid...
           </>
         ) : (
-          "Submit Sealed Bid 🔒"
+          paidEstimateNotice?.submitLabel || "Submit Sealed Bid 🔒"
         )}
       </button>
 

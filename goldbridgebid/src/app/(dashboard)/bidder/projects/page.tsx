@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import {
   MapPin,
@@ -10,13 +11,29 @@ import {
   ImageIcon,
   Heart,
   Star,
+  BadgeDollarSign,
+  ShieldCheck,
 } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
-import type { TradeCategory } from "@/types/database";
+import type {
+  TradeCategory,
+  ProjectPaidEstimatePool,
+  BidderCredentials,
+} from "@/types/database";
 import { userHasRole } from "@/lib/auth/roles";
+import {
+  CORE_CREDENTIAL_LABELS,
+  getPaidEstimateEligibility,
+  PAID_ESTIMATE_FILTER_LABELS,
+} from "@/lib/paid-estimates/eligibility";
+import {
+  getRemainingPaidSlots,
+  isPaidEstimatePoolVisibleAsPaid,
+} from "@/lib/paid-estimates/pools";
 
 export default async function BrowseProjectsPage() {
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   const {
     data: { user },
@@ -32,9 +49,16 @@ export default async function BrowseProjectsPage() {
     .eq("status", "open")
     .order("created_at", { ascending: false });
 
+  const { data: bidderCredentials } = await supabase
+    .from("bidder_credentials")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   const customerIds = Array.from(
     new Set((projects || []).map((project) => project.customer_id))
   );
+  const projectIds = (projects || []).map((project) => project.id);
 
   const { data: customerProfiles } = customerIds.length
     ? await supabase
@@ -58,6 +82,13 @@ export default async function BrowseProjectsPage() {
         .in("target_user_id", customerIds)
     : { data: [] };
 
+  const { data: poolRows } = projectIds.length
+    ? await admin
+        .from("project_paid_estimate_pools")
+        .select("*")
+        .in("project_id", projectIds)
+    : { data: [] };
+
   const customerProfileMap = new Map(
     (customerProfiles || []).map((profile) => [profile.user_id, profile])
   );
@@ -73,6 +104,12 @@ export default async function BrowseProjectsPage() {
     string,
     { verifiedAverageRating: number | null; totalReviewCount: number }
   >();
+  const poolMap = new Map(
+    ((poolRows || []) as ProjectPaidEstimatePool[]).map((pool) => [
+      pool.project_id,
+      pool,
+    ])
+  );
   for (const customerId of customerIds) {
     const reviews = (customerReviewRows || []).filter(
       (review) => review.reviewee_user_id === customerId
@@ -114,11 +151,22 @@ export default async function BrowseProjectsPage() {
               ? firstImage.annotated_url || firstImage.thumbnail_url || firstImage.file_url
               : null;
             const customer = customerProfileMap.get(project.customer_id);
+            const paidPool = poolMap.get(project.id) || null;
             const reviewStats = customerReviewStats.get(project.customer_id) || {
               verifiedAverageRating: null,
               totalReviewCount: 0,
             };
             const heartCount = customerHeartCounts.get(project.customer_id) || 0;
+            const paidEstimateLive = isPaidEstimatePoolVisibleAsPaid(paidPool);
+            const eligibility = paidPool
+              ? getPaidEstimateEligibility(
+                  (bidderCredentials || null) as BidderCredentials | null,
+                  paidPool.filter
+                )
+              : null;
+            const missingLabels = eligibility?.missingCoreCredentials.map(
+              (field) => CORE_CREDENTIAL_LABELS[field]
+            );
 
             return (
             <Link
@@ -148,6 +196,21 @@ export default async function BrowseProjectsPage() {
                   <h2 className="text-xl font-semibold leading-tight text-text-primary sm:text-lg">
                     {project.title}
                   </h2>
+                  {paidEstimateLive && paidPool && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                        <BadgeDollarSign className="h-3.5 w-3.5" />
+                        Paid Estimate
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-medium text-text-primary">
+                        ${Number(paidPool.reward_amount).toLocaleString()} per estimate
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-medium text-text-primary">
+                        {getRemainingPaidSlots(paidPool)} slot
+                        {getRemainingPaidSlots(paidPool) === 1 ? "" : "s"} left
+                      </span>
+                    </div>
+                  )}
 
                   <p className="mt-2 text-sm text-text-secondary line-clamp-3 sm:line-clamp-2">
                     {project.description}
@@ -242,6 +305,34 @@ export default async function BrowseProjectsPage() {
                       </span>
                     </div>
                   </div>
+
+                  {paidEstimateLive && paidPool && eligibility && (
+                    <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="font-semibold text-text-primary">
+                          Paid estimate details
+                        </span>
+                        <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-medium text-text-primary">
+                          {PAID_ESTIMATE_FILTER_LABELS[paidPool.filter]}
+                        </span>
+                        {eligibility.isEligible ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            Eligible for paid slot
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                            Unpaid bidding still allowed
+                          </span>
+                        )}
+                      </div>
+                      {!eligibility.isEligible && missingLabels && missingLabels.length > 0 && (
+                        <p className="mt-2 text-xs text-text-secondary">
+                          Missing for paid eligibility: {missingLabels.join(", ")}.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="sm:ml-6 sm:shrink-0">

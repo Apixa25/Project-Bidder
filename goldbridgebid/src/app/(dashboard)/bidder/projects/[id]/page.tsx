@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -15,12 +16,29 @@ import {
   History,
   Heart,
   Star,
+  BadgeDollarSign,
+  ShieldCheck,
 } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
-import type { TradeCategory } from "@/types/database";
+import type {
+  TradeCategory,
+  BidderCredentials,
+  PaidEstimateClaim,
+  ProjectPaidEstimatePool,
+} from "@/types/database";
 import BidForm from "./BidForm";
 import ProjectPhotosBidder from "./ProjectPhotosBidder";
 import { userHasRole } from "@/lib/auth/roles";
+import {
+  CORE_CREDENTIAL_LABELS,
+  getPaidEstimateEligibility,
+  PAID_ESTIMATE_FILTER_LABELS,
+} from "@/lib/paid-estimates/eligibility";
+import {
+  getRemainingPaidSlots,
+  isPaidEstimatePoolFull,
+  isPaidEstimatePoolVisibleAsPaid,
+} from "@/lib/paid-estimates/pools";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
   title: "Title",
@@ -44,6 +62,7 @@ export default async function BidderProjectDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   const {
     data: { user },
@@ -67,6 +86,25 @@ export default async function BidderProjectDetailPage({
     .select("*")
     .eq("project_id", id)
     .order("uploaded_at", { ascending: false });
+
+  const { data: bidderCredentials } = await supabase
+    .from("bidder_credentials")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const { data: paidPoolRow } = await admin
+    .from("project_paid_estimate_pools")
+    .select("*")
+    .eq("project_id", id)
+    .maybeSingle();
+
+  const { data: priorClaims } = await admin
+    .from("paid_estimate_claims")
+    .select("*")
+    .eq("project_id", id)
+    .eq("bidder_id", user.id)
+    .neq("claim_status", "unpaid_bid");
 
   const { data: customerProfile } = await supabase
     .from("profiles")
@@ -119,6 +157,30 @@ export default async function BidderProjectDetailPage({
   const docFiles = (projectFiles || []).filter(
     (f) => !f.file_type.startsWith("image/")
   );
+  const paidPool = (paidPoolRow || null) as ProjectPaidEstimatePool | null;
+  const paidEstimateLive = isPaidEstimatePoolVisibleAsPaid(paidPool);
+  const paidEligibility = paidPool
+    ? getPaidEstimateEligibility(
+        (bidderCredentials || null) as BidderCredentials | null,
+        paidPool.filter
+      )
+    : null;
+  const missingCoreLabels =
+    paidEligibility?.missingCoreCredentials.map(
+      (field) => CORE_CREDENTIAL_LABELS[field]
+    ) || [];
+  const paidPoolRemainingSlots = getRemainingPaidSlots(paidPool);
+  const paidPoolFull = isPaidEstimatePoolFull(paidPool);
+  const existingPaidClaim = ((priorClaims || []) as PaidEstimateClaim[])[0] || null;
+  const paidEstimateMode = !paidEstimateLive
+    ? "not_available"
+    : existingPaidClaim
+      ? "already_claimed"
+      : paidPoolFull
+        ? "full"
+        : paidEligibility?.isEligible
+          ? "eligible"
+          : "ineligible";
 
   return (
     <div>
@@ -134,9 +196,17 @@ export default async function BidderProjectDetailPage({
 
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">
-              {project.title}
-            </h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold text-text-primary">
+                {project.title}
+              </h1>
+              {paidEstimateLive && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
+                  <BadgeDollarSign className="h-3.5 w-3.5" />
+                  Paid Estimate
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-sm text-text-muted">
               Posted {new Date(project.created_at).toLocaleDateString()} •{" "}
               {project.bid_count} {project.bid_count === 1 ? "bid" : "bids"}{" "}
@@ -227,6 +297,85 @@ export default async function BidderProjectDetailPage({
             </p>
           </section>
 
+          {paidEstimateLive && paidPool && paidEligibility && (
+            <section className="rounded-xl border border-primary/20 bg-primary/5 p-6 shadow-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <BadgeDollarSign className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  Paid Estimate Offer
+                </h2>
+                <span className="rounded-full bg-surface px-2.5 py-0.5 text-xs font-medium text-text-primary">
+                  {PAID_ESTIMATE_FILTER_LABELS[paidPool.filter]}
+                </span>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg bg-surface px-4 py-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                    Reward
+                  </p>
+                  <p className="mt-1 text-lg font-bold text-text-primary">
+                    ${Number(paidPool.reward_amount).toLocaleString()}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-surface px-4 py-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                    Remaining Slots
+                  </p>
+                  <p className="mt-1 text-lg font-bold text-text-primary">
+                    {paidPoolRemainingSlots}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-surface px-4 py-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                    Paid Pool Scope
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-text-primary">
+                    Project-wide
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-lg border border-border bg-surface px-4 py-4 text-sm text-text-secondary">
+                {paidEstimateMode === "eligible" && (
+                  <p className="flex items-start gap-2 text-green-800">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+                    You qualify for this paid estimate pool. Submit soon to try
+                    to claim one of the remaining paid slots.
+                  </p>
+                )}
+                {paidEstimateMode === "ineligible" && (
+                  <div className="space-y-2">
+                    <p className="text-amber-800">
+                      You do not meet the paid estimate requirements right now,
+                      but you can still submit a normal unpaid bid on this
+                      project.
+                    </p>
+                    {missingCoreLabels.length > 0 && (
+                      <p>
+                        Missing for paid eligibility:{" "}
+                        <span className="font-medium text-text-primary">
+                          {missingCoreLabels.join(", ")}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                )}
+                {paidEstimateMode === "full" && (
+                  <p className="text-amber-800">
+                    Paid estimate slots have already been filled. You may still
+                    submit an unpaid bid on this project.
+                  </p>
+                )}
+                {paidEstimateMode === "already_claimed" && (
+                  <p className="text-text-primary">
+                    You have already claimed a paid estimate slot on this
+                    project. You may still submit another unpaid bid on a
+                    different trade if needed.
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
+
           {/* Project Photos with annotation view */}
           {imageFiles.length > 0 && (
             <ProjectPhotosBidder imageFiles={imageFiles} />
@@ -280,6 +429,15 @@ export default async function BidderProjectDetailPage({
               <BidForm
                 projectId={project.id}
                 availableTrades={availableTrades}
+                paidEstimateMode={paidEstimateMode}
+                paidEstimateReward={
+                  paidEstimateLive && paidPool
+                    ? Number(paidPool.reward_amount)
+                    : null
+                }
+                paidEstimateRemainingSlots={
+                  paidEstimateLive ? paidPoolRemainingSlots : 0
+                }
               />
             ) : (
               <div className="rounded-lg bg-green-50 px-6 py-8 text-center">
