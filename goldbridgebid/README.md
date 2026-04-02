@@ -44,12 +44,25 @@
 
    - your Supabase project URL and anon key from the [Supabase Dashboard](https://supabase.com/dashboard)
    - your Stripe publishable key, secret key, and webhook secret from the [Stripe Dashboard](https://dashboard.stripe.com/)
+   - a `CRON_SECRET` value for authenticated settlement routes
 
 4. **Run the database migrations:**
 
    Run the SQL files in `supabase/migrations/` in order, including the paid estimate pool foundation migration at `supabase/migrations/016_paid_estimate_pools.sql`.
 
-5. **Start the development server:**
+5. **Configure paid-estimate automation:**
+
+   Add authenticated scheduled calls for:
+
+   - `/api/cron/release-paid-estimates`
+   - `/api/cron/refund-unused-paid-estimates`
+
+   Send either:
+
+   - `Authorization: Bearer <CRON_SECRET>`
+   - or `x-cron-secret: <CRON_SECRET>`
+
+6. **Start the development server:**
 
    ```bash
    npm run dev
@@ -59,7 +72,7 @@
 
 ## Project Structure
 
-```
+```text
 goldbridgebid/              # Next.js app root (legacy folder name)
 ├── public/                   # Static assets
 ├── src/
@@ -101,6 +114,7 @@ goldbridgebid/              # Next.js app root (legacy folder name)
 ## Documentation
 
 See [project-vision.md](../project-vision.md) for the complete project specification including:
+
 - Feature requirements
 - Database architecture
 - User flows
