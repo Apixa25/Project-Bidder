@@ -6,6 +6,35 @@ export type BadgeLevel = "gold" | "silver" | "bronze" | null;
 
 export type ReviewType = "verified_platform" | "public_reference";
 
+export type PaidEstimateFilter = "open_to_anyone" | "core_verified_only";
+
+export type PaidEstimatePoolStatus =
+  | "funding_required"
+  | "active"
+  | "full"
+  | "closed_settling"
+  | "closed_refunded";
+
+export type PaidEstimateClaimStatus =
+  | "unpaid_bid"
+  | "paid_reserved"
+  | "payout_pending"
+  | "paid_out"
+  | "disputed"
+  | "payout_denied_refunded";
+
+export type PaidEstimateDisputeReason =
+  | "blank_or_spam"
+  | "wrong_trade"
+  | "duplicate_submission"
+  | "abusive_or_irrelevant"
+  | "not_qualified_at_submission";
+
+export type PaidEstimateDisputeReviewStatus =
+  | "open"
+  | "resolved_paid"
+  | "resolved_denied";
+
 export type TradeCategory =
   // Legacy values (kept for backward compatibility with existing data)
   | "electrical"
@@ -275,6 +304,29 @@ export interface Project {
   updated_at: string;
 }
 
+export interface ProjectPaidEstimatePool {
+  id: string;
+  project_id: string;
+  is_enabled: boolean;
+  filter: PaidEstimateFilter;
+  reward_amount: number;
+  contractor_payout_amount: number;
+  platform_fee_amount: number;
+  max_paid_slots: number;
+  claimed_paid_slots: number;
+  funded_total_amount: number;
+  reserved_total_amount: number;
+  paid_out_total_amount: number;
+  refunded_total_amount: number;
+  status: PaidEstimatePoolStatus;
+  stripe_payment_intent_id: string | null;
+  stripe_checkout_session_id: string | null;
+  funded_at: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ProfileHeart {
   id: string;
   giver_user_id: string;
@@ -331,6 +383,43 @@ export interface Bid {
   estimated_timeline: string;
   estimated_start_date: string;
   notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaidEstimateClaim {
+  id: string;
+  project_id: string;
+  pool_id: string | null;
+  bid_id: string;
+  bidder_id: string;
+  claim_status: PaidEstimateClaimStatus;
+  was_paid_eligible: boolean;
+  slot_sequence: number | null;
+  reward_amount: number | null;
+  contractor_payout_amount: number | null;
+  platform_fee_amount: number | null;
+  reserved_at: string | null;
+  payout_due_at: string | null;
+  paid_out_at: string | null;
+  denied_refunded_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaidEstimateDispute {
+  id: string;
+  claim_id: string;
+  project_id: string;
+  bid_id: string;
+  customer_id: string;
+  bidder_id: string;
+  reason: PaidEstimateDisputeReason;
+  customer_message: string | null;
+  review_status: PaidEstimateDisputeReviewStatus;
+  review_notes: string | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -467,6 +556,26 @@ type ProjectInsert = {
   awarded_at?: string | null;
 };
 
+type ProjectPaidEstimatePoolInsert = {
+  project_id: string;
+  reward_amount: number;
+  contractor_payout_amount: number;
+  platform_fee_amount: number;
+  max_paid_slots: number;
+  funded_total_amount: number;
+  is_enabled?: boolean;
+  filter?: PaidEstimateFilter;
+  claimed_paid_slots?: number;
+  reserved_total_amount?: number;
+  paid_out_total_amount?: number;
+  refunded_total_amount?: number;
+  status?: PaidEstimatePoolStatus;
+  stripe_payment_intent_id?: string | null;
+  stripe_checkout_session_id?: string | null;
+  funded_at?: string | null;
+  closed_at?: string | null;
+};
+
 type BidInsert = {
   project_id: string;
   bidder_id: string;
@@ -476,6 +585,37 @@ type BidInsert = {
   estimated_start_date: string;
   price_breakdown?: string | null;
   notes?: string | null;
+};
+
+type PaidEstimateClaimInsert = {
+  project_id: string;
+  bid_id: string;
+  bidder_id: string;
+  pool_id?: string | null;
+  claim_status?: PaidEstimateClaimStatus;
+  was_paid_eligible?: boolean;
+  slot_sequence?: number | null;
+  reward_amount?: number | null;
+  contractor_payout_amount?: number | null;
+  platform_fee_amount?: number | null;
+  reserved_at?: string | null;
+  payout_due_at?: string | null;
+  paid_out_at?: string | null;
+  denied_refunded_at?: string | null;
+};
+
+type PaidEstimateDisputeInsert = {
+  claim_id: string;
+  project_id: string;
+  bid_id: string;
+  customer_id: string;
+  bidder_id: string;
+  reason: PaidEstimateDisputeReason;
+  customer_message?: string | null;
+  review_status?: PaidEstimateDisputeReviewStatus;
+  review_notes?: string | null;
+  resolved_by?: string | null;
+  resolved_at?: string | null;
 };
 
 type MessageInsert = {
@@ -556,6 +696,12 @@ export interface Database {
         Update: Partial<Omit<ProjectInsert, "customer_id">> & { status?: ProjectStatus };
         Relationships: [];
       };
+      project_paid_estimate_pools: {
+        Row: ProjectPaidEstimatePool;
+        Insert: ProjectPaidEstimatePoolInsert;
+        Update: Partial<Omit<ProjectPaidEstimatePoolInsert, "project_id">>;
+        Relationships: [];
+      };
       user_roles: {
         Row: UserRoleMembership;
         Insert: UserRoleMembershipInsert;
@@ -593,6 +739,25 @@ export interface Database {
         Row: Bid;
         Insert: BidInsert;
         Update: Partial<Omit<BidInsert, "project_id" | "bidder_id">>;
+        Relationships: [];
+      };
+      paid_estimate_claims: {
+        Row: PaidEstimateClaim;
+        Insert: PaidEstimateClaimInsert;
+        Update: Partial<
+          Omit<PaidEstimateClaimInsert, "project_id" | "bid_id" | "bidder_id">
+        >;
+        Relationships: [];
+      };
+      paid_estimate_disputes: {
+        Row: PaidEstimateDispute;
+        Insert: PaidEstimateDisputeInsert;
+        Update: Partial<
+          Omit<
+            PaidEstimateDisputeInsert,
+            "claim_id" | "project_id" | "bid_id" | "customer_id" | "bidder_id" | "reason"
+          >
+        >;
         Relationships: [];
       };
       bid_files: {
@@ -645,6 +810,10 @@ export interface Database {
       project_status: ProjectStatus;
       trade_category: TradeCategory;
       review_type: ReviewType;
+      paid_estimate_filter: PaidEstimateFilter;
+      paid_estimate_pool_status: PaidEstimatePoolStatus;
+      paid_estimate_claim_status: PaidEstimateClaimStatus;
+      paid_estimate_dispute_reason: PaidEstimateDisputeReason;
     };
   };
 }
