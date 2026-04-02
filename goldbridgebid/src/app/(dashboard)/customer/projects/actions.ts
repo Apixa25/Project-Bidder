@@ -5,6 +5,12 @@ import { redirect } from "next/navigation";
 import type { TradeCategory } from "@/types/database";
 import { generateAndUploadThumbnail } from "@/lib/generate-thumbnail";
 import { userHasRole } from "@/lib/auth/roles";
+import { createPaidEstimateCheckoutSessionForProject } from "./[id]/paid-estimates/actions";
+
+interface CreateProjectResult {
+  error: string | null;
+  redirectUrl: string | null;
+}
 
 export async function createProject(formData: FormData) {
   const supabase = await createClient();
@@ -14,11 +20,17 @@ export async function createProject(formData: FormData) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { error: "You must be logged in to create a project." };
+    return {
+      error: "You must be logged in to create a project.",
+      redirectUrl: null,
+    } satisfies CreateProjectResult;
   }
 
   if (!(await userHasRole(user.id, "customer"))) {
-    return { error: "Enable customer mode to post and manage projects." };
+    return {
+      error: "Enable customer mode to post and manage projects.",
+      redirectUrl: null,
+    } satisfies CreateProjectResult;
   }
 
   const title = formData.get("title") as string;
@@ -44,7 +56,10 @@ export async function createProject(formData: FormData) {
     !locationState ||
     !locationZip
   ) {
-    return { error: "Please fill in all required fields." };
+    return {
+      error: "Please fill in all required fields.",
+      redirectUrl: null,
+    } satisfies CreateProjectResult;
   }
 
   const trades = tradesRaw as TradeCategory[];
@@ -71,7 +86,10 @@ export async function createProject(formData: FormData) {
 
   if (projectError) {
     console.error("Project creation error:", projectError);
-    return { error: "Failed to create project. Please try again." };
+    return {
+      error: "Failed to create project. Please try again.",
+      redirectUrl: null,
+    } satisfies CreateProjectResult;
   }
 
   // Handle file uploads
@@ -129,7 +147,37 @@ export async function createProject(formData: FormData) {
     }
   }
 
-  redirect(`/customer/projects/${project.id}`);
+  const shouldCreatePaidEstimate =
+    formData.get("enablePaidEstimate") === "true";
+
+  if (shouldCreatePaidEstimate) {
+    const paidEstimateResult = await createPaidEstimateCheckoutSessionForProject({
+      customerId: user.id,
+      projectId: project.id,
+      rewardAmountRaw: (formData.get("rewardAmount") as string) || "",
+      maxPaidSlotsRaw: (formData.get("maxPaidSlots") as string) || "",
+      filterValue: formData.get("filter"),
+    });
+
+    if (paidEstimateResult.checkoutUrl) {
+      return {
+        error: null,
+        redirectUrl: paidEstimateResult.checkoutUrl,
+      } satisfies CreateProjectResult;
+    }
+
+    return {
+      error:
+        paidEstimateResult.error ||
+        "Project was created, but paid estimate checkout could not be prepared.",
+      redirectUrl: `/customer/projects/${project.id}?paidEstimateSetup=failed`,
+    } satisfies CreateProjectResult;
+  }
+
+  return {
+    error: null,
+    redirectUrl: `/customer/projects/${project.id}`,
+  } satisfies CreateProjectResult;
 }
 
 export async function updateProjectStatus(projectId: string, status: "open" | "closed") {

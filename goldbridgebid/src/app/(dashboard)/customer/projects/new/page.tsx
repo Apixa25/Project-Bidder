@@ -1,9 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import Image from "next/image";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Upload, X, Loader2, Info, ImageIcon, FileText as FileIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  X,
+  Loader2,
+  Info,
+  ImageIcon,
+  FileText as FileIcon,
+  BadgeDollarSign,
+  CreditCard,
+  ShieldCheck,
+} from "lucide-react";
 import { createProject } from "../actions";
 import { TRADE_LABELS, FORM_TRADES } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
@@ -13,6 +24,7 @@ import {
   IMAGE_FILE_ACCEPT,
   PROJECT_DOCUMENT_FILE_ACCEPT,
 } from "@/lib/file-uploads";
+import { PAID_ESTIMATE_FILTER_LABELS } from "@/lib/paid-estimates/eligibility";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
@@ -25,11 +37,21 @@ export default function NewProjectPage() {
   const router = useRouter();
   const [selectedTrades, setSelectedTrades] = useState<TradeCategory[]>([]);
   const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<(string | null)[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [compressing, setCompressing] = useState(false);
   const [accessReady, setAccessReady] = useState(false);
+  const [enablePaidEstimate, setEnablePaidEstimate] = useState(false);
+  const [paidEstimateFilter, setPaidEstimateFilter] = useState<
+    "open_to_anyone" | "core_verified_only"
+  >("open_to_anyone");
+  const previews = useMemo(
+    () =>
+      files.map((file) =>
+        file.type.startsWith("image/") ? URL.createObjectURL(file) : null
+      ),
+    [files]
+  );
 
   useEffect(() => {
     async function checkAccess() {
@@ -65,15 +87,12 @@ export default function NewProjectPage() {
     checkAccess();
   }, [router]);
 
-  useEffect(() => {
-    const urls: (string | null)[] = files.map((file) =>
-      file.type.startsWith("image/") ? URL.createObjectURL(file) : null
-    );
-    setPreviews(urls);
-    return () => {
-      urls.forEach((url) => url && URL.revokeObjectURL(url));
-    };
-  }, [files]);
+  useEffect(
+    () => () => {
+      previews.forEach((url) => url && URL.revokeObjectURL(url));
+    },
+    [previews]
+  );
 
   function toggleTrade(trade: TradeCategory) {
     setSelectedTrades((prev) =>
@@ -113,11 +132,24 @@ export default function NewProjectPage() {
 
     compressed.forEach((file) => formData.append("files", file));
 
+    formData.set("enablePaidEstimate", enablePaidEstimate ? "true" : "false");
+    if (enablePaidEstimate) {
+      formData.set("filter", paidEstimateFilter);
+    }
+
     const result = await createProject(formData);
+    if (result?.redirectUrl) {
+      window.location.assign(result.redirectUrl);
+      return;
+    }
+
     if (result?.error) {
       setError(result.error);
       setLoading(false);
+      return;
     }
+
+    setLoading(false);
   }
 
   function formatFileSize(bytes: number) {
@@ -433,6 +465,130 @@ export default function NewProjectPage() {
           </div>
         </section>
 
+        <section className="rounded-xl border border-primary/20 bg-primary/5 p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <BadgeDollarSign className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  Paid Estimates
+                </h2>
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                Optional: launch this project with a funded paid estimate offer
+                right away, or leave it off now and convert the project later
+                from the project detail page.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-lg border border-border bg-surface px-4 py-4">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={enablePaidEstimate}
+                onChange={(event) => setEnablePaidEstimate(event.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+              />
+              <div>
+                <p className="text-sm font-semibold text-text-primary">
+                  Offer paid estimates on this project
+                </p>
+                <p className="mt-1 text-xs text-text-muted">
+                  If enabled, the app will create the project first and then send
+                  you to Stripe Checkout to fund the paid estimate pool.
+                </p>
+              </div>
+            </label>
+          </div>
+
+          {enablePaidEstimate && (
+            <div className="mt-5 space-y-4">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <label
+                    htmlFor="rewardAmount"
+                    className="block text-sm font-medium text-text-primary"
+                  >
+                    Reward per estimate
+                  </label>
+                  <input
+                    id="rewardAmount"
+                    name="rewardAmount"
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    defaultValue="100"
+                    required={enablePaidEstimate}
+                    className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="maxPaidSlots"
+                    className="block text-sm font-medium text-text-primary"
+                  >
+                    Number of paid slots
+                  </label>
+                  <input
+                    id="maxPaidSlots"
+                    name="maxPaidSlots"
+                    type="number"
+                    min="1"
+                    step="1"
+                    defaultValue="3"
+                    required={enablePaidEstimate}
+                    className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="filter"
+                    className="block text-sm font-medium text-text-primary"
+                  >
+                    Paid eligibility filter
+                  </label>
+                  <select
+                    id="filter"
+                    name="filter"
+                    value={paidEstimateFilter}
+                    onChange={(event) =>
+                      setPaidEstimateFilter(
+                        event.target.value as
+                          | "open_to_anyone"
+                          | "core_verified_only"
+                      )
+                    }
+                    className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="open_to_anyone">
+                      {PAID_ESTIMATE_FILTER_LABELS.open_to_anyone}
+                    </option>
+                    <option value="core_verified_only">
+                      {PAID_ESTIMATE_FILTER_LABELS.core_verified_only}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border bg-surface px-4 py-4 text-sm text-text-secondary">
+                <div className="flex items-start gap-2">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+                  <p>
+                    The project is still posted normally first. The public{" "}
+                    <span className="font-semibold text-text-primary">
+                      Paid Estimate
+                    </span>{" "}
+                    badge appears only after Stripe funding succeeds.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
         {/* Photos & Images */}
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <h2 className="mb-2 text-lg font-semibold text-text-primary">
@@ -483,9 +639,11 @@ export default function NewProjectPage() {
                       key={`img-${file.name}-${i}`}
                       className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-gray-100"
                     >
-                      <img
+                      <Image
                         src={previews[i]!}
                         alt={file.name}
+                        fill
+                        unoptimized
                         className="h-full w-full object-cover"
                       />
                       <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
@@ -581,7 +739,9 @@ export default function NewProjectPage() {
         {/* Submit */}
         <div className="flex items-center justify-between rounded-xl border border-border bg-surface p-6 shadow-sm">
           <p className="text-sm text-text-muted">
-            Your project will be visible to all bidders immediately.
+            {enablePaidEstimate
+              ? "Your project will be posted first, then Stripe Checkout will open so you can fund the paid estimate offer."
+              : "Your project will be visible to all bidders immediately."}
           </p>
           <button
             type="submit"
@@ -596,10 +756,17 @@ export default function NewProjectPage() {
             ) : loading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Posting Project...
+                {enablePaidEstimate
+                  ? "Creating Project & Preparing Checkout..."
+                  : "Posting Project..."}
               </>
             ) : (
-              "Post Project"
+              <span className="inline-flex items-center gap-2">
+                {enablePaidEstimate && <CreditCard className="h-4 w-4" />}
+                {enablePaidEstimate
+                  ? "Post Project & Continue to Stripe"
+                  : "Post Project"}
+              </span>
             )}
           </button>
         </div>

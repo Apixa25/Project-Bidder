@@ -177,6 +177,8 @@ export default async function ProjectDetailPage({
       ? "Stripe checkout completed. If payment confirmation has already arrived, your paid estimate offer is now live."
       : query.paidEstimateCheckout === "cancelled"
         ? "Stripe checkout was cancelled. Your paid estimate offer stays inactive until funding succeeds."
+        : query.paidEstimateSetup === "failed"
+          ? "Your project was created, but the paid estimate checkout was not prepared. You can retry from the Paid Estimate Pool panel below."
         : null;
 
   return (

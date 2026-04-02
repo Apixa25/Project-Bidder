@@ -25,41 +25,34 @@ function parseFilter(value: FormDataEntryValue | null): PaidEstimateFilter {
   return value === "core_verified_only" ? "core_verified_only" : "open_to_anyone";
 }
 
-export async function createPaidEstimateCheckoutSession(
-  prevState: PaidEstimateCheckoutActionState = INITIAL_STATE,
-  formData: FormData
+interface CreatePaidEstimateCheckoutSessionOptions {
+  customerId: string;
+  projectId: string;
+  rewardAmountRaw: string;
+  maxPaidSlotsRaw: string;
+  filterValue: FormDataEntryValue | null;
+}
+
+export async function createPaidEstimateCheckoutSessionForProject(
+  options: CreatePaidEstimateCheckoutSessionOptions
 ): Promise<PaidEstimateCheckoutActionState> {
-  void prevState;
-  const supabase = await createClient();
   const admin = createAdminClient();
-  const stripe = getStripeServerClient();
 
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    customerId,
+    projectId,
+    rewardAmountRaw,
+    maxPaidSlotsRaw,
+    filterValue,
+  } = options;
 
-  if (!user) {
-    return { error: "You must be signed in.", checkoutUrl: null };
-  }
-
-  if (!(await userHasRole(user.id, "customer"))) {
-    return {
-      error: "Enable customer mode to create paid estimate offers.",
-      checkoutUrl: null,
-    };
-  }
-
-  const projectId = ((formData.get("projectId") as string) || "").trim();
-  const rewardAmountRaw = ((formData.get("rewardAmount") as string) || "").trim();
-  const maxPaidSlotsRaw = ((formData.get("maxPaidSlots") as string) || "").trim();
-  const filter = parseFilter(formData.get("filter"));
+  const filter = parseFilter(filterValue);
+  const rewardAmount = Number.parseFloat(rewardAmountRaw.trim());
+  const maxPaidSlots = Number.parseInt(maxPaidSlotsRaw.trim(), 10);
 
   if (!projectId) {
     return { error: "Missing project id.", checkoutUrl: null };
   }
-
-  const rewardAmount = Number.parseFloat(rewardAmountRaw);
-  const maxPaidSlots = Number.parseInt(maxPaidSlotsRaw, 10);
 
   if (!Number.isFinite(rewardAmount) || rewardAmount <= 0) {
     return {
@@ -75,11 +68,12 @@ export async function createPaidEstimateCheckoutSession(
     };
   }
 
+  const supabase = await createClient();
   const { data: project } = await supabase
     .from("projects")
     .select("id, title, status, customer_id")
     .eq("id", projectId)
-    .eq("customer_id", user.id)
+    .eq("customer_id", customerId)
     .maybeSingle();
 
   if (!project) {
@@ -145,60 +139,103 @@ export async function createPaidEstimateCheckoutSession(
     };
   }
 
-  const projectUrl = `${getSiteUrl()}/customer/projects/${projectId}`;
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    success_url: `${projectUrl}?paidEstimateCheckout=success`,
-    cancel_url: `${projectUrl}?paidEstimateCheckout=cancelled`,
-    metadata: {
-      customerId: user.id,
-      projectId,
-      poolId: pool.id,
-    },
-    payment_intent_data: {
+  try {
+    const stripe = getStripeServerClient();
+    const projectUrl = `${getSiteUrl()}/customer/projects/${projectId}`;
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      success_url: `${projectUrl}?paidEstimateCheckout=success`,
+      cancel_url: `${projectUrl}?paidEstimateCheckout=cancelled`,
       metadata: {
-        customerId: user.id,
+        customerId,
         projectId,
         poolId: pool.id,
       },
-    },
-    line_items: [
-      {
-        quantity: maxPaidSlots,
-        price_data: {
-          currency: "usd",
-          unit_amount: split.rewardAmountCents,
-          product_data: {
-            name: `Paid estimate slot for ${project.title}`,
-            description:
-              filter === "core_verified_only"
-                ? "Project-wide paid estimate slot for core-verified contractors."
-                : "Project-wide paid estimate slot open to any contractor.",
-          },
+      payment_intent_data: {
+        metadata: {
+          customerId,
+          projectId,
+          poolId: pool.id,
         },
       },
-    ],
-  });
+      line_items: [
+        {
+          quantity: maxPaidSlots,
+          price_data: {
+            currency: "usd",
+            unit_amount: split.rewardAmountCents,
+            product_data: {
+              name: `Paid estimate slot for ${project.title}`,
+              description:
+                filter === "core_verified_only"
+                  ? "Project-wide paid estimate slot for core-verified contractors."
+                  : "Project-wide paid estimate slot open to any contractor.",
+            },
+          },
+        },
+      ],
+    });
 
-  const { error: sessionUpdateError } = await admin
-    .from("project_paid_estimate_pools")
-    .update({
-      stripe_checkout_session_id: session.id,
-      stripe_payment_intent_id:
-        typeof session.payment_intent === "string" ? session.payment_intent : null,
-    })
-    .eq("id", pool.id);
+    const { error: sessionUpdateError } = await admin
+      .from("project_paid_estimate_pools")
+      .update({
+        stripe_checkout_session_id: session.id,
+        stripe_payment_intent_id:
+          typeof session.payment_intent === "string" ? session.payment_intent : null,
+      })
+      .eq("id", pool.id);
 
-  if (sessionUpdateError) {
-    console.error("Update paid estimate checkout session error:", sessionUpdateError);
+    if (sessionUpdateError) {
+      console.error(
+        "Update paid estimate checkout session error:",
+        sessionUpdateError
+      );
+    }
+
+    revalidatePath(`/customer/projects/${projectId}`);
+
+    return {
+      error: null,
+      checkoutUrl: session.url ?? null,
+    };
+  } catch (error) {
+    console.error("Create paid estimate checkout session error:", error);
+    return {
+      error:
+        "Project saved, but Stripe checkout could not be prepared right now. You can retry from the project detail page.",
+      checkoutUrl: null,
+    };
+  }
+}
+
+export async function createPaidEstimateCheckoutSession(
+  prevState: PaidEstimateCheckoutActionState = INITIAL_STATE,
+  formData: FormData
+): Promise<PaidEstimateCheckoutActionState> {
+  void prevState;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "You must be signed in.", checkoutUrl: null };
   }
 
-  revalidatePath(`/customer/projects/${projectId}`);
+  if (!(await userHasRole(user.id, "customer"))) {
+    return {
+      error: "Enable customer mode to create paid estimate offers.",
+      checkoutUrl: null,
+    };
+  }
 
-  return {
-    error: null,
-    checkoutUrl: session.url ?? null,
-  };
+  return createPaidEstimateCheckoutSessionForProject({
+    customerId: user.id,
+    projectId: ((formData.get("projectId") as string) || "").trim(),
+    rewardAmountRaw: (formData.get("rewardAmount") as string) || "",
+    maxPaidSlotsRaw: (formData.get("maxPaidSlots") as string) || "",
+    filterValue: formData.get("filter"),
+  });
 }
 
 export async function openPaidEstimateDispute(
