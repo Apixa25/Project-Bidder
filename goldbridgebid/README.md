@@ -63,6 +63,11 @@
    - `Authorization: Bearer <CRON_SECRET>`
    - or `x-cron-secret: <CRON_SECRET>`
 
+   Before flipping on real Stripe test-mode flows, review:
+
+   - `goldbridgebid/STRIPE_TEST_MODE_CHECKLIST.md`
+   - `/admin/stripe` in the running app
+
 6. **Start the development server:**
 
    ```bash
@@ -121,6 +126,10 @@ See [project-vision.md](../project-vision.md) for the complete project specifica
 - User flows
 - MVP scope & future phases
 - Security & privacy details
+
+Stripe rollout notes:
+
+- `STRIPE_TEST_MODE_CHECKLIST.md`
 
 ## License
 

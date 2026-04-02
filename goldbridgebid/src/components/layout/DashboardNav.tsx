@@ -21,6 +21,7 @@ import {
   BadgeDollarSign,
   Scale,
   WalletCards,
+  CreditCard,
 } from "lucide-react";
 import { signOut } from "@/app/(auth)/actions";
 import type { UserRole } from "@/types/database";
@@ -63,6 +64,7 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
     { href: "/admin/reviews", label: "Reviews", icon: Star },
     { href: "/admin/paid-estimates", label: "Paid Estimates", icon: BadgeDollarSign },
     { href: "/admin/disputes", label: "Disputes", icon: Scale },
+    { href: "/admin/stripe", label: "Stripe Readiness", icon: CreditCard },
     { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/admin/audit", label: "Audit Log", icon: ScrollText },
   ],

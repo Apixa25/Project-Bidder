@@ -14,6 +14,7 @@ import {
   Star,
   BadgeDollarSign,
   Scale,
+  CreditCard,
 } from "lucide-react";
 import AdminStatCard from "@/components/admin/AdminStatCard";
 import ActivityFeed, {
@@ -104,11 +105,11 @@ export default async function AdminDashboard() {
     supabase
       .from("projects")
       .select("*", { count: "exact", head: true })
-      .gte("created_at", sevenDaysAgo),
+      .gte("created_at", SEVEN_DAYS_AGO_ISO),
     supabase
       .from("bids")
       .select("*", { count: "exact", head: true })
-      .gte("created_at", sevenDaysAgo),
+      .gte("created_at", SEVEN_DAYS_AGO_ISO),
   ]);
 
   // Build activity feed from recent items
@@ -336,6 +337,11 @@ export default async function AdminDashboard() {
                 href: "/admin/disputes",
                 label: "Disputes",
                 icon: Scale,
+              },
+              {
+                href: "/admin/stripe",
+                label: "Stripe Readiness",
+                icon: CreditCard,
               },
               {
                 href: "/admin/analytics",
