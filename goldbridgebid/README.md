@@ -17,6 +17,7 @@
 
 - Node.js 20+ and npm
 - A [Supabase](https://supabase.com/) project (free tier works)
+- A [Stripe](https://stripe.com/) account for paid estimate funding
 
 ### Setup
 
@@ -39,11 +40,14 @@
    cp .env.local.example .env.local
    ```
 
-   Then edit `.env.local` with your Supabase project URL and anon key from the [Supabase Dashboard](https://supabase.com/dashboard).
+   Then edit `.env.local` with:
 
-4. **Run the database migration:**
+   - your Supabase project URL and anon key from the [Supabase Dashboard](https://supabase.com/dashboard)
+   - your Stripe publishable key, secret key, and webhook secret from the [Stripe Dashboard](https://dashboard.stripe.com/)
 
-   Copy the contents of `supabase/migrations/001_initial_schema.sql` and run it in your Supabase SQL Editor.
+4. **Run the database migrations:**
+
+   Run the SQL files in `supabase/migrations/` in order, including the paid estimate pool foundation migration at `supabase/migrations/016_paid_estimate_pools.sql`.
 
 5. **Start the development server:**
 
@@ -86,6 +90,7 @@ goldbridgebid/              # Next.js app root (legacy folder name)
 
 - **Project Posting** — Customers post projects with descriptions, file uploads, trade categories, and mandatory completion criteria
 - **Sealed Bidding** — Contractors submit bids visible only to the project owner and admin
+- **Paid Estimate Pools** — Customers can fund a project-wide paid estimate offer through Stripe
 - **Qualification Badges** — 🥇 Gold / 🥈 Silver / 🥉 Bronze based on uploaded credentials
 - **Multi-Trade Support** — Projects can require multiple trades; bidders select their specialty
 - **Edit Tracking** — Project edits are highlighted with timestamps protecting existing bidders

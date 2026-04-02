@@ -19,13 +19,19 @@ import {
 import { TRADE_LABELS } from "@/types/database";
 import { BADGE_CONFIG } from "@/lib/badges";
 import { hasCoreCredentials } from "@/lib/badges";
-import type { TradeCategory, BadgeLevel } from "@/types/database";
+import type {
+  TradeCategory,
+  BadgeLevel,
+  ProjectPaidEstimatePool,
+} from "@/types/database";
 import ProjectStatusActions from "./ProjectStatusActions";
 import ProjectPhotos from "./ProjectPhotos";
 import AwardBidButton from "./AwardBidButton";
 import { userHasRole } from "@/lib/auth/roles";
 import CredentialChecklist from "@/components/credentials/CredentialChecklist";
 import CoreCredentialsCheck from "@/components/credentials/CoreCredentialsCheck";
+import PaidEstimatePoolPanel from "./PaidEstimatePoolPanel";
+import { isPaidEstimatePoolVisibleAsPaid } from "@/lib/paid-estimates/pools";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
   title: "Title",
@@ -44,10 +50,13 @@ const FIELD_DISPLAY_NAMES: Record<string, string> = {
 
 export default async function ProjectDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
   const { id } = await params;
+  const query = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -72,6 +81,12 @@ export default async function ProjectDetailPage({
     .select("*")
     .eq("project_id", id)
     .order("uploaded_at", { ascending: false });
+
+  const { data: paidEstimatePool } = await supabase
+    .from("project_paid_estimate_pools")
+    .select("*")
+    .eq("project_id", id)
+    .maybeSingle();
 
   const { data: bids } = await supabase
     .from("bids")
@@ -125,6 +140,14 @@ export default async function ProjectDetailPage({
   const awardedProfile = project.awarded_bidder_id
     ? profileMap.get(project.awarded_bidder_id)
     : null;
+  const paidPool = (paidEstimatePool || null) as ProjectPaidEstimatePool | null;
+  const paidEstimateLive = isPaidEstimatePoolVisibleAsPaid(paidPool);
+  const checkoutMessage =
+    query.paidEstimateCheckout === "success"
+      ? "Stripe checkout completed. If payment confirmation has already arrived, your paid estimate offer is now live."
+      : query.paidEstimateCheckout === "cancelled"
+        ? "Stripe checkout was cancelled. Your paid estimate offer stays inactive until funding succeeds."
+        : null;
 
   return (
     <div>
@@ -159,6 +182,11 @@ export default async function ProjectDetailPage({
                     ? "Awarded"
                     : "Closed"}
               </span>
+              {paidEstimateLive && (
+                <span className="inline-flex items-center rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
+                  Paid Estimate
+                </span>
+              )}
             </div>
             <p className="mt-1 text-sm text-text-muted">
               Posted {new Date(project.created_at).toLocaleDateString()} •{" "}
@@ -174,9 +202,21 @@ export default async function ProjectDetailPage({
         </div>
       </div>
 
+      {checkoutMessage && (
+        <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-5 py-4 text-sm text-text-primary shadow-sm">
+          {checkoutMessage}
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-8">
         {/* Main Content */}
         <div className="col-span-2 space-y-6">
+          <PaidEstimatePoolPanel
+            projectId={project.id}
+            projectStatus={project.status}
+            existingPool={paidPool}
+          />
+
           {/* Description */}
           <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
             <h2 className="mb-3 text-lg font-semibold text-text-primary">
