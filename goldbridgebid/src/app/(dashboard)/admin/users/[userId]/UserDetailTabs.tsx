@@ -9,6 +9,10 @@ import {
 } from "@/app/(dashboard)/admin/actions";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { CheckCircle2, XCircle } from "lucide-react";
+import {
+  BIDDER_PAYOUT_READINESS_LABELS,
+  getBidderPayoutReadiness,
+} from "@/lib/paid-estimates/payout-accounts";
 
 interface CredentialCheck {
   label: string;
@@ -49,6 +53,15 @@ interface Props {
   roles: string[];
   credentials: unknown;
   credentialChecks: CredentialCheck[];
+  payoutAccount: {
+    stripe_account_id: string | null;
+    charges_enabled: boolean;
+    payouts_enabled: boolean;
+    details_submitted: boolean;
+    onboarding_started_at: string | null;
+    onboarding_completed_at: string | null;
+    last_status_sync_at: string | null;
+  } | null;
   projects: ProjectSummary[] | null;
   bids: BidSummary[] | null;
   messageCount: number;
@@ -58,22 +71,27 @@ export default function UserDetailTabs({
   profile,
   roles,
   credentialChecks,
+  payoutAccount,
   projects,
   bids,
   messageCount,
 }: Props) {
-  const [tab, setTab] = useState<"profile" | "activity" | "credentials">(
-    "profile"
-  );
+  const [tab, setTab] = useState<
+    "profile" | "activity" | "credentials" | "payouts"
+  >("profile");
   const [showBan, setShowBan] = useState(false);
   const [showUnban, setShowUnban] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const payoutReadiness = getBidderPayoutReadiness(payoutAccount);
 
   const tabs = [
     { id: "profile" as const, label: "Profile" },
     { id: "activity" as const, label: "Activity" },
     ...(roles.includes("bidder")
-      ? [{ id: "credentials" as const, label: "Credentials" }]
+      ? [
+          { id: "credentials" as const, label: "Credentials" },
+          { id: "payouts" as const, label: "Payouts" },
+        ]
       : []),
   ];
 
@@ -334,6 +352,83 @@ export default function UserDetailTabs({
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {tab === "payouts" && (
+        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <h3 className="mb-4 text-lg font-semibold text-text-primary">
+            Payout Account
+          </h3>
+
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                payoutReadiness === "ready"
+                  ? "bg-green-100 text-green-700"
+                  : payoutReadiness === "restricted"
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-gray-100 text-gray-700"
+              }`}
+            >
+              {BIDDER_PAYOUT_READINESS_LABELS[payoutReadiness]}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-border bg-bg-warm p-4">
+              <p className="text-xs uppercase tracking-wide text-text-muted">
+                Stripe Account
+              </p>
+              <p className="mt-1 text-sm font-medium text-text-primary">
+                {payoutAccount?.stripe_account_id || "Not connected"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-bg-warm p-4">
+              <p className="text-xs uppercase tracking-wide text-text-muted">
+                Details Submitted
+              </p>
+              <p className="mt-1 text-sm font-medium text-text-primary">
+                {payoutAccount?.details_submitted ? "Yes" : "No"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-bg-warm p-4">
+              <p className="text-xs uppercase tracking-wide text-text-muted">
+                Charges Enabled
+              </p>
+              <p className="mt-1 text-sm font-medium text-text-primary">
+                {payoutAccount?.charges_enabled ? "Yes" : "No"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-bg-warm p-4">
+              <p className="text-xs uppercase tracking-wide text-text-muted">
+                Payouts Enabled
+              </p>
+              <p className="mt-1 text-sm font-medium text-text-primary">
+                {payoutAccount?.payouts_enabled ? "Yes" : "No"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-bg-warm p-4">
+              <p className="text-xs uppercase tracking-wide text-text-muted">
+                Onboarding Started
+              </p>
+              <p className="mt-1 text-sm font-medium text-text-primary">
+                {payoutAccount?.onboarding_started_at
+                  ? new Date(payoutAccount.onboarding_started_at).toLocaleString()
+                  : "Not yet"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-bg-warm p-4">
+              <p className="text-xs uppercase tracking-wide text-text-muted">
+                Last Status Sync
+              </p>
+              <p className="mt-1 text-sm font-medium text-text-primary">
+                {payoutAccount?.last_status_sync_at
+                  ? new Date(payoutAccount.last_status_sync_at).toLocaleString()
+                  : "Never"}
+              </p>
+            </div>
           </div>
         </div>
       )}

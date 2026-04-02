@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { userHasRole } from "@/lib/auth/roles";
 import {
@@ -9,13 +10,23 @@ import {
   MessageSquare,
   Star,
   ArrowRight,
+  WalletCards,
 } from "lucide-react";
 import { BADGE_CONFIG } from "@/lib/badges";
+import {
+  BIDDER_PAYOUT_READINESS_LABELS,
+  getBidderPayoutReadiness,
+} from "@/lib/paid-estimates/payout-accounts";
 import { TRADE_LABELS } from "@/types/database";
-import type { BadgeLevel, TradeCategory } from "@/types/database";
+import type {
+  BadgeLevel,
+  BidderPayoutAccount,
+  TradeCategory,
+} from "@/types/database";
 
 export default async function BidderDashboard() {
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   const {
     data: { user },
@@ -57,8 +68,25 @@ export default async function BidderDashboard() {
     .eq("receiver_id", user.id)
     .eq("read", false);
 
+  const [{ data: payoutAccountRow }, { count: payoutPendingCount }] =
+    await Promise.all([
+      admin
+        .from("bidder_payout_accounts")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      admin
+        .from("paid_estimate_claims")
+        .select("*", { count: "exact", head: true })
+        .eq("bidder_id", user.id)
+        .eq("claim_status", "payout_pending"),
+    ]);
+
   const badgeLevel = credentials?.badge_level as BadgeLevel;
   const badgeInfo = badgeLevel ? BADGE_CONFIG[badgeLevel] : null;
+  const payoutAccount =
+    (payoutAccountRow as BidderPayoutAccount | null | undefined) || null;
+  const payoutReadiness = getBidderPayoutReadiness(payoutAccount);
 
   return (
     <div>
@@ -118,6 +146,50 @@ export default async function BidderDashboard() {
           </div>
         </div>
       )}
+
+      <div className="mb-8 rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary/10">
+              <WalletCards className="h-6 w-6 text-secondary" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold text-text-primary">
+                  Payout Readiness
+                </h2>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    payoutReadiness === "ready"
+                      ? "bg-green-100 text-green-700"
+                      : payoutReadiness === "restricted"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  {BIDDER_PAYOUT_READINESS_LABELS[payoutReadiness]}
+                </span>
+                {(payoutPendingCount || 0) > 0 && (
+                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                    {payoutPendingCount} payout{payoutPendingCount === 1 ? "" : "s"} queued
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-text-muted">
+                Connect Stripe onboarding when you are ready so paid estimates
+                can move from queued to real payout operations later.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/bidder/payouts"
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-dark transition-colors"
+          >
+            Manage Payouts
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
 
       {/* Stats Cards */}
       <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">

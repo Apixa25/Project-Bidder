@@ -39,3 +39,11 @@ export function getSiteUrl() {
 
   return "http://localhost:3000";
 }
+
+export function getStripeConnectReturnUrl() {
+  return `${getSiteUrl()}/bidder/payouts?stripeConnect=return`;
+}
+
+export function getStripeConnectRefreshUrl() {
+  return `${getSiteUrl()}/bidder/payouts?stripeConnect=refresh`;
+}

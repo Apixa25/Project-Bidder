@@ -20,6 +20,7 @@ import {
   Star,
   BadgeDollarSign,
   Scale,
+  WalletCards,
 } from "lucide-react";
 import { signOut } from "@/app/(auth)/actions";
 import type { UserRole } from "@/types/database";
@@ -47,6 +48,7 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
     { href: "/bidder", label: "Dashboard", icon: LayoutDashboard },
     { href: "/bidder/bids", label: "My Bids", icon: ClipboardList },
     { href: "/bidder/projects", label: "Browse Projects", icon: FolderOpen },
+    { href: "/bidder/payouts", label: "Payouts", icon: WalletCards },
     { href: "/bidder/messages", label: "Messages", icon: MessageSquare },
     { href: "/bidder/credentials", label: "Credentials", icon: Shield },
     { href: "/bidder/profile", label: "Profile", icon: User },

@@ -1,20 +1,29 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import {
   ClipboardList,
   FolderOpen,
   MapPin,
   Calendar,
-  DollarSign,
   FileText,
 } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
-import type { TradeCategory } from "@/types/database";
+import type {
+  BidderPayoutAccount,
+  PaidEstimateClaim,
+  TradeCategory,
+} from "@/types/database";
 import { userHasRole } from "@/lib/auth/roles";
+import {
+  BIDDER_PAYOUT_READINESS_LABELS,
+  getBidderPayoutReadiness,
+} from "@/lib/paid-estimates/payout-accounts";
 
 export default async function MyBidsPage() {
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   const {
     data: { user },
@@ -31,6 +40,31 @@ export default async function MyBidsPage() {
     )
     .eq("bidder_id", user.id)
     .order("created_at", { ascending: false });
+
+  const bidIds = (bids || []).map((bid) => bid.id);
+  const [{ data: claimRows }, { data: payoutAccountRow }] = await Promise.all([
+    bidIds.length
+      ? admin
+          .from("paid_estimate_claims")
+          .select("*")
+          .in("bid_id", bidIds)
+      : Promise.resolve({ data: [] }),
+    admin
+      .from("bidder_payout_accounts")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+  ]);
+
+  const claimMap = new Map(
+    ((claimRows || []) as PaidEstimateClaim[]).map((claim) => [claim.bid_id, claim])
+  );
+  const payoutAccount =
+    (payoutAccountRow as BidderPayoutAccount | null | undefined) || null;
+  const payoutReadiness = getBidderPayoutReadiness(payoutAccount);
+  const queuedPayouts = (claimRows || []).filter(
+    (claim) => claim.claim_status === "payout_pending"
+  ).length;
 
   return (
     <div>
@@ -50,6 +84,22 @@ export default async function MyBidsPage() {
         </Link>
       </div>
 
+      {queuedPayouts > 0 && (
+        <div className="mb-6 rounded-xl border border-secondary/20 bg-secondary/5 px-4 py-3 text-sm text-text-secondary">
+          <span className="font-semibold text-text-primary">
+            {queuedPayouts} paid estimate payout{queuedPayouts === 1 ? "" : "s"} queued.
+          </span>{" "}
+          Current payout readiness:{" "}
+          <span className="font-semibold text-secondary">
+            {BIDDER_PAYOUT_READINESS_LABELS[payoutReadiness]}
+          </span>
+          .{" "}
+          <Link href="/bidder/payouts" className="text-primary hover:underline">
+            Manage payout setup
+          </Link>
+        </div>
+      )}
+
       {bids && bids.length > 0 ? (
         <div className="space-y-4">
           {bids.map((bid) => {
@@ -67,6 +117,7 @@ export default async function MyBidsPage() {
               file_name: string;
               file_type: string;
             }[];
+            const claim = claimMap.get(bid.id) || null;
 
             return (
               <div
@@ -113,6 +164,25 @@ export default async function MyBidsPage() {
                         Bid submitted{" "}
                         {new Date(bid.created_at).toLocaleDateString()}
                       </span>
+                      {claim && (
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            claim.claim_status === "paid_out"
+                              ? "bg-green-100 text-green-700"
+                              : claim.claim_status === "payout_pending"
+                                ? "bg-blue-100 text-blue-700"
+                                : claim.claim_status === "disputed"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : claim.claim_status === "payout_denied_refunded"
+                                    ? "bg-red-100 text-red-700"
+                                    : claim.claim_status === "paid_reserved"
+                                      ? "bg-primary/10 text-primary"
+                                      : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {claim.claim_status.replace(/_/g, " ")}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -156,6 +226,35 @@ export default async function MyBidsPage() {
                     <p className="text-sm text-text-secondary whitespace-pre-wrap line-clamp-3">
                       {bid.notes}
                     </p>
+                  </div>
+                )}
+
+                {claim && (
+                  <div className="mt-3 grid gap-3 rounded-lg bg-bg-warm px-4 py-3 text-sm text-text-secondary sm:grid-cols-3">
+                    <div>
+                      <p className="text-xs text-text-muted">Paid Estimate Reward</p>
+                      <p className="font-medium text-text-primary">
+                        {claim.reward_amount
+                          ? `$${Number(claim.reward_amount).toLocaleString()}`
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-text-muted">Payout Due</p>
+                      <p className="font-medium text-text-primary">
+                        {claim.payout_due_at
+                          ? new Date(claim.payout_due_at).toLocaleString()
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-text-muted">Paid Out</p>
+                      <p className="font-medium text-text-primary">
+                        {claim.paid_out_at
+                          ? new Date(claim.paid_out_at).toLocaleString()
+                          : "Not yet"}
+                      </p>
+                    </div>
                   </div>
                 )}
 

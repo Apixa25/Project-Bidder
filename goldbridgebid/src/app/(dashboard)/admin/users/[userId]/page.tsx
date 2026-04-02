@@ -1,9 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { BADGE_CONFIG } from "@/lib/badges";
 import { TRADE_LABELS } from "@/types/database";
-import type { BadgeLevel, TradeCategory } from "@/types/database";
+import type {
+  BadgeLevel,
+  BidderPayoutAccount,
+  TradeCategory,
+} from "@/types/database";
 import {
   ArrowLeft,
   Mail,
@@ -22,6 +28,7 @@ interface Props {
 export default async function AdminUserDetailPage({ params }: Props) {
   const { userId } = await params;
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   const {
     data: { user },
@@ -56,6 +63,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
   let credentials = null;
   let projects = null;
   let bids = null;
+  let payoutAccount = null;
 
   if (roles.includes("bidder")) {
     const { data: creds } = await supabase
@@ -71,6 +79,14 @@ export default async function AdminUserDetailPage({ params }: Props) {
       .eq("bidder_id", userId)
       .order("created_at", { ascending: false });
     bids = bidData;
+
+    const { data: payoutData } = await admin
+      .from("bidder_payout_accounts")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+    payoutAccount =
+      (payoutData as BidderPayoutAccount | null | undefined) || null;
   }
 
   if (roles.includes("customer")) {
@@ -116,9 +132,11 @@ export default async function AdminUserDetailPage({ params }: Props) {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
             {profile.avatar_url ? (
-              <img
+              <Image
                 src={profile.avatar_url}
                 alt={profile.full_name}
+                width={64}
+                height={64}
                 className="h-16 w-16 rounded-full object-cover"
               />
             ) : (
@@ -217,6 +235,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
         roles={roles}
         credentials={credentials}
         credentialChecks={credentialChecks}
+        payoutAccount={payoutAccount}
         projects={
           projects?.map((p) => ({
             id: p.id,

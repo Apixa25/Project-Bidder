@@ -272,6 +272,20 @@ export interface BidderCredentials {
   updated_at: string;
 }
 
+export interface BidderPayoutAccount {
+  id: string;
+  user_id: string;
+  stripe_account_id: string | null;
+  charges_enabled: boolean;
+  payouts_enabled: boolean;
+  details_submitted: boolean;
+  onboarding_started_at: string | null;
+  onboarding_completed_at: string | null;
+  last_status_sync_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface BidderSpecialty {
   id: string;
   user_id: string;
@@ -537,6 +551,17 @@ type BidderSpecialtyInsert = {
   display_order?: number;
 };
 
+type BidderPayoutAccountInsert = {
+  user_id: string;
+  stripe_account_id?: string | null;
+  charges_enabled?: boolean;
+  payouts_enabled?: boolean;
+  details_submitted?: boolean;
+  onboarding_started_at?: string | null;
+  onboarding_completed_at?: string | null;
+  last_status_sync_at?: string | null;
+};
+
 type ProjectInsert = {
   customer_id: string;
   title: string;
@@ -688,6 +713,12 @@ export interface Database {
         Row: BidderSpecialty;
         Insert: BidderSpecialtyInsert;
         Update: Partial<Omit<BidderSpecialtyInsert, "user_id">>;
+        Relationships: [];
+      };
+      bidder_payout_accounts: {
+        Row: BidderPayoutAccount;
+        Insert: BidderPayoutAccountInsert;
+        Update: Partial<Omit<BidderPayoutAccountInsert, "user_id">>;
         Relationships: [];
       };
       projects: {
