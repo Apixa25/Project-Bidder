@@ -125,7 +125,10 @@ export default function NewProjectPage() {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
     setLoading(true);
     setError(null);
 
@@ -266,7 +269,7 @@ export default function NewProjectPage() {
         </div>
       )}
 
-      <form action={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-8">
         {/* Project Basics */}
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <h2 className="mb-5 text-lg font-semibold text-text-primary">
