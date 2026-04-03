@@ -46,6 +46,23 @@ export async function createProject(formData: FormData) {
   const desiredStartDate = formData.get("desiredStartDate") as string;
   const timeline = formData.get("timeline") as string;
 
+  console.info("createProject: received submit", {
+    userId: user.id,
+    hasTitle: Boolean(title),
+    hasDescription: Boolean(description),
+    hasCompletionCriteria: Boolean(completionCriteria),
+    tradeCount: tradesRaw.length,
+    hasLocationAddress: Boolean(locationAddress),
+    hasLocationCity: Boolean(locationCity),
+    hasLocationState: Boolean(locationState),
+    hasLocationZip: Boolean(locationZip),
+    enablePaidEstimate: formData.get("enablePaidEstimate") === "true",
+    rewardAmount: formData.get("rewardAmount"),
+    maxPaidSlots: formData.get("maxPaidSlots"),
+    filter: formData.get("filter"),
+    fileCount: formData.getAll("files").filter((file) => file instanceof File && file.size > 0).length,
+  });
+
   if (
     !title ||
     !description ||
@@ -85,12 +102,23 @@ export async function createProject(formData: FormData) {
     .single();
 
   if (projectError) {
-    console.error("Project creation error:", projectError);
+    console.error("Project creation error:", {
+      code: projectError.code,
+      message: projectError.message,
+      details: projectError.details,
+      hint: projectError.hint,
+    });
     return {
       error: "Failed to create project. Please try again.",
       redirectUrl: null,
     } satisfies CreateProjectResult;
   }
+
+  console.info("createProject: project created", {
+    userId: user.id,
+    projectId: project.id,
+    enablePaidEstimate: formData.get("enablePaidEstimate") === "true",
+  });
 
   // Handle file uploads
   const files = formData.getAll("files") as File[];
@@ -151,6 +179,14 @@ export async function createProject(formData: FormData) {
     formData.get("enablePaidEstimate") === "true";
 
   if (shouldCreatePaidEstimate) {
+    console.info("createProject: preparing paid estimate checkout", {
+      userId: user.id,
+      projectId: project.id,
+      rewardAmount: formData.get("rewardAmount"),
+      maxPaidSlots: formData.get("maxPaidSlots"),
+      filter: formData.get("filter"),
+    });
+
     const paidEstimateResult = await createPaidEstimateCheckoutSessionForProject({
       customerId: user.id,
       projectId: project.id,
@@ -160,11 +196,21 @@ export async function createProject(formData: FormData) {
     });
 
     if (paidEstimateResult.checkoutUrl) {
+      console.info("createProject: paid estimate checkout created", {
+        userId: user.id,
+        projectId: project.id,
+      });
       return {
         error: null,
         redirectUrl: paidEstimateResult.checkoutUrl,
       } satisfies CreateProjectResult;
     }
+
+    console.error("createProject: paid estimate checkout preparation failed", {
+      userId: user.id,
+      projectId: project.id,
+      error: paidEstimateResult.error,
+    });
 
     return {
       error:

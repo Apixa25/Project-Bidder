@@ -50,6 +50,14 @@ export async function createPaidEstimateCheckoutSessionForProject(
   const rewardAmount = Number.parseFloat(rewardAmountRaw.trim());
   const maxPaidSlots = Number.parseInt(maxPaidSlotsRaw.trim(), 10);
 
+  console.info("createPaidEstimateCheckoutSessionForProject: start", {
+    customerId,
+    projectId,
+    rewardAmountRaw,
+    maxPaidSlotsRaw,
+    filter,
+  });
+
   if (!projectId) {
     return { error: "Missing project id.", checkoutUrl: null };
   }
@@ -132,12 +140,25 @@ export async function createPaidEstimateCheckoutSessionForProject(
     .single();
 
   if (poolError || !pool) {
-    console.error("Create paid estimate pool error:", poolError);
+    console.error("Create paid estimate pool error:", {
+      customerId,
+      projectId,
+      code: poolError?.code,
+      message: poolError?.message,
+      details: poolError?.details,
+      hint: poolError?.hint,
+    });
     return {
       error: "Could not save the paid estimate offer right now.",
       checkoutUrl: null,
     };
   }
+
+  console.info("createPaidEstimateCheckoutSessionForProject: pool ready", {
+    customerId,
+    projectId,
+    poolId: pool.id,
+  });
 
   try {
     const stripe = getStripeServerClient();
@@ -199,7 +220,12 @@ export async function createPaidEstimateCheckoutSessionForProject(
       checkoutUrl: session.url ?? null,
     };
   } catch (error) {
-    console.error("Create paid estimate checkout session error:", error);
+    console.error("Create paid estimate checkout session error:", {
+      customerId,
+      projectId,
+      poolId: pool.id,
+      error,
+    });
     return {
       error:
         "Project saved, but Stripe checkout could not be prepared right now. You can retry from the project detail page.",
