@@ -48,14 +48,15 @@ export default async function BidderDashboard() {
     .eq("user_id", user.id)
     .single();
 
-  const { data: bids, count: bidCount } = await supabase
+  const { data: bidRows, count: bidCount } = await supabase
     .from("bids")
-    .select("*, projects!inner(title, status, location_city, location_state)", {
-      count: "exact",
-    })
+    .select("*", { count: "exact" })
     .eq("bidder_id", user.id)
     .order("created_at", { ascending: false })
     .limit(5);
+
+  const bids = bidRows || [];
+  const bidProjectIds = Array.from(new Set(bids.map((bid) => bid.project_id)));
 
   const { count: openProjectCount } = await supabase
     .from("projects")
@@ -68,7 +69,7 @@ export default async function BidderDashboard() {
     .eq("receiver_id", user.id)
     .eq("read", false);
 
-  const [{ data: payoutAccountRow }, { count: payoutPendingCount }] =
+  const [{ data: payoutAccountRow }, { count: payoutPendingCount }, { data: bidProjects }] =
     await Promise.all([
       admin
         .from("bidder_payout_accounts")
@@ -80,6 +81,12 @@ export default async function BidderDashboard() {
         .select("*", { count: "exact", head: true })
         .eq("bidder_id", user.id)
         .eq("claim_status", "payout_pending"),
+      bidProjectIds.length
+        ? supabase
+            .from("projects")
+            .select("id, title, status, location_city, location_state")
+            .in("id", bidProjectIds)
+        : Promise.resolve({ data: [] }),
     ]);
 
   const badgeLevel = credentials?.badge_level as BadgeLevel;
@@ -87,6 +94,9 @@ export default async function BidderDashboard() {
   const payoutAccount =
     (payoutAccountRow as BidderPayoutAccount | null | undefined) || null;
   const payoutReadiness = getBidderPayoutReadiness(payoutAccount);
+  const bidProjectMap = new Map(
+    (bidProjects || []).map((project) => [project.id, project])
+  );
 
   return (
     <div>
@@ -263,12 +273,20 @@ export default async function BidderDashboard() {
         {bids && bids.length > 0 ? (
           <div className="divide-y divide-border">
             {bids.map((bid) => {
-              const project = bid.projects as unknown as {
-                title: string;
-                status: string;
-                location_city: string;
-                location_state: string;
-              };
+              const project = bidProjectMap.get(bid.project_id) as
+                | {
+                    id: string;
+                    title: string;
+                    status: string;
+                    location_city: string;
+                    location_state: string;
+                  }
+                | undefined;
+
+              if (!project) {
+                return null;
+              }
+
               return (
                 <div
                   key={bid.id}

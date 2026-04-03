@@ -33,16 +33,16 @@ export default async function MyBidsPage() {
 
   if (!(await userHasRole(user.id, "bidder"))) redirect("/login");
 
-  const { data: bids } = await supabase
+  const { data: bidRows } = await supabase
     .from("bids")
-    .select(
-      "*, bid_files(*), projects!inner(title, status, location_city, location_state, trades, awarded_bid_id)"
-    )
+    .select("*")
     .eq("bidder_id", user.id)
     .order("created_at", { ascending: false });
 
-  const bidIds = (bids || []).map((bid) => bid.id);
-  const [{ data: claimRows }, { data: payoutAccountRow }] = await Promise.all([
+  const bids = bidRows || [];
+  const bidIds = bids.map((bid) => bid.id);
+  const projectIds = Array.from(new Set(bids.map((bid) => bid.project_id)));
+  const [{ data: claimRows }, { data: payoutAccountRow }, { data: projectRows }, { data: bidFileRows }] = await Promise.all([
     bidIds.length
       ? admin
           .from("paid_estimate_claims")
@@ -54,11 +54,37 @@ export default async function MyBidsPage() {
       .select("*")
       .eq("user_id", user.id)
       .maybeSingle(),
+    projectIds.length
+      ? supabase
+          .from("projects")
+          .select("id, title, status, location_city, location_state, trades, awarded_bid_id")
+          .in("id", projectIds)
+      : Promise.resolve({ data: [] }),
+    bidIds.length
+      ? supabase
+          .from("bid_files")
+          .select("*")
+          .in("bid_id", bidIds)
+      : Promise.resolve({ data: [] }),
   ]);
 
   const claimMap = new Map(
     ((claimRows || []) as PaidEstimateClaim[]).map((claim) => [claim.bid_id, claim])
   );
+  const projectMap = new Map(
+    (projectRows || []).map((project) => [project.id, project])
+  );
+  const bidFilesMap = new Map<string, {
+    id: string;
+    file_url: string;
+    file_name: string;
+    file_type: string;
+  }[]>();
+  for (const file of bidFileRows || []) {
+    const existing = bidFilesMap.get(file.bid_id) || [];
+    existing.push(file);
+    bidFilesMap.set(file.bid_id, existing);
+  }
   const payoutAccount =
     (payoutAccountRow as BidderPayoutAccount | null | undefined) || null;
   const payoutReadiness = getBidderPayoutReadiness(payoutAccount);
@@ -103,7 +129,25 @@ export default async function MyBidsPage() {
       {bids && bids.length > 0 ? (
         <div className="space-y-4">
           {bids.map((bid) => {
-            const project = bid.projects as unknown as {
+            const project = projectMap.get(bid.project_id) as
+              | {
+                  id: string;
+                  title: string;
+                  status: string;
+                  location_city: string;
+                  location_state: string;
+                  trades: TradeCategory[];
+                  awarded_bid_id: string | null;
+                }
+              | undefined;
+            const bidFiles = bidFilesMap.get(bid.id) || [];
+            const claim = claimMap.get(bid.id) || null;
+
+            if (!project) {
+              return null;
+            }
+
+            const projectDetails = project as {
               title: string;
               status: string;
               location_city: string;
@@ -111,13 +155,6 @@ export default async function MyBidsPage() {
               trades: TradeCategory[];
               awarded_bid_id: string | null;
             };
-            const bidFiles = bid.bid_files as unknown as {
-              id: string;
-              file_url: string;
-              file_name: string;
-              file_type: string;
-            }[];
-            const claim = claimMap.get(bid.id) || null;
 
             return (
               <div
@@ -135,20 +172,20 @@ export default async function MyBidsPage() {
                       </Link>
                       <span
                         className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          project.status === "open"
+                          projectDetails.status === "open"
                             ? "bg-green-100 text-green-700"
-                            : project.status === "awarded" && project.awarded_bid_id === bid.id
+                            : projectDetails.status === "awarded" && projectDetails.awarded_bid_id === bid.id
                               ? "bg-secondary/15 text-secondary"
-                              : project.status === "awarded"
+                              : projectDetails.status === "awarded"
                                 ? "bg-amber-100 text-amber-700"
                               : "bg-gray-100 text-gray-600"
                         }`}
                       >
-                        {project.status === "open"
+                        {projectDetails.status === "open"
                           ? "Open"
-                          : project.status === "awarded" && project.awarded_bid_id === bid.id
+                          : projectDetails.status === "awarded" && projectDetails.awarded_bid_id === bid.id
                             ? "Awarded to You"
-                            : project.status === "awarded"
+                            : projectDetails.status === "awarded"
                               ? "Awarded Elsewhere"
                             : "Closed"}
                       </span>
@@ -157,7 +194,7 @@ export default async function MyBidsPage() {
                     <div className="mt-3 grid gap-2 text-sm text-text-muted sm:mt-2 sm:flex sm:flex-wrap sm:items-center sm:gap-4 sm:text-xs">
                       <span className="flex items-center gap-1">
                         <MapPin className="h-3.5 w-3.5" />
-                        {project.location_city}, {project.location_state}
+                        {projectDetails.location_city}, {projectDetails.location_state}
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3.5 w-3.5" />
