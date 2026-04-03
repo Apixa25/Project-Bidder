@@ -63,7 +63,7 @@ export default async function AdminStripeReadinessPage() {
 
   const checklist = [
     "Use Stripe test mode in the Stripe dashboard before creating any keys or webhook endpoints.",
-    "Add `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_SITE_URL`, and `CRON_SECRET` to local and hosted environments.",
+    "Add `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (or `STRIPE_WEBHOOK_SECRETS` for multiple destinations), `NEXT_PUBLIC_SITE_URL`, and `CRON_SECRET` to local and hosted environments.",
     "Enable Stripe Connect for the platform account and confirm Express connected accounts are available in test mode.",
     `Create one webhook endpoint at ${webhookUrl} and subscribe to checkout.session.completed, payment_intent.succeeded, and account.updated.`,
     "Apply the latest Supabase migrations, including the bidder payout account and transfer tracking migrations.",

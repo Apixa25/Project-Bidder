@@ -6,6 +6,9 @@ export interface StripeReadinessItem {
 
 export function getStripeReadinessItems() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const hasWebhookSecret = Boolean(
+    process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRETS
+  );
 
   const items: StripeReadinessItem[] = [
     {
@@ -27,8 +30,8 @@ export function getStripeReadinessItems() {
     },
     {
       label: "Stripe webhook secret",
-      isReady: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
-      value: process.env.STRIPE_WEBHOOK_SECRET ? "Configured" : "Missing",
+      isReady: hasWebhookSecret,
+      value: hasWebhookSecret ? "Configured" : "Missing",
     },
     {
       label: "Cron secret",

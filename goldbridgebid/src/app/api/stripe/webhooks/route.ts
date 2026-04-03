@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getStripeServerClient,
-  getStripeWebhookSecret,
+  getStripeWebhookSecrets,
 } from "@/lib/stripe/server";
 import { syncBidderPayoutAccountFromStripe } from "@/lib/stripe/connect";
 
@@ -81,19 +81,37 @@ export async function POST(request: Request) {
 
   const payload = await request.text();
 
-  let event: Stripe.Event;
+  let event: Stripe.Event | null = null;
 
   try {
-    event = stripe.webhooks.constructEvent(
-      payload,
-      signature,
-      getStripeWebhookSecret()
-    );
+    const webhookSecrets = getStripeWebhookSecrets();
+    let lastError: unknown = null;
+
+    for (const webhookSecret of webhookSecrets) {
+      try {
+        event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (!event) {
+      throw lastError;
+    }
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Invalid Stripe webhook signature.";
 
     return NextResponse.json({ error: message }, { status: 400 });
+  }
+
+  if (!event) {
+    return NextResponse.json(
+      { error: "Stripe webhook event could not be verified." },
+      { status: 400 }
+    );
   }
 
   try {

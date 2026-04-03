@@ -20,14 +20,24 @@ export function getStripeServerClient() {
   return stripeClient;
 }
 
-export function getStripeWebhookSecret() {
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+export function getStripeWebhookSecrets() {
+  const webhookSecrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    ...(process.env.STRIPE_WEBHOOK_SECRETS || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  ].filter((value, index, values): value is string => {
+    return Boolean(value) && values.indexOf(value) === index;
+  });
 
-  if (!webhookSecret) {
-    throw new Error("Missing STRIPE_WEBHOOK_SECRET.");
+  if (webhookSecrets.length === 0) {
+    throw new Error(
+      "Missing STRIPE_WEBHOOK_SECRET or STRIPE_WEBHOOK_SECRETS."
+    );
   }
 
-  return webhookSecret;
+  return webhookSecrets;
 }
 
 export function getSiteUrl() {
