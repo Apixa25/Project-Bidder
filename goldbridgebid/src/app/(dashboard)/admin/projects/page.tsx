@@ -191,7 +191,7 @@ export default async function AdminProjectsPage({ searchParams }: Props) {
                     <td className="px-6 py-4">
                       <Link
                         href={`/admin/projects/${project.id}`}
-                        className="font-medium text-primary hover:underline"
+                        className="font-medium text-accent-light hover:text-accent hover:underline"
                       >
                         {project.title}
                       </Link>
@@ -201,7 +201,7 @@ export default async function AdminProjectsPage({ searchParams }: Props) {
                           .map((t) => (
                             <span
                               key={t}
-                              className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary"
+                              className="rounded-full bg-accent-light/10 px-2 py-0.5 text-xs font-medium text-accent-light"
                             >
                               {TRADE_LABELS[t]}
                             </span>

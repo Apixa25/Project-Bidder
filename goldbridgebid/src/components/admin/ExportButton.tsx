@@ -36,10 +36,11 @@ export default function ExportButton({
 
   return (
     <button
+      type="button"
       onClick={handleExport}
-      className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-surface-hover transition-colors"
+      className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-surface px-4 py-2.5 text-sm font-semibold text-accent-light shadow-md transition-colors hover:bg-surface-hover hover:border-white/40"
     >
-      <Download className="h-4 w-4" />
+      <Download className="h-4 w-4 shrink-0" />
       Export CSV
     </button>
   );
