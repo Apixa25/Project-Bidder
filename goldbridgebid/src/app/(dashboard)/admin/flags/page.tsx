@@ -69,7 +69,7 @@ export default async function AdminFlagsPage({ searchParams }: Props) {
     } else if (flag.content_type === "bid") {
       const { data } = await supabase
         .from("bids")
-        .select("price, trade, projects!inner(title)")
+        .select("price, trade, projects!bids_project_id_fkey(title)")
         .eq("id", flag.content_id)
         .single();
       if (data) {

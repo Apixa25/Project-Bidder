@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory, BadgeLevel } from "@/types/database";
@@ -18,6 +19,7 @@ interface Props {
 export default async function AdminBidsPage({ searchParams }: Props) {
   const params = await searchParams;
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   const {
     data: { user },
@@ -31,21 +33,24 @@ export default async function AdminBidsPage({ searchParams }: Props) {
     .single();
   if (profile?.role !== "admin") redirect("/login");
 
-  let query = supabase
+  let query = admin
     .from("bids")
-    .select("*, projects!inner(title, status)")
+    .select("*, projects!bids_project_id_fkey(title, status)")
     .order("created_at", { ascending: false });
 
   if (params.trade) {
     query = query.eq("trade", params.trade);
   }
 
-  const { data: allBids } = await query;
+  const { data: allBids, error: allBidsError } = await query;
+  if (allBidsError) {
+    console.error("Admin bids query failed:", allBidsError);
+  }
 
   const bidderIds = [...new Set((allBids || []).map((b) => b.bidder_id))];
   const { data: bidderProfiles } =
     bidderIds.length > 0
-      ? await supabase
+      ? await admin
           .from("profiles")
           .select("user_id, full_name, email, business_name")
           .in("user_id", bidderIds)
@@ -53,7 +58,7 @@ export default async function AdminBidsPage({ searchParams }: Props) {
 
   const { data: bidderCreds } =
     bidderIds.length > 0
-      ? await supabase
+      ? await admin
           .from("bidder_credentials")
           .select("user_id, badge_level")
           .in("user_id", bidderIds)

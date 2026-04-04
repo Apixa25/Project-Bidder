@@ -75,7 +75,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
 
     const { data: bidData } = await supabase
       .from("bids")
-      .select("*, projects!inner(title, status)")
+      .select("*, projects!bids_project_id_fkey(title, status)")
       .eq("bidder_id", userId)
       .order("created_at", { ascending: false });
     bids = bidData;

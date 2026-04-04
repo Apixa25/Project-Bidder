@@ -126,7 +126,9 @@ export default async function AdminDashboard() {
       .limit(5),
     supabase
       .from("bids")
-      .select("id, project_id, price, trade, created_at, projects!inner(title)")
+      .select(
+        "id, project_id, price, trade, created_at, projects!bids_project_id_fkey(title)"
+      )
       .order("created_at", { ascending: false })
       .limit(5),
     supabase
