@@ -51,7 +51,7 @@ export default function DashboardShell({
   }, [isMobileNavOpen]);
 
   return (
-    <div className="flex min-h-screen bg-bg-warm">
+    <div className="flex min-h-screen">
       <button
         type="button"
         onClick={() => setIsMobileNavOpen(false)}
@@ -72,8 +72,12 @@ export default function DashboardShell({
         onClose={() => setIsMobileNavOpen(false)}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 border-b border-border bg-surface/95 backdrop-blur lg:hidden">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-gradient-to-br from-accent via-secondary-dark to-slate-950 lg:min-h-screen">
+        <div
+          className="pointer-events-none absolute inset-0 bg-[url('/grid.svg')] bg-[length:40px_40px] opacity-10 text-white"
+          aria-hidden
+        />
+        <header className="relative z-20 sticky top-0 border-b border-border bg-surface/95 backdrop-blur lg:hidden">
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-text-primary">
@@ -104,8 +108,8 @@ export default function DashboardShell({
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main className="relative z-10 min-w-0 flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8 [&_h1.text-text-primary]:text-white [&_h1.text-text-primary+p.text-text-secondary]:text-zinc-200/90">
             {children}
           </div>
         </main>
