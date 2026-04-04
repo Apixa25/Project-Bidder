@@ -203,7 +203,7 @@ export default async function AdminProjectDetailPage({ params }: Props) {
         {project.budget_min !== null && (
           <div className="flex items-center gap-2 text-sm">
             <DollarSign className="h-4 w-4 text-text-muted" />
-            <span className="text-text-primary">
+            <span className="text-money">
               ${Number(project.budget_min).toLocaleString()}
               {project.budget_max !== null &&
                 ` – $${Number(project.budget_max).toLocaleString()}`}

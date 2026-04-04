@@ -224,7 +224,7 @@ export default async function MyBidsPage() {
                   </div>
 
                   <div className="rounded-lg bg-bg-warm px-4 py-3 sm:ml-6 sm:shrink-0 sm:bg-transparent sm:px-0 sm:py-0 sm:text-right">
-                    <p className="text-xl font-bold text-primary sm:text-2xl">
+                    <p className="text-money text-xl font-bold sm:text-2xl">
                       ${Number(bid.price).toLocaleString()}
                     </p>
                     <span className="mt-2 inline-flex rounded-full bg-secondary/10 px-2.5 py-0.5 text-xs font-medium text-secondary">
@@ -270,7 +270,7 @@ export default async function MyBidsPage() {
                   <div className="mt-3 grid gap-3 rounded-lg bg-bg-warm px-4 py-3 text-sm text-text-secondary sm:grid-cols-3">
                     <div>
                       <p className="text-xs text-text-muted">Paid Estimate Reward</p>
-                      <p className="font-medium text-text-primary">
+                      <p className="text-money font-medium">
                         {claim.reward_amount
                           ? `$${Number(claim.reward_amount).toLocaleString()}`
                           : "N/A"}

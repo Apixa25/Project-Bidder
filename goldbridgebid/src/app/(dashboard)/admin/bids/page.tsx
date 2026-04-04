@@ -246,7 +246,7 @@ export default async function AdminBidsPage({ searchParams }: Props) {
                     <td className="px-6 py-4 text-text-secondary">
                       {TRADE_LABELS[bid.trade as TradeCategory]}
                     </td>
-                    <td className="px-6 py-4 font-semibold text-text-primary">
+                    <td className="text-money px-6 py-4 font-semibold">
                       ${Number(bid.price).toLocaleString()}
                     </td>
                     <td className="px-6 py-4">

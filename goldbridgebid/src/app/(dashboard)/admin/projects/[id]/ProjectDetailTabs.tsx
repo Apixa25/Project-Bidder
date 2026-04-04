@@ -248,7 +248,7 @@ export default function ProjectDetailTabs({
                           {tradeLabels[bid.trade as TradeCategory] ||
                             bid.trade}
                         </td>
-                        <td className="px-6 py-4 font-semibold text-text-primary">
+                        <td className="text-money px-6 py-4 font-semibold">
                           ${Number(bid.price).toLocaleString()}
                         </td>
                         <td className="px-6 py-4 text-text-secondary">
@@ -294,7 +294,7 @@ export default function ProjectDetailTabs({
                   <p className="text-xs uppercase tracking-wide text-text-muted">
                     Reward / Slot
                   </p>
-                  <p className="mt-1 font-semibold text-text-primary">
+                  <p className="text-money mt-1 font-semibold">
                     ${Number(paidEstimatePool.reward_amount).toLocaleString()}
                   </p>
                 </div>
@@ -311,7 +311,7 @@ export default function ProjectDetailTabs({
                   <p className="text-xs uppercase tracking-wide text-text-muted">
                     Reserved / Refunded
                   </p>
-                  <p className="mt-1 font-semibold text-text-primary">
+                  <p className="text-money mt-1 font-semibold">
                     ${Number(paidEstimatePool.reserved_total_amount).toLocaleString()} / $
                     {Number(paidEstimatePool.refunded_total_amount).toLocaleString()}
                   </p>
@@ -372,7 +372,7 @@ export default function ProjectDetailTabs({
                           <td className="px-6 py-4 text-text-secondary">
                             {claim.slot_sequence || "Unpaid"}
                           </td>
-                          <td className="px-6 py-4 font-semibold text-text-primary">
+                          <td className="text-money px-6 py-4 font-semibold">
                             {claim.reward_amount
                               ? `$${Number(claim.reward_amount).toLocaleString()}`
                               : "N/A"}

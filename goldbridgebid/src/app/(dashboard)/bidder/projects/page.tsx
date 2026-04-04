@@ -202,7 +202,7 @@ export default async function BrowseProjectsPage() {
                         <BadgeDollarSign className="h-3.5 w-3.5" />
                         Paid Estimate
                       </span>
-                      <span className="inline-flex items-center rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-medium text-text-primary">
+                      <span className="text-money inline-flex items-center rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-medium">
                         ${Number(paidPool.reward_amount).toLocaleString()} per estimate
                       </span>
                       <span className="inline-flex items-center rounded-full bg-surface-hover px-2.5 py-0.5 text-xs font-medium text-text-primary">

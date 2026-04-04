@@ -79,7 +79,7 @@ export default async function AdminPaidEstimatesPage() {
                       <p className="text-xs uppercase tracking-wide text-text-muted">
                         Reward
                       </p>
-                      <p className="mt-1 font-semibold text-text-primary">
+                      <p className="text-money mt-1 font-semibold">
                         ${Number(pool.reward_amount).toLocaleString()}
                       </p>
                     </div>
@@ -95,7 +95,7 @@ export default async function AdminPaidEstimatesPage() {
                       <p className="text-xs uppercase tracking-wide text-text-muted">
                         Reserved
                       </p>
-                      <p className="mt-1 font-semibold text-text-primary">
+                      <p className="text-money mt-1 font-semibold">
                         ${Number(pool.reserved_total_amount).toLocaleString()}
                       </p>
                     </div>
@@ -103,7 +103,7 @@ export default async function AdminPaidEstimatesPage() {
                       <p className="text-xs uppercase tracking-wide text-text-muted">
                         Refunded
                       </p>
-                      <p className="mt-1 font-semibold text-text-primary">
+                      <p className="text-money mt-1 font-semibold">
                         ${Number(pool.refunded_total_amount).toLocaleString()}
                       </p>
                     </div>
@@ -113,19 +113,19 @@ export default async function AdminPaidEstimatesPage() {
                 <div className="rounded-lg border border-border bg-bg-warm px-4 py-3 text-sm text-text-secondary">
                   <p>
                     Funded total:{" "}
-                    <span className="font-semibold text-text-primary">
+                    <span className="text-money font-semibold">
                       ${Number(pool.funded_total_amount).toLocaleString()}
                     </span>
                   </p>
                   <p className="mt-1">
                     Contractor payout:{" "}
-                    <span className="font-semibold text-text-primary">
+                    <span className="text-money font-semibold">
                       ${Number(pool.contractor_payout_amount).toLocaleString()}
                     </span>
                   </p>
                   <p className="mt-1">
                     Platform fee:{" "}
-                    <span className="font-semibold text-text-primary">
+                    <span className="text-money font-semibold">
                       ${Number(pool.platform_fee_amount).toLocaleString()}
                     </span>
                   </p>

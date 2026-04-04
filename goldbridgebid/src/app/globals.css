@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
-/* projectxbidx.com — gold + navy + teal (technical / construction marketplace) */
+/* projectxbidx.com — blue + navy + teal (technical / construction marketplace) */
 :root {
-  --color-primary: #eab308;
-  --color-primary-dark: #ca8a04;
-  --color-primary-light: #fde047;
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-primary-light: #93c5fd;
   --color-secondary: #0d9488;
   --color-secondary-dark: #0f766e;
   --color-secondary-light: #2dd4bf;
@@ -54,4 +54,8 @@
 body {
   background: var(--color-bg-warm);
   color: var(--color-text-primary);
+}
+
+.text-money {
+  color: var(--color-secondary);
 }

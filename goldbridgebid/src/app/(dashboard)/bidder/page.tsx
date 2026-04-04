@@ -303,7 +303,7 @@ export default async function BidderDashboard() {
                     </p>
                   </div>
                   <div className="ml-4 flex items-center gap-4">
-                    <span className="text-sm font-semibold text-text-primary">
+                    <span className="text-money text-sm font-semibold">
                       ${Number(bid.price).toLocaleString()}
                     </span>
                     <span

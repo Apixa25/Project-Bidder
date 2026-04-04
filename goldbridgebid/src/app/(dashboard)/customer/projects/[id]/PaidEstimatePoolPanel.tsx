@@ -83,7 +83,7 @@ export default function PaidEstimatePoolPanel({
             <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
               Reward
             </p>
-            <p className="mt-1 text-lg font-bold text-text-primary">
+            <p className="text-money mt-1 text-lg font-bold">
               ${Number(existingPool.reward_amount).toLocaleString()}
             </p>
           </div>

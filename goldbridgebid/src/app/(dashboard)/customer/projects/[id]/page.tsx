@@ -722,7 +722,7 @@ export default async function ProjectDetailPage({
                 <DollarSign className="h-5 w-5 text-text-muted shrink-0" />
                 <div>
                   <p className="text-xs text-text-muted">Budget Range</p>
-                  <p className="text-sm font-medium text-text-primary">
+                  <p className="text-money text-sm font-medium">
                     {project.budget_min && project.budget_max
                       ? `$${Number(project.budget_min).toLocaleString()} – $${Number(project.budget_max).toLocaleString()}`
                       : project.budget_max

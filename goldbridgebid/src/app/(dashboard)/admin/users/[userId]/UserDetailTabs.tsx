@@ -293,7 +293,7 @@ export default function UserDetailTabs({
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-text-primary">
+                        <span className="text-money text-sm font-semibold">
                           ${b.price.toLocaleString()}
                         </span>
                         <span

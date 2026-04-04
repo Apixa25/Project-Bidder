@@ -216,7 +216,7 @@ export default async function BidderPayoutsPage({ searchParams }: Props) {
                     <p className="text-xs uppercase tracking-wide text-text-muted">
                       Reward
                     </p>
-                    <p className="mt-1 font-medium text-text-primary">
+                    <p className="text-money mt-1 font-medium">
                       {claim.reward_amount
                         ? `$${Number(claim.reward_amount).toLocaleString()}`
                         : "N/A"}

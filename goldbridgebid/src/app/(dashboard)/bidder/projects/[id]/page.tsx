@@ -313,7 +313,7 @@ export default async function BidderProjectDetailPage({
                   <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
                     Reward
                   </p>
-                  <p className="mt-1 text-lg font-bold text-text-primary">
+                  <p className="text-money mt-1 text-lg font-bold">
                     ${Number(paidPool.reward_amount).toLocaleString()}
                   </p>
                 </div>
@@ -507,7 +507,7 @@ export default async function BidderProjectDetailPage({
                 <DollarSign className="h-5 w-5 text-text-muted shrink-0" />
                 <div>
                   <p className="text-xs text-text-muted">Budget Range</p>
-                  <p className="text-sm font-medium text-text-primary">
+                  <p className="text-money text-sm font-medium">
                     {project.budget_min && project.budget_max
                       ? `$${Number(project.budget_min).toLocaleString()} – $${Number(project.budget_max).toLocaleString()}`
                       : project.budget_max
