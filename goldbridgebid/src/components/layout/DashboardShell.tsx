@@ -101,7 +101,7 @@ export default function DashboardShell({
           <div className="border-t border-border px-4 py-2">
             <Link
               href={`/${currentRole}`}
-              className="text-xs font-medium text-primary transition-colors hover:text-primary-dark"
+              className="text-xs font-medium text-accent-light transition-colors hover:text-accent"
             >
               Back to dashboard overview
             </Link>

@@ -61,7 +61,7 @@ export default function RoleSwitcher({
                   href={`/${role}`}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                     isActive || role === currentRole
-                      ? "border-primary/40 bg-primary/10 text-primary"
+                      ? "border-accent-light/35 bg-accent-light/10 text-accent-light"
                       : "border-border bg-surface text-text-secondary hover:bg-surface-hover hover:text-text-primary"
                   }`}
                 >

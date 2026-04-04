@@ -144,7 +144,7 @@ export default function DashboardNav({
                   onClick={onClose}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                     isActive
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-accent-light/10 text-accent-light"
                       : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
                   }`}
                 >
@@ -167,7 +167,7 @@ export default function DashboardNav({
           <Bell className="h-5 w-5 shrink-0" />
           Notifications
           {unreadNotifications > 0 && (
-            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-slate-950">
+            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-light px-1.5 text-xs font-bold text-white">
               {unreadNotifications}
             </span>
           )}

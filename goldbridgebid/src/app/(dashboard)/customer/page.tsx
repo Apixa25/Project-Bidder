@@ -73,7 +73,7 @@ export default async function CustomerDashboard() {
           </Link>
           <Link
             href="/customer/projects/new"
-            className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-sm hover:bg-primary-dark transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-accent-light px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-110"
           >
             <Plus className="h-4 w-4" />
             Post New Project
@@ -85,8 +85,8 @@ export default async function CustomerDashboard() {
       <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <FolderOpen className="h-5 w-5 text-primary" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-light/10">
+              <FolderOpen className="h-5 w-5 text-accent-light" />
             </div>
             <div>
               <p className="text-2xl font-bold text-text-primary">
@@ -233,7 +233,7 @@ export default async function CustomerDashboard() {
             </p>
             <Link
               href="/customer/projects/new"
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-sm hover:bg-primary-dark transition-colors"
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-accent-light px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-110"
             >
               <Plus className="h-4 w-4" />
               Post a Project

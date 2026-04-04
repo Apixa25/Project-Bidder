@@ -39,7 +39,7 @@ export default async function MyProjectsPage() {
         </div>
         <Link
           href="/customer/projects/new"
-          className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-sm hover:bg-primary-dark transition-colors"
+          className="flex items-center gap-2 rounded-lg bg-accent-light px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-110"
         >
           <Plus className="h-4 w-4" />
           Post New Project
@@ -163,7 +163,7 @@ export default async function MyProjectsPage() {
           </p>
           <Link
             href="/customer/projects/new"
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-slate-950 shadow-sm hover:bg-primary-dark transition-colors"
+            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-accent-light px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-110"
           >
             <Plus className="h-4 w-4" />
             Post Your First Project
