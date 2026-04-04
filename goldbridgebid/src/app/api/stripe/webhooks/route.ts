@@ -6,67 +6,7 @@ import {
   getStripeWebhookSecrets,
 } from "@/lib/stripe/server";
 import { syncBidderPayoutAccountFromStripe } from "@/lib/stripe/connect";
-
-async function markPoolFunded(
-  metadata: Record<string, string | undefined>,
-  stripeIds: {
-    paymentIntentId?: string | null;
-    checkoutSessionId?: string | null;
-  }
-) {
-  const projectId = metadata.projectId;
-  const customerId = metadata.customerId;
-
-  if (!projectId || !customerId) {
-    return;
-  }
-
-  const supabase = createAdminClient();
-  const { data: existingPool } = await supabase
-    .from("project_paid_estimate_pools")
-    .select("id, funded_at, status, stripe_payment_intent_id, stripe_checkout_session_id")
-    .eq("project_id", projectId)
-    .maybeSingle();
-
-  if (!existingPool) {
-    return;
-  }
-
-  const nowIso = new Date().toISOString();
-  const alreadyFunded = Boolean(existingPool.funded_at);
-
-  const nextStatus =
-    existingPool.status === "full" ? "full" : "active";
-
-  const { error: updateError } = await supabase
-    .from("project_paid_estimate_pools")
-    .update({
-      is_enabled: true,
-      funded_at: existingPool.funded_at ?? nowIso,
-      status: nextStatus,
-      stripe_payment_intent_id:
-        stripeIds.paymentIntentId ?? existingPool.stripe_payment_intent_id,
-      stripe_checkout_session_id:
-        stripeIds.checkoutSessionId ?? existingPool.stripe_checkout_session_id,
-    })
-    .eq("id", existingPool.id);
-
-  if (updateError) {
-    console.error("Failed to mark paid estimate pool funded:", updateError);
-    return;
-  }
-
-  if (!alreadyFunded) {
-    await supabase.from("notifications").insert({
-      user_id: customerId,
-      type: "paid_estimate_pool_funded",
-      title: "Paid estimate pool is live",
-      message:
-        "Your paid estimate offer is funded and now visible to contractors.",
-      link: `/customer/projects/${projectId}`,
-    });
-  }
-}
+import { markPaidEstimatePoolFunded } from "@/lib/paid-estimates/funding";
 
 export async function POST(request: Request) {
   const stripe = getStripeServerClient();
@@ -120,34 +60,36 @@ export async function POST(request: Request) {
         const session = event.data.object as Stripe.Checkout.Session;
 
         if (session.payment_status === "paid") {
-          await markPoolFunded(
-            {
+          await markPaidEstimatePoolFunded({
+            admin: createAdminClient(),
+            metadata: {
               projectId: session.metadata?.projectId,
               customerId: session.metadata?.customerId,
             },
-            {
+            stripeIds: {
               paymentIntentId:
                 typeof session.payment_intent === "string"
                   ? session.payment_intent
                   : null,
               checkoutSessionId: session.id,
-            }
-          );
+            },
+          });
         }
         break;
       }
       case "payment_intent.succeeded": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
-        await markPoolFunded(
-          {
+        await markPaidEstimatePoolFunded({
+          admin: createAdminClient(),
+          metadata: {
             projectId: paymentIntent.metadata?.projectId,
             customerId: paymentIntent.metadata?.customerId,
           },
-          {
+          stripeIds: {
             paymentIntentId: paymentIntent.id,
-          }
-        );
+          },
+        });
         break;
       }
       case "account.updated": {
