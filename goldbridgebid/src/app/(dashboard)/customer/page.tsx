@@ -33,7 +33,7 @@ export default async function CustomerDashboard() {
   const { data: projects, count: projectCount } = await supabase
     .from("projects")
     .select(
-      "*, project_files(id, file_url, thumbnail_url, file_type, annotated_url), bids(count)",
+      "*, project_files(id, file_url, thumbnail_url, file_type, annotated_url), bids!bids_project_id_fkey(count)",
       { count: "exact" }
     )
     .eq("customer_id", user.id)
@@ -145,7 +145,7 @@ export default async function CustomerDashboard() {
           </h2>
           <Link
             href="/customer/projects"
-            className="text-sm font-medium text-primary hover:text-primary-dark transition-colors"
+            className="text-sm font-medium text-accent-light hover:text-accent transition-colors"
           >
             View All →
           </Link>

@@ -1,5 +1,5 @@
 /**
- * Prefer a live count from a PostgREST `bids(count)` embed; fall back to `projects.bid_count`.
+ * Prefer a live count from PostgREST `bids!bids_project_id_fkey(count)` (disambiguates awarded_bid_id FK).
  */
 export function bidCountForDisplay(project: {
   bid_count?: number | null;

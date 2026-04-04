@@ -21,7 +21,7 @@ export default async function MyProjectsPage() {
   const { data: projects } = await supabase
     .from("projects")
     .select(
-      "*, project_files(id, file_url, thumbnail_url, file_type, annotated_url), bids(count)"
+      "*, project_files(id, file_url, thumbnail_url, file_type, annotated_url), bids!bids_project_id_fkey(count)"
     )
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false });
