@@ -88,7 +88,7 @@ export default async function BidderPayoutsPage({ searchParams }: Props) {
       </div>
 
       {stripeConnectMessage && (
-        <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary">
+        <div className="mb-6 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text-primary shadow-sm ring-1 ring-amber-200">
           {stripeConnectMessage}
         </div>
       )}

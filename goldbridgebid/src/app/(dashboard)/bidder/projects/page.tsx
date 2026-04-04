@@ -307,7 +307,7 @@ export default async function BrowseProjectsPage() {
                   </div>
 
                   {paidEstimateLive && paidPool && eligibility && (
-                    <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+                    <div className="mt-4 rounded-lg border border-border bg-bg-warm px-4 py-3">
                       <div className="flex flex-wrap items-center gap-2 text-sm">
                         <span className="font-semibold text-text-primary">
                           Paid estimate details

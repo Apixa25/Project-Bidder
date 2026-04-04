@@ -236,7 +236,7 @@ export default async function ProjectDetailPage({
       </div>
 
       {checkoutMessage && (
-        <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-5 py-4 text-sm text-text-primary shadow-sm">
+        <div className="mb-6 rounded-xl border border-border bg-surface px-5 py-4 text-sm text-text-primary shadow-sm ring-1 ring-amber-200">
           {checkoutMessage}
         </div>
       )}
@@ -329,7 +329,7 @@ export default async function ProjectDetailPage({
           )}
 
           {project.status === "awarded" && (
-            <section className="rounded-xl border border-secondary/30 bg-secondary/10 p-6 shadow-sm">
+            <section className="rounded-xl border border-secondary/30 bg-teal-50 p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-text-primary">
                 Winning Bid Selected
               </h2>

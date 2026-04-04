@@ -525,7 +525,7 @@ export default function EditProjectPage() {
           <div className="grid grid-cols-2 gap-4">
             <label
               htmlFor="photo-upload"
-              className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 px-4 py-6 transition-colors hover:border-primary hover:bg-primary/10"
+              className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-300 bg-bg-warm px-4 py-6 transition-colors hover:border-primary hover:bg-amber-50"
             >
               <ImageIcon className="h-8 w-8 text-primary" />
               <p className="mt-2 text-sm font-semibold text-primary">
@@ -544,7 +544,7 @@ export default function EditProjectPage() {
 
             <label
               htmlFor="doc-upload"
-              className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-4 py-6 transition-colors hover:border-primary/40 hover:bg-primary/5"
+              className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-4 py-6 transition-colors hover:border-amber-300 hover:bg-bg-warm"
             >
               <FileIcon className="h-8 w-8 text-text-muted" />
               <p className="mt-2 text-sm font-medium text-text-primary">

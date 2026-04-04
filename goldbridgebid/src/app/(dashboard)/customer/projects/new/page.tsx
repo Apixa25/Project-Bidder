@@ -248,7 +248,7 @@ export default function NewProjectPage() {
             onClick={() => setEnablePaidEstimate(true)}
             className={`rounded-xl border px-4 py-4 text-left transition-colors ${
               enablePaidEstimate
-                ? "border-primary bg-primary/10 shadow-sm"
+                ? "border-primary bg-amber-50 shadow-sm"
                 : "border-border bg-bg-warm hover:border-primary/40"
             }`}
           >
@@ -542,7 +542,7 @@ export default function NewProjectPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-primary/20 bg-primary/5 p-6 shadow-sm">
+        <section className="rounded-xl border border-border bg-surface p-6 shadow-sm ring-1 ring-amber-200">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
@@ -632,7 +632,7 @@ export default function NewProjectPage() {
                 </div>
               </div>
 
-              <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-4">
+              <div className="rounded-lg border border-border bg-bg-warm px-4 py-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                   Estimated Funding Summary
                 </p>
@@ -692,7 +692,7 @@ export default function NewProjectPage() {
 
           <label
             htmlFor="photo-upload"
-            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 px-6 py-8 transition-colors hover:border-primary hover:bg-primary/10"
+            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-300 bg-bg-warm px-6 py-8 transition-colors hover:border-primary hover:bg-amber-50"
           >
             <ImageIcon className="h-10 w-10 text-primary" />
             <p className="mt-3 text-sm font-semibold text-primary">
@@ -773,7 +773,7 @@ export default function NewProjectPage() {
 
           <label
             htmlFor="doc-upload"
-            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-6 py-6 transition-colors hover:border-primary/40 hover:bg-primary/5"
+            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-6 py-6 transition-colors hover:border-amber-300 hover:bg-bg-warm"
           >
             <FileIcon className="h-8 w-8 text-text-muted" />
             <p className="mt-2 text-sm font-medium text-text-primary">

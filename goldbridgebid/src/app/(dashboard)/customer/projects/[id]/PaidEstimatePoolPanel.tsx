@@ -54,7 +54,7 @@ export default function PaidEstimatePoolPanel({
   const filterDefault: PaidEstimateFilter = existingPool?.filter || "open_to_anyone";
 
   return (
-    <section className="rounded-xl border border-primary/20 bg-primary/5 p-6 shadow-sm">
+    <section className="rounded-xl border border-border bg-surface p-6 shadow-sm ring-1 ring-amber-200">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">

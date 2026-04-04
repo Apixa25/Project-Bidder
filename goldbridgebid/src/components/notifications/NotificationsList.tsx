@@ -93,14 +93,14 @@ export default function NotificationsList({
                 className={`flex items-start gap-4 px-6 py-4 transition-colors ${
                   notif.read
                     ? "hover:bg-surface-hover"
-                    : "bg-primary/5 hover:bg-primary/10"
+                    : "bg-bg-warm hover:bg-surface-hover"
                 }`}
               >
                 <div
                   className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-full shrink-0 ${
                     notif.read
                       ? "bg-gray-100 text-text-muted"
-                      : "bg-primary/10 text-primary"
+                      : "bg-amber-100 text-amber-800"
                   }`}
                 >
                   <Icon className="h-4 w-4" />

@@ -111,7 +111,7 @@ export default async function MyBidsPage() {
       </div>
 
       {queuedPayouts > 0 && (
-        <div className="mb-6 rounded-xl border border-secondary/20 bg-secondary/5 px-4 py-3 text-sm text-text-secondary">
+        <div className="mb-6 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-text-secondary shadow-sm ring-1 ring-secondary/25">
           <span className="font-semibold text-text-primary">
             {queuedPayouts} paid estimate payout{queuedPayouts === 1 ? "" : "s"} queued.
           </span>{" "}

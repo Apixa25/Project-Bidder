@@ -298,7 +298,7 @@ export default async function BidderProjectDetailPage({
           </section>
 
           {paidEstimateLive && paidPool && paidEligibility && (
-            <section className="rounded-xl border border-primary/20 bg-primary/5 p-6 shadow-sm">
+            <section className="rounded-xl border border-border bg-surface p-6 shadow-sm ring-1 ring-amber-200">
               <div className="flex flex-wrap items-center gap-2">
                 <BadgeDollarSign className="h-5 w-5 text-primary" />
                 <h2 className="text-lg font-semibold text-text-primary">
@@ -638,7 +638,7 @@ export default async function BidderProjectDetailPage({
             </Link>
             <Link
               href={`/bidder/messages/${id}/${project.customer_id}`}
-              className="flex items-center justify-center gap-2 rounded-xl border border-secondary bg-secondary/5 p-4 text-sm font-semibold text-secondary hover:bg-secondary/10 transition-colors"
+              className="flex items-center justify-center gap-2 rounded-xl border border-secondary bg-teal-50 p-4 text-sm font-semibold text-secondary hover:bg-teal-100 transition-colors"
             >
               <MessageSquare className="h-5 w-5" />
               Message Project Owner
