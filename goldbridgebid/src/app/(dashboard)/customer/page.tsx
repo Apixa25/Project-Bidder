@@ -11,6 +11,7 @@ import {
   ImageIcon,
   Users,
 } from "lucide-react";
+import { bidCountForDisplay } from "@/lib/projects/bidCountDisplay";
 
 export default async function CustomerDashboard() {
   const supabase = await createClient();
@@ -31,12 +32,17 @@ export default async function CustomerDashboard() {
 
   const { data: projects, count: projectCount } = await supabase
     .from("projects")
-    .select("*, project_files(id, file_url, thumbnail_url, file_type, annotated_url)", { count: "exact" })
+    .select(
+      "*, project_files(id, file_url, thumbnail_url, file_type, annotated_url), bids(count)",
+      { count: "exact" }
+    )
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false })
     .limit(5);
 
-  const totalBids = projects?.reduce((sum, p) => sum + (p.bid_count || 0), 0) || 0;
+  const { count: totalBids } = await supabase
+    .from("bids")
+    .select("*", { count: "exact", head: true });
   const openProjects = projects?.filter((p) => p.status === "open").length || 0;
 
   const { count: unreadMessages } = await supabase
@@ -110,7 +116,7 @@ export default async function CustomerDashboard() {
             </div>
             <div>
               <p className="text-2xl font-bold text-text-primary">
-                {totalBids}
+                {totalBids ?? 0}
               </p>
               <p className="text-sm text-text-muted">Total Bids Received</p>
             </div>
@@ -147,6 +153,7 @@ export default async function CustomerDashboard() {
         {projects && projects.length > 0 ? (
           <div className="divide-y divide-border">
             {projects.map((project) => {
+              const bidsShown = bidCountForDisplay(project);
               const imageFiles = (project.project_files || []).filter(
                 (f: { file_type: string }) => f.file_type.startsWith("image/")
               );
@@ -192,8 +199,8 @@ export default async function CustomerDashboard() {
                   {/* Status */}
                   <div className="ml-4 flex items-center gap-4 shrink-0">
                     <span className="text-sm font-medium text-text-secondary">
-                      {project.bid_count}{" "}
-                      {project.bid_count === 1 ? "bid" : "bids"}
+                      {bidsShown}{" "}
+                      {bidsShown === 1 ? "bid" : "bids"}
                     </span>
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${

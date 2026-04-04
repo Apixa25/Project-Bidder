@@ -5,6 +5,7 @@ import { Plus, FolderOpen, MapPin, Calendar, ImageIcon } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import { userHasRole } from "@/lib/auth/roles";
+import { bidCountForDisplay } from "@/lib/projects/bidCountDisplay";
 
 export default async function MyProjectsPage() {
   const supabase = await createClient();
@@ -19,7 +20,9 @@ export default async function MyProjectsPage() {
 
   const { data: projects } = await supabase
     .from("projects")
-    .select("*, project_files(id, file_url, thumbnail_url, file_type, annotated_url)")
+    .select(
+      "*, project_files(id, file_url, thumbnail_url, file_type, annotated_url), bids(count)"
+    )
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -46,6 +49,7 @@ export default async function MyProjectsPage() {
       {projects && projects.length > 0 ? (
         <div className="space-y-4">
           {projects.map((project) => {
+            const bidsShown = bidCountForDisplay(project);
             const imageFiles = (project.project_files || []).filter(
               (f: { file_type: string }) => f.file_type.startsWith("image/")
             );
@@ -136,10 +140,10 @@ export default async function MyProjectsPage() {
 
                 <div className="ml-6 text-center shrink-0">
                   <p className="text-3xl font-bold text-text-primary">
-                    {project.bid_count}
+                    {bidsShown}
                   </p>
                   <p className="text-xs text-text-muted">
-                    {project.bid_count === 1 ? "bid" : "bids"}
+                    {bidsShown === 1 ? "bid" : "bids"}
                   </p>
                 </div>
               </div>

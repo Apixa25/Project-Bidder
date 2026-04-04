@@ -99,6 +99,8 @@ export default async function ProjectDetailPage({
     .eq("project_id", id)
     .order("created_at", { ascending: true });
 
+  const bidCount = bids?.length ?? 0;
+
   const { data: paidEstimateClaims } = await admin
     .from("paid_estimate_claims")
     .select("*")
@@ -222,8 +224,7 @@ export default async function ProjectDetailPage({
             </div>
             <p className="mt-1 text-sm text-text-muted">
               Posted {new Date(project.created_at).toLocaleDateString()} •{" "}
-              {project.bid_count} {project.bid_count === 1 ? "bid" : "bids"}{" "}
-              received
+              {bidCount} {bidCount === 1 ? "bid" : "bids"} received
             </p>
           </div>
 
