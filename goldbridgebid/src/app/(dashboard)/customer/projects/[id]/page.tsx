@@ -10,6 +10,7 @@ import {
   DollarSign,
   Clock,
   ClipboardCheck,
+  FileText,
   User,
   Phone,
   Mail,
@@ -395,6 +396,12 @@ export default async function ProjectDetailPage({
                     ? BADGE_CONFIG[badgeLevel]
                     : null;
                   const hasCoreCheck = hasCoreCredentials(creds);
+                  const bidFiles = (bid.bid_files || []) as {
+                    id: string;
+                    file_url: string;
+                    file_name: string;
+                    file_type: string;
+                  }[];
                   const specialtyLabels = specialtyMap.get(bid.bidder_id) || [];
                   const claim = claimMap.get(bid.id) || null;
                   const dispute = claim ? disputeMap.get(claim.id) || null : null;
@@ -510,7 +517,7 @@ export default async function ProjectDetailPage({
                                 )}
                             </div>
                           )}
-                          <p className="text-2xl font-bold text-primary">
+                          <p className="text-2xl font-bold text-secondary">
                             ${Number(bid.price).toLocaleString()}
                           </p>
                           <p className="text-xs text-text-muted">
@@ -559,20 +566,34 @@ export default async function ProjectDetailPage({
                         </div>
                       )}
 
-                      {/* Credential Checks */}
-                      <div className="mb-4">
-                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
-                          Qualifications
-                        </p>
-                        <CredentialChecklist items={credChecks} />
-                      </div>
+                      {bidFiles.length > 0 && (
+                        <div className="mb-4">
+                          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
+                            Bid Attachments
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {bidFiles.map((file) => (
+                              <a
+                                key={file.id}
+                                href={file.file_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-accent-light hover:bg-surface-hover hover:text-accent transition-colors"
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                                {file.file_name}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Contact Info */}
                       <div className="flex items-center gap-4 text-sm">
                         {profile?.email && (
                           <a
                             href={`mailto:${profile.email}`}
-                            className="flex items-center gap-1 text-primary hover:text-primary-dark transition-colors"
+                            className="flex items-center gap-1 text-accent-light hover:text-accent transition-colors"
                           >
                             <Mail className="h-4 w-4" />
                             {profile.email}
@@ -628,6 +649,14 @@ export default async function ProjectDetailPage({
                           )}
                         </div>
                       )}
+
+                      {/* Credential Checks */}
+                      <div className="mt-4">
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
+                          Qualifications
+                        </p>
+                        <CredentialChecklist items={credChecks} />
+                      </div>
                     </div>
                   );
                 })}
