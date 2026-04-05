@@ -119,6 +119,12 @@ export default function Home() {
           </div>
           <div className="flex shrink-0 items-center gap-3 sm:gap-4">
             <Link
+              href="/how-it-works"
+              className="hidden sm:inline-flex text-sm font-medium text-text-secondary transition-colors hover:text-text-primary"
+            >
+              How It Works
+            </Link>
+            <Link
               href="/login"
               className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-secondary-dark"
             >

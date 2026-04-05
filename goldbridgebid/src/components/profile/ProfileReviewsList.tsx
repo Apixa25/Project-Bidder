@@ -1,4 +1,12 @@
+import Image from "next/image";
 import ReportReviewButton from "@/components/profile/ReportReviewButton";
+
+type ReviewPhoto = {
+  review_id: string;
+  file_url: string;
+  file_name: string;
+  display_order: number;
+};
 
 type ReviewListItem = {
   id: string;
@@ -13,6 +21,7 @@ type ReviewListItem = {
     full_name: string;
     role: string;
   } | null;
+  photos?: ReviewPhoto[];
 };
 
 interface ProfileReviewsListProps {
@@ -72,6 +81,28 @@ export default function ProfileReviewsList({
           <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
             {review.review_body}
           </p>
+
+          {review.photos && review.photos.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {review.photos.map((photo) => (
+                <a
+                  key={photo.file_url}
+                  href={photo.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative h-20 w-20 overflow-hidden rounded-lg border border-border bg-surface shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <Image
+                    src={photo.file_url}
+                    alt={photo.file_name}
+                    fill
+                    sizes="80px"
+                    className="object-cover transition-transform group-hover:scale-105"
+                  />
+                </a>
+              ))}
+            </div>
+          )}
 
           <div className="mt-3 flex flex-wrap gap-3 text-xs text-text-muted">
             <span>

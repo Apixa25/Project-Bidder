@@ -156,9 +156,26 @@ export default async function PublicProfilePage({
         verifiedReviews.length
       : null;
 
+  const reviewIds = (reviews || []).map((r) => r.id);
+  const { data: reviewPhotos } = reviewIds.length
+    ? await supabase
+        .from("review_photos")
+        .select("review_id, file_url, file_name, display_order")
+        .in("review_id", reviewIds)
+        .order("display_order", { ascending: true })
+    : { data: [] };
+
+  const reviewPhotoMap = new Map<string, typeof reviewPhotos>();
+  for (const photo of reviewPhotos || []) {
+    const existing = reviewPhotoMap.get(photo.review_id) || [];
+    existing.push(photo);
+    reviewPhotoMap.set(photo.review_id, existing);
+  }
+
   const reviewItems = (reviews || []).slice(0, 10).map((review) => ({
     ...review,
     reviewer: reviewerMap.get(review.reviewer_user_id) || null,
+    photos: reviewPhotoMap.get(review.id) || [],
   }));
 
   const { data: existingPublicReview } = isOwnProfile
@@ -191,7 +208,7 @@ export default async function PublicProfilePage({
     : await supabase
         .from("projects")
         .select("id, title")
-        .eq("status", "awarded")
+        .in("status", ["awarded", "completed"])
         .eq("customer_id", user.id)
         .eq("awarded_bidder_id", userId);
 
@@ -200,7 +217,7 @@ export default async function PublicProfilePage({
     : await supabase
         .from("projects")
         .select("id, title")
-        .eq("status", "awarded")
+        .in("status", ["awarded", "completed"])
         .eq("customer_id", userId)
         .eq("awarded_bidder_id", user.id);
 

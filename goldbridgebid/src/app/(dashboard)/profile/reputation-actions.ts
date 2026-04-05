@@ -180,7 +180,7 @@ export async function createVerifiedReview(formData: FormData) {
     .from("projects")
     .select("id, customer_id, awarded_bidder_id, status")
     .eq("id", projectId)
-    .eq("status", "awarded")
+    .in("status", ["awarded", "completed"])
     .single();
 
   if (!project || !project.awarded_bidder_id) {

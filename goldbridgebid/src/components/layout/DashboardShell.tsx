@@ -113,6 +113,39 @@ export default function DashboardShell({
             {children}
           </div>
         </main>
+
+        <footer className="relative z-10 border-t border-white/10 px-4 py-4 sm:px-6">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-3 text-xs text-zinc-400">
+            <Link href="/" className="transition-colors hover:text-white">
+              Home
+            </Link>
+            <span aria-hidden="true">&middot;</span>
+            <Link
+              href="/how-it-works"
+              className="transition-colors hover:text-white"
+            >
+              How It Works
+            </Link>
+            <span aria-hidden="true">&middot;</span>
+            <Link
+              href="/terms"
+              className="transition-colors hover:text-white"
+            >
+              Terms of Service
+            </Link>
+            <span aria-hidden="true">&middot;</span>
+            <Link
+              href="/privacy"
+              className="transition-colors hover:text-white"
+            >
+              Privacy Policy
+            </Link>
+            <span aria-hidden="true">&middot;</span>
+            <span>
+              &copy; {new Date().getFullYear()} projectxbidx
+            </span>
+          </div>
+        </footer>
       </div>
     </div>
   );
