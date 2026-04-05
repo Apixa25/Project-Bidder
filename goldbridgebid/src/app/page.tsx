@@ -18,7 +18,7 @@ const FEATURES = [
     icon: FileText,
     title: "Post Your Project",
     description:
-      "Describe your construction project with photos and documents. Set clear completion criteria so every bidder knows exactly what 'done' means.",
+      "Describe your construction project with photos, documents, and videos. Set clear completion criteria so every bidder knows exactly what 'done' means.",
   },
   {
     icon: Shield,

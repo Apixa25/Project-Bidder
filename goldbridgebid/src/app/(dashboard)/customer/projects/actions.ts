@@ -4,8 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { TradeCategory } from "@/types/database";
 import { generateAndUploadThumbnail } from "@/lib/generate-thumbnail";
+import { generateAndUploadVideoPoster } from "@/lib/generate-video-poster";
 import { userHasRole } from "@/lib/auth/roles";
-import { validateProjectUploadFile } from "@/lib/upload-validation";
+import { isVideoFileType } from "@/lib/file-uploads";
+import { validateProjectUploadFiles } from "@/lib/upload-validation";
 import { createPaidEstimateCheckoutSessionForProject } from "./[id]/paid-estimates/actions";
 
 interface CreateProjectResult {
@@ -82,14 +84,12 @@ export async function createProject(formData: FormData) {
 
   const files = formData.getAll("files") as File[];
   const validFiles = files.filter((f) => f.size > 0);
-  for (const file of validFiles) {
-    const validationError = validateProjectUploadFile(file);
-    if (validationError) {
-      return {
-        error: validationError,
-        redirectUrl: null,
-      } satisfies CreateProjectResult;
-    }
+  const validationError = validateProjectUploadFiles(validFiles);
+  if (validationError) {
+    return {
+      error: validationError,
+      redirectUrl: null,
+    } satisfies CreateProjectResult;
   }
 
   const trades = tradesRaw as TradeCategory[];
@@ -156,6 +156,12 @@ export async function createProject(formData: FormData) {
         let thumbnailUrl: string | null = null;
         if (file.type.startsWith("image/")) {
           thumbnailUrl = await generateAndUploadThumbnail(
+            file,
+            "project-files",
+            filePath
+          );
+        } else if (isVideoFileType(file.type)) {
+          thumbnailUrl = await generateAndUploadVideoPoster(
             file,
             "project-files",
             filePath
@@ -562,13 +568,22 @@ export async function updateProject(projectId: string, formData: FormData) {
     return { error: "Please fill in all required fields." };
   }
 
+  const { data: existingProjectFiles } = await supabase
+    .from("project_files")
+    .select("file_type")
+    .eq("project_id", projectId);
+
   const files = formData.getAll("files") as File[];
   const validFiles = files.filter((f) => f.size > 0);
-  for (const file of validFiles) {
-    const validationError = validateProjectUploadFile(file);
-    if (validationError) {
-      return { error: validationError };
-    }
+  const existingVideoCount =
+    (existingProjectFiles || []).filter((file) => isVideoFileType(file.file_type))
+      .length || 0;
+  const uploadValidationError = validateProjectUploadFiles(
+    validFiles,
+    existingVideoCount
+  );
+  if (uploadValidationError) {
+    return { error: uploadValidationError };
   }
 
   const trades = tradesRaw as TradeCategory[];
@@ -661,6 +676,12 @@ export async function updateProject(projectId: string, formData: FormData) {
         let thumbnailUrl: string | null = null;
         if (file.type.startsWith("image/")) {
           thumbnailUrl = await generateAndUploadThumbnail(
+            file,
+            "project-files",
+            filePath
+          );
+        } else if (isVideoFileType(file.type)) {
+          thumbnailUrl = await generateAndUploadVideoPoster(
             file,
             "project-files",
             filePath

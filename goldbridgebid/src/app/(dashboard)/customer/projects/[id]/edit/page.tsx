@@ -10,6 +10,7 @@ import {
   Loader2,
   Info,
   ImageIcon,
+  Video,
   FileText as FileIcon,
   AlertTriangle,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { compressFiles } from "@/lib/compress-image";
 import {
   IMAGE_FILE_ACCEPT,
+  PROJECT_VIDEO_FILE_ACCEPT,
   PROJECT_DOCUMENT_FILE_ACCEPT,
 } from "@/lib/file-uploads";
 
@@ -518,11 +520,11 @@ export default function EditProjectPage() {
             📎 Add More Files
           </h2>
           <p className="mb-4 text-sm text-text-muted">
-            Upload additional photos and documents. Existing files will remain
-            attached to the project.
+            Upload additional photos, project videos, and documents. Existing
+            files will remain attached to the project.
           </p>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-3">
             <label
               htmlFor="photo-upload"
               className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-amber-300 bg-bg-warm px-4 py-6 transition-colors hover:border-primary hover:bg-amber-50"
@@ -537,6 +539,27 @@ export default function EditProjectPage() {
                 type="file"
                 multiple
                 accept={IMAGE_FILE_ACCEPT}
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+
+            <label
+              htmlFor="video-upload"
+              className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-4 py-6 transition-colors hover:border-primary/40 hover:bg-bg-warm"
+            >
+              <Video className="h-8 w-8 text-primary" />
+              <p className="mt-2 text-sm font-medium text-text-primary">
+                Add Videos
+              </p>
+              <p className="mt-1 text-xs text-text-muted">
+                Up to 75MB each, max 2 videos
+              </p>
+              <input
+                id="video-upload"
+                type="file"
+                multiple
+                accept={PROJECT_VIDEO_FILE_ACCEPT}
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -577,6 +600,8 @@ export default function EditProjectPage() {
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     {file.type.startsWith("image/") ? (
                       <ImageIcon className="h-5 w-5 text-primary shrink-0" />
+                    ) : file.type.startsWith("video/") ? (
+                      <Video className="h-5 w-5 text-primary shrink-0" />
                     ) : (
                       <FileIcon className="h-5 w-5 text-primary shrink-0" />
                     )}

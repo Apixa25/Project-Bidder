@@ -10,6 +10,7 @@ import {
   Loader2,
   Info,
   ImageIcon,
+  Video,
   FileText as FileIcon,
   BadgeDollarSign,
   CreditCard,
@@ -22,6 +23,7 @@ import { compressFiles } from "@/lib/compress-image";
 import { createBrowserClient } from "@supabase/ssr";
 import {
   IMAGE_FILE_ACCEPT,
+  PROJECT_VIDEO_FILE_ACCEPT,
   PROJECT_DOCUMENT_FILE_ACCEPT,
 } from "@/lib/file-uploads";
 import { PAID_ESTIMATE_FILTER_LABELS } from "@/lib/paid-estimates/eligibility";
@@ -761,6 +763,70 @@ export default function NewProjectPage() {
           )}
         </section>
 
+        {/* Project Videos */}
+        <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <h2 className="mb-2 text-lg font-semibold text-text-primary">
+            🎥 Project Videos
+          </h2>
+          <p className="mb-4 text-sm text-text-muted">
+            Add short walkthrough videos when motion or site context will help
+            contractors understand the work more clearly.
+          </p>
+
+          <label
+            htmlFor="video-upload"
+            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border px-6 py-6 transition-colors hover:border-primary/40 hover:bg-bg-warm"
+          >
+            <Video className="h-8 w-8 text-primary" />
+            <p className="mt-2 text-sm font-medium text-text-primary">
+              Click to upload project videos
+            </p>
+            <p className="mt-1 text-xs text-text-muted">
+              MP4, MOV, WEBM, M4V — up to 75MB each, max 2 videos per project
+            </p>
+            <input
+              id="video-upload"
+              type="file"
+              multiple
+              accept={PROJECT_VIDEO_FILE_ACCEPT}
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </label>
+
+          {files.some((f) => f.type.startsWith("video/")) && (
+            <div className="mt-4 space-y-2">
+              {files.map((file, i) =>
+                file.type.startsWith("video/") ? (
+                  <div
+                    key={`video-${file.name}-${i}`}
+                    className="flex items-center justify-between rounded-lg border border-border bg-bg-warm px-4 py-3"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <Video className="h-5 w-5 shrink-0 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-text-primary">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-text-muted">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="ml-3 rounded-md p-1.5 text-text-muted transition-colors hover:bg-red-50 hover:text-red-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : null
+              )}
+            </div>
+          )}
+        </section>
+
         {/* Documents & Other Files */}
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <h2 className="mb-2 text-lg font-semibold text-text-primary">
@@ -793,10 +859,12 @@ export default function NewProjectPage() {
           </label>
 
           {/* Document List */}
-          {files.some((f) => !f.type.startsWith("image/")) && (
+          {files.some(
+            (f) => !f.type.startsWith("image/") && !f.type.startsWith("video/")
+          ) && (
             <div className="mt-4 space-y-2">
               {files.map((file, i) =>
-                !file.type.startsWith("image/") ? (
+                !file.type.startsWith("image/") && !file.type.startsWith("video/") ? (
                   <div
                     key={`doc-${file.name}-${i}`}
                     className="flex items-center justify-between rounded-lg border border-border bg-bg-warm px-4 py-3"

@@ -9,6 +9,8 @@ import {
   DollarSign,
   Search,
   ImageIcon,
+  Video,
+  FileText as FileIcon,
   Heart,
   Star,
   BadgeDollarSign,
@@ -32,7 +34,12 @@ import {
   isPaidEstimatePoolVisibleAsPaid,
 } from "@/lib/paid-estimates/pools";
 import { getStripeServerClient } from "@/lib/stripe/server";
-import { getProjectPreviewUrl } from "@/lib/project-media";
+import {
+  getProjectMediaSummary,
+  getProjectPreviewFile,
+  getProjectPreviewUrl,
+  isProjectVideo,
+} from "@/lib/project-media";
 
 export default async function BrowseProjectsPage() {
   const supabase = await createClient();
@@ -179,13 +186,10 @@ export default async function BrowseProjectsPage() {
       {projects && projects.length > 0 ? (
         <div className="space-y-4">
           {projects.map((project) => {
-            const imageFiles = (project.project_files || []).filter(
-              (f: { file_type: string }) => f.file_type.startsWith("image/")
-            );
-            const firstImage = imageFiles[0] as
-              | { thumbnail_url: string | null; annotated_url: string | null; file_url: string }
-              | undefined;
-            const thumbUrl = getProjectPreviewUrl(firstImage);
+            const previewFile = getProjectPreviewFile(project.project_files || []);
+            const thumbUrl = getProjectPreviewUrl(previewFile);
+            const mediaSummary = getProjectMediaSummary(project.project_files || []);
+            const previewIsVideo = isProjectVideo(previewFile);
             const customer = customerProfileMap.get(project.customer_id);
             const paidPool = poolMap.get(project.id) || null;
             const reviewStats = customerReviewStats.get(project.customer_id) || {
@@ -225,6 +229,11 @@ export default async function BrowseProjectsPage() {
                     <div className="flex h-full w-full items-center justify-center">
                       <ImageIcon className="h-8 w-8 text-text-muted/40" />
                     </div>
+                  )}
+                  {previewIsVideo && (
+                    <span className="absolute left-2 top-2 rounded-full bg-slate-950/80 px-2 py-0.5 text-[10px] font-semibold text-white">
+                      VIDEO
+                    </span>
                   )}
                 </div>
 
@@ -289,6 +298,32 @@ export default async function BrowseProjectsPage() {
                       </span>
                     ))}
                   </div>
+
+                  {mediaSummary.totalCount > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      {mediaSummary.imageCount > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-surface-hover px-2.5 py-1 text-text-secondary">
+                          <ImageIcon className="h-3.5 w-3.5" />
+                          {mediaSummary.imageCount} photo
+                          {mediaSummary.imageCount === 1 ? "" : "s"}
+                        </span>
+                      )}
+                      {mediaSummary.videoCount > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-surface-hover px-2.5 py-1 text-text-secondary">
+                          <Video className="h-3.5 w-3.5" />
+                          {mediaSummary.videoCount} video
+                          {mediaSummary.videoCount === 1 ? "" : "s"}
+                        </span>
+                      )}
+                      {mediaSummary.documentCount > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-surface-hover px-2.5 py-1 text-text-secondary">
+                          <FileIcon className="h-3.5 w-3.5" />
+                          {mediaSummary.documentCount} doc
+                          {mediaSummary.documentCount === 1 ? "" : "s"}
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   <div className="mt-4 rounded-lg border border-border bg-bg-warm px-4 py-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">

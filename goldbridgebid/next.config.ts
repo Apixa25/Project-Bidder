@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "350mb",
     },
   },
+  serverExternalPackages: ["ffmpeg-static"],
   images: {
     remotePatterns: [
       {

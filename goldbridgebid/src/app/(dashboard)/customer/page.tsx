@@ -9,10 +9,17 @@ import {
   MessageSquare,
   TrendingUp,
   ImageIcon,
+  Video,
+  FileText as FileIcon,
   Users,
 } from "lucide-react";
 import { bidCountForDisplay } from "@/lib/projects/bidCountDisplay";
-import { getProjectPreviewUrl } from "@/lib/project-media";
+import {
+  getProjectMediaSummary,
+  getProjectPreviewFile,
+  getProjectPreviewUrl,
+  isProjectVideo,
+} from "@/lib/project-media";
 
 export default async function CustomerDashboard() {
   const supabase = await createClient();
@@ -155,13 +162,10 @@ export default async function CustomerDashboard() {
           <div className="divide-y divide-border">
             {projects.map((project) => {
               const bidsShown = bidCountForDisplay(project);
-              const imageFiles = (project.project_files || []).filter(
-                (f: { file_type: string }) => f.file_type.startsWith("image/")
-              );
-              const firstImage = imageFiles[0] as
-                | { thumbnail_url: string | null; annotated_url: string | null; file_url: string }
-                | undefined;
-              const thumbUrl = getProjectPreviewUrl(firstImage);
+              const previewFile = getProjectPreviewFile(project.project_files || []);
+              const thumbUrl = getProjectPreviewUrl(previewFile);
+              const mediaSummary = getProjectMediaSummary(project.project_files || []);
+              const previewIsVideo = isProjectVideo(previewFile);
 
               return (
                 <Link
@@ -170,7 +174,7 @@ export default async function CustomerDashboard() {
                   className="flex items-center gap-4 px-6 py-4 hover:bg-surface-hover transition-colors"
                 >
                   {/* Project Thumbnail */}
-                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border bg-bg-warm">
+                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border bg-bg-warm">
                     {thumbUrl ? (
                       <img
                         src={thumbUrl}
@@ -181,6 +185,11 @@ export default async function CustomerDashboard() {
                       <div className="flex h-full w-full items-center justify-center">
                         <ImageIcon className="h-6 w-6 text-text-muted/40" />
                       </div>
+                    )}
+                    {previewIsVideo && (
+                      <span className="absolute left-1.5 top-1.5 rounded-full bg-slate-950/80 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                        VIDEO
+                      </span>
                     )}
                   </div>
 
@@ -193,6 +202,28 @@ export default async function CustomerDashboard() {
                       {project.location_city}, {project.location_state} •{" "}
                       {new Date(project.created_at).toLocaleDateString()}
                     </p>
+                    {mediaSummary.totalCount > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
+                        {mediaSummary.imageCount > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-surface-hover px-2 py-0.5 text-text-secondary">
+                            <ImageIcon className="h-3 w-3" />
+                            {mediaSummary.imageCount}
+                          </span>
+                        )}
+                        {mediaSummary.videoCount > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-surface-hover px-2 py-0.5 text-text-secondary">
+                            <Video className="h-3 w-3" />
+                            {mediaSummary.videoCount}
+                          </span>
+                        )}
+                        {mediaSummary.documentCount > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-surface-hover px-2 py-0.5 text-text-secondary">
+                            <FileIcon className="h-3 w-3" />
+                            {mediaSummary.documentCount}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Status */}

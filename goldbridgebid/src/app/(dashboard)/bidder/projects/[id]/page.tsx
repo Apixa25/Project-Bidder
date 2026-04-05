@@ -10,7 +10,6 @@ import {
   DollarSign,
   Clock,
   ClipboardCheck,
-  FileText,
   MessageSquare,
   User,
   History,
@@ -153,12 +152,6 @@ export default async function BidderProjectDetailPage({
     .eq("project_id", id)
     .order("edited_at", { ascending: false });
 
-  const imageFiles = (projectFiles || []).filter((f) =>
-    f.file_type.startsWith("image/")
-  );
-  const docFiles = (projectFiles || []).filter(
-    (f) => !f.file_type.startsWith("image/")
-  );
   let paidPool = (paidPoolRow || null) as ProjectPaidEstimatePool | null;
   if (
     paidPool &&
@@ -405,40 +398,9 @@ export default async function BidderProjectDetailPage({
             </section>
           )}
 
-          {/* Project Photos with annotation view */}
-          {imageFiles.length > 0 && (
-            <ProjectPhotosBidder imageFiles={imageFiles} />
-          )}
-
-          {/* Documents */}
-          {docFiles.length > 0 && (
-            <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <FileText className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold text-text-primary">
-                  Documents & Plans
-                </h2>
-              </div>
-              <div className="space-y-2">
-                {docFiles.map((file) => (
-                  <a
-                    key={file.id}
-                    href={file.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 hover:bg-surface-hover transition-colors"
-                  >
-                    <FileText className="h-5 w-5 text-primary shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-text-primary truncate">
-                        {file.file_name}
-                      </p>
-                      <p className="text-xs text-text-muted">{file.file_type}</p>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </section>
+          {/* Project media with annotation-aware photo view */}
+          {projectFiles && projectFiles.length > 0 && (
+            <ProjectPhotosBidder files={projectFiles} />
           )}
 
           {/* Bid Form */}
