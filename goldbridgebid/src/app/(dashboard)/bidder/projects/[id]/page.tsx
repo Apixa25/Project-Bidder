@@ -34,11 +34,13 @@ import {
   getPaidEstimateEligibility,
   PAID_ESTIMATE_FILTER_LABELS,
 } from "@/lib/paid-estimates/eligibility";
+import { reconcilePaidEstimatePoolFunding } from "@/lib/paid-estimates/funding";
 import {
   getRemainingPaidSlots,
   isPaidEstimatePoolFull,
   isPaidEstimatePoolVisibleAsPaid,
 } from "@/lib/paid-estimates/pools";
+import { getStripeServerClient } from "@/lib/stripe/server";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
   title: "Title",
@@ -157,7 +159,34 @@ export default async function BidderProjectDetailPage({
   const docFiles = (projectFiles || []).filter(
     (f) => !f.file_type.startsWith("image/")
   );
-  const paidPool = (paidPoolRow || null) as ProjectPaidEstimatePool | null;
+  let paidPool = (paidPoolRow || null) as ProjectPaidEstimatePool | null;
+  if (
+    paidPool &&
+    !paidPool.funded_at &&
+    (paidPool.stripe_checkout_session_id || paidPool.stripe_payment_intent_id)
+  ) {
+    try {
+      const stripe = getStripeServerClient();
+      const reconciliation = await reconcilePaidEstimatePoolFunding({
+        admin,
+        stripe,
+        pool: paidPool,
+        customerId: project.customer_id,
+      });
+
+      if (reconciliation.didMarkFunded) {
+        const { data: refreshedPool } = await admin
+          .from("project_paid_estimate_pools")
+          .select("*")
+          .eq("project_id", id)
+          .maybeSingle();
+
+        paidPool = (refreshedPool || null) as ProjectPaidEstimatePool | null;
+      }
+    } catch (error) {
+      console.error("Bidder project paid estimate reconciliation failed:", error);
+    }
+  }
   const paidEstimateLive = isPaidEstimatePoolVisibleAsPaid(paidPool);
   const paidEligibility = paidPool
     ? getPaidEstimateEligibility(

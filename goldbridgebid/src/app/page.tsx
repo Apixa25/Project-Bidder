@@ -142,10 +142,11 @@ export default function Home() {
             <div className="mx-auto max-w-4xl text-center">
               <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
                 <span className="block">
-                  Do you have a{" "}
-                  <span className="text-primary">project</span> you need a bid
-                  on? Or are you talented at what you do and looking for{" "}
-                  <span className="text-primary">more work</span>?
+                  Do you{" "}
+                  <span className="text-[#eab308]">have a project</span> you
+                  need a bid on? Or are you talented at what you do and{" "}
+                  <span className="text-[#eab308]">looking for more work</span>
+                  ?
                 </span>
                 <span className="mt-5 block text-[0.5em] leading-relaxed sm:mt-6">
                   From a yard that needs mowing all the way to a bridge that needs
@@ -160,7 +161,7 @@ export default function Home() {
               <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <Link
                   href="/signup?role=customer"
-                  className="flex items-center gap-2 rounded-lg bg-primary px-8 py-3.5 text-base font-semibold text-slate-950 shadow-lg hover:bg-primary-light transition-colors"
+                  className="flex items-center gap-2 rounded-lg bg-[#eab308] px-8 py-3.5 text-base font-semibold text-slate-950 shadow-lg transition-colors hover:bg-[#fde047]"
                 >
                   Post a Project / Make a Customer Account
                   <ArrowRight className="h-5 w-5" />

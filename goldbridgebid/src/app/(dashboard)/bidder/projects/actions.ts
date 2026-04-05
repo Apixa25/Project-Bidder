@@ -11,6 +11,7 @@ import {
   getRemainingPaidSlots,
   isPaidEstimatePoolVisibleAsPaid,
 } from "@/lib/paid-estimates/pools";
+import { reconcilePaidEstimatePoolFunding } from "@/lib/paid-estimates/funding";
 import type {
   TradeCategory,
   ProjectPaidEstimatePool,
@@ -18,6 +19,7 @@ import type {
   BidderCredentials,
 } from "@/types/database";
 import { userHasRole } from "@/lib/auth/roles";
+import { getStripeServerClient } from "@/lib/stripe/server";
 
 const PAID_SLOT_STATUSES: PaidEstimateClaimStatus[] = [
   "paid_reserved",
@@ -81,11 +83,13 @@ async function reservePaidSlot(
 async function createPaidEstimateClaimForBid(options: {
   admin: ReturnType<typeof createAdminClient>;
   projectId: string;
+  customerId: string;
   bidId: string;
   bidderId: string;
   bidderCredentials: BidderCredentials | null;
 }) {
-  const { admin, projectId, bidId, bidderId, bidderCredentials } = options;
+  const { admin, projectId, customerId, bidId, bidderId, bidderCredentials } =
+    options;
 
   const { data: poolRow } = await admin
     .from("project_paid_estimate_pools")
@@ -93,7 +97,35 @@ async function createPaidEstimateClaimForBid(options: {
     .eq("project_id", projectId)
     .maybeSingle();
 
-  const pool = (poolRow || null) as ProjectPaidEstimatePool | null;
+  let pool = (poolRow || null) as ProjectPaidEstimatePool | null;
+
+  if (
+    pool &&
+    !pool.funded_at &&
+    (pool.stripe_checkout_session_id || pool.stripe_payment_intent_id)
+  ) {
+    try {
+      const stripe = getStripeServerClient();
+      const reconciliation = await reconcilePaidEstimatePoolFunding({
+        admin,
+        stripe,
+        pool,
+        customerId,
+      });
+
+      if (reconciliation.didMarkFunded) {
+        const { data: refreshedPool } = await admin
+          .from("project_paid_estimate_pools")
+          .select("*")
+          .eq("project_id", projectId)
+          .maybeSingle();
+
+        pool = (refreshedPool || null) as ProjectPaidEstimatePool | null;
+      }
+    } catch (error) {
+      console.error("Paid estimate claim funding reconciliation failed:", error);
+    }
+  }
 
   if (!pool || !isPaidEstimatePoolVisibleAsPaid(pool)) {
     return { claimStatus: null as PaidEstimateClaimStatus | null };
@@ -297,6 +329,7 @@ export async function submitBid(formData: FormData) {
     (await createPaidEstimateClaimForBid({
       admin,
       projectId,
+      customerId: project.customer_id,
       bidId: bid.id,
       bidderId: user.id,
       bidderCredentials,

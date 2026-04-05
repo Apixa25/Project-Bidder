@@ -26,10 +26,12 @@ import {
   getPaidEstimateEligibility,
   PAID_ESTIMATE_FILTER_LABELS,
 } from "@/lib/paid-estimates/eligibility";
+import { reconcilePaidEstimatePoolFunding } from "@/lib/paid-estimates/funding";
 import {
   getRemainingPaidSlots,
   isPaidEstimatePoolVisibleAsPaid,
 } from "@/lib/paid-estimates/pools";
+import { getStripeServerClient } from "@/lib/stripe/server";
 
 export default async function BrowseProjectsPage() {
   const supabase = await createClient();
@@ -110,6 +112,41 @@ export default async function BrowseProjectsPage() {
       pool,
     ])
   );
+  for (const project of projects || []) {
+    const paidPool = poolMap.get(project.id) || null;
+    if (
+      paidPool &&
+      !paidPool.funded_at &&
+      (paidPool.stripe_checkout_session_id || paidPool.stripe_payment_intent_id)
+    ) {
+      try {
+        const stripe = getStripeServerClient();
+        const reconciliation = await reconcilePaidEstimatePoolFunding({
+          admin,
+          stripe,
+          pool: paidPool,
+          customerId: project.customer_id,
+        });
+
+        if (reconciliation.didMarkFunded) {
+          const { data: refreshedPool } = await admin
+            .from("project_paid_estimate_pools")
+            .select("*")
+            .eq("project_id", project.id)
+            .maybeSingle();
+
+          if (refreshedPool) {
+            poolMap.set(project.id, refreshedPool as ProjectPaidEstimatePool);
+          }
+        }
+      } catch (error) {
+        console.error(
+          "Bidder browse paid estimate reconciliation failed:",
+          error
+        );
+      }
+    }
+  }
   for (const customerId of customerIds) {
     const reviews = (customerReviewRows || []).filter(
       (review) => review.reviewee_user_id === customerId
