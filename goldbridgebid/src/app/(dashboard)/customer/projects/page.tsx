@@ -6,6 +6,7 @@ import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import { userHasRole } from "@/lib/auth/roles";
 import { bidCountForDisplay } from "@/lib/projects/bidCountDisplay";
+import { getProjectPreviewUrl } from "@/lib/project-media";
 
 export default async function MyProjectsPage() {
   const supabase = await createClient();
@@ -56,9 +57,7 @@ export default async function MyProjectsPage() {
             const firstImage = imageFiles[0] as
               | { thumbnail_url: string | null; annotated_url: string | null; file_url: string }
               | undefined;
-            const thumbUrl = firstImage
-              ? firstImage.annotated_url || firstImage.thumbnail_url || firstImage.file_url
-              : null;
+            const thumbUrl = getProjectPreviewUrl(firstImage);
 
             return (
             <Link

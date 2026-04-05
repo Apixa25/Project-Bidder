@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { bidCountForDisplay } from "@/lib/projects/bidCountDisplay";
+import { getProjectPreviewUrl } from "@/lib/project-media";
 
 export default async function CustomerDashboard() {
   const supabase = await createClient();
@@ -160,9 +161,7 @@ export default async function CustomerDashboard() {
               const firstImage = imageFiles[0] as
                 | { thumbnail_url: string | null; annotated_url: string | null; file_url: string }
                 | undefined;
-              const thumbUrl = firstImage
-                ? firstImage.annotated_url || firstImage.thumbnail_url || firstImage.file_url
-                : null;
+              const thumbUrl = getProjectPreviewUrl(firstImage);
 
               return (
                 <Link

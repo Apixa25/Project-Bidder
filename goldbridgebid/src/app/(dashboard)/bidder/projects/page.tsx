@@ -32,6 +32,7 @@ import {
   isPaidEstimatePoolVisibleAsPaid,
 } from "@/lib/paid-estimates/pools";
 import { getStripeServerClient } from "@/lib/stripe/server";
+import { getProjectPreviewUrl } from "@/lib/project-media";
 
 export default async function BrowseProjectsPage() {
   const supabase = await createClient();
@@ -184,9 +185,7 @@ export default async function BrowseProjectsPage() {
             const firstImage = imageFiles[0] as
               | { thumbnail_url: string | null; annotated_url: string | null; file_url: string }
               | undefined;
-            const thumbUrl = firstImage
-              ? firstImage.annotated_url || firstImage.thumbnail_url || firstImage.file_url
-              : null;
+            const thumbUrl = getProjectPreviewUrl(firstImage);
             const customer = customerProfileMap.get(project.customer_id);
             const paidPool = poolMap.get(project.id) || null;
             const reviewStats = customerReviewStats.get(project.customer_id) || {

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { TradeCategory } from "@/types/database";
 import { generateAndUploadThumbnail } from "@/lib/generate-thumbnail";
 import { userHasRole } from "@/lib/auth/roles";
+import { validateProjectUploadFile } from "@/lib/upload-validation";
 import { createPaidEstimateCheckoutSessionForProject } from "./[id]/paid-estimates/actions";
 
 interface CreateProjectResult {
@@ -79,6 +80,18 @@ export async function createProject(formData: FormData) {
     } satisfies CreateProjectResult;
   }
 
+  const files = formData.getAll("files") as File[];
+  const validFiles = files.filter((f) => f.size > 0);
+  for (const file of validFiles) {
+    const validationError = validateProjectUploadFile(file);
+    if (validationError) {
+      return {
+        error: validationError,
+        redirectUrl: null,
+      } satisfies CreateProjectResult;
+    }
+  }
+
   const trades = tradesRaw as TradeCategory[];
 
   const { data: project, error: projectError } = await supabase
@@ -121,9 +134,6 @@ export async function createProject(formData: FormData) {
   });
 
   // Handle file uploads
-  const files = formData.getAll("files") as File[];
-  const validFiles = files.filter((f) => f.size > 0);
-
   if (validFiles.length > 0 && project) {
     for (const file of validFiles) {
       try {
@@ -552,6 +562,15 @@ export async function updateProject(projectId: string, formData: FormData) {
     return { error: "Please fill in all required fields." };
   }
 
+  const files = formData.getAll("files") as File[];
+  const validFiles = files.filter((f) => f.size > 0);
+  for (const file of validFiles) {
+    const validationError = validateProjectUploadFile(file);
+    if (validationError) {
+      return { error: validationError };
+    }
+  }
+
   const trades = tradesRaw as TradeCategory[];
 
   // Track all changes for the audit trail
@@ -620,9 +639,6 @@ export async function updateProject(projectId: string, formData: FormData) {
   await supabase.from("project_edits").insert(editRecords);
 
   // Handle new file uploads
-  const files = formData.getAll("files") as File[];
-  const validFiles = files.filter((f) => f.size > 0);
-
   if (validFiles.length > 0) {
     for (const file of validFiles) {
       try {

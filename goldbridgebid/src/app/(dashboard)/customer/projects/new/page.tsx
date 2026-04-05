@@ -767,8 +767,8 @@ export default function NewProjectPage() {
             📄 Documents & Plans
           </h2>
           <p className="mb-4 text-sm text-text-muted">
-            Upload blueprints, permits, PDFs, spreadsheets, or videos — any
-            additional files that help define the project scope.
+            Upload blueprints, permits, PDFs, spreadsheets, and other supporting
+            documents that help define the project scope.
           </p>
 
           <label
@@ -780,7 +780,7 @@ export default function NewProjectPage() {
               Click to upload documents
             </p>
             <p className="mt-1 text-xs text-text-muted">
-              PDFs, Word docs, spreadsheets, videos — up to 300MB each
+              PDFs, Word docs, spreadsheets, text files — up to 50MB each
             </p>
             <input
               id="doc-upload"

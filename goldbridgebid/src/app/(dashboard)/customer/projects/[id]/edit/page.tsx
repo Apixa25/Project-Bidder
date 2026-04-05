@@ -518,8 +518,8 @@ export default function EditProjectPage() {
             📎 Add More Files
           </h2>
           <p className="mb-4 text-sm text-text-muted">
-            Upload additional photos, documents, or videos. Existing files will
-            remain attached to the project.
+            Upload additional photos and documents. Existing files will remain
+            attached to the project.
           </p>
 
           <div className="grid grid-cols-2 gap-4">
@@ -550,7 +550,7 @@ export default function EditProjectPage() {
               <p className="mt-2 text-sm font-medium text-text-primary">
                 Add Documents
               </p>
-              <p className="mt-1 text-xs text-text-muted">Up to 300MB each</p>
+              <p className="mt-1 text-xs text-text-muted">Up to 50MB each</p>
               <input
                 id="doc-upload"
                 type="file"

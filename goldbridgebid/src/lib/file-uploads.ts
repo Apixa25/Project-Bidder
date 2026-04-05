@@ -11,18 +11,17 @@ const PROJECT_DOCUMENT_EXTENSIONS = [
 
 export const IMAGE_FILE_ACCEPT = "image/*";
 export const VIDEO_FILE_ACCEPT = "video/*";
+export const PROJECT_DOCUMENT_ACCEPT_EXTENSIONS = PROJECT_DOCUMENT_EXTENSIONS;
 export const CREDENTIAL_FILE_ACCEPT = [
   IMAGE_FILE_ACCEPT,
   ...CREDENTIAL_DOCUMENT_EXTENSIONS,
 ].join(",");
 export const PROJECT_DOCUMENT_FILE_ACCEPT = [
   ...PROJECT_DOCUMENT_EXTENSIONS,
-  VIDEO_FILE_ACCEPT,
 ].join(",");
 export const BID_ATTACHMENT_FILE_ACCEPT = [
   IMAGE_FILE_ACCEPT,
   ...PROJECT_DOCUMENT_EXTENSIONS,
-  VIDEO_FILE_ACCEPT,
 ].join(",");
 
 function getFileExtension(fileName: string) {
@@ -42,4 +41,18 @@ export function isAllowedCredentialFile(file: Pick<File, "name" | "type">) {
   }
 
   return CREDENTIAL_DOCUMENT_EXTENSIONS.includes(extension);
+}
+
+export function isAllowedProjectFile(file: Pick<File, "name" | "type">) {
+  const extension = getFileExtension(file.name);
+
+  if (isImageFileType(file.type)) {
+    return true;
+  }
+
+  return PROJECT_DOCUMENT_EXTENSIONS.includes(extension);
+}
+
+export function isAllowedBidAttachmentFile(file: Pick<File, "name" | "type">) {
+  return isAllowedProjectFile(file);
 }

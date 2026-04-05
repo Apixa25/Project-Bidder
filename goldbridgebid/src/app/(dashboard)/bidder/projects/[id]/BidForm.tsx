@@ -236,7 +236,7 @@ export default function BidForm({
             Click to upload files
           </p>
           <p className="mt-1 text-xs text-text-muted">
-            PDFs, images, documents — anything to support your bid
+            PDFs, images, spreadsheets, and documents — up to 50MB each
           </p>
           <input
             ref={fileInputRef}

@@ -20,6 +20,7 @@ import type {
 } from "@/types/database";
 import { userHasRole } from "@/lib/auth/roles";
 import { getStripeServerClient } from "@/lib/stripe/server";
+import { validateBidAttachmentFile } from "@/lib/upload-validation";
 
 const PAID_SLOT_STATUSES: PaidEstimateClaimStatus[] = [
   "paid_reserved",
@@ -293,6 +294,13 @@ export async function submitBid(formData: FormData) {
   // Handle file uploads
   const files = formData.getAll("files") as File[];
   const validFiles = files.filter((f) => f.size > 0);
+
+  for (const file of validFiles) {
+    const validationError = validateBidAttachmentFile(file);
+    if (validationError) {
+      return { error: validationError };
+    }
+  }
 
   if (validFiles.length > 0 && bid) {
     for (const file of validFiles) {
