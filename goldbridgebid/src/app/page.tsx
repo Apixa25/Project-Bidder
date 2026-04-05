@@ -457,9 +457,30 @@ export default function Home() {
               />
               <BrandWordmark className="h-5 w-auto max-w-[min(100%,150px)] object-contain" />
             </div>
-            <p className="text-sm text-text-muted">
-              Serving Crescent City, CA — growing nationwide.
-            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-text-muted">
+              <Link
+                href="/how-it-works"
+                className="hover:text-text-primary transition-colors"
+              >
+                How It Works
+              </Link>
+              <span aria-hidden="true">&middot;</span>
+              <Link
+                href="/terms"
+                className="hover:text-text-primary transition-colors"
+              >
+                Terms of Service
+              </Link>
+              <span aria-hidden="true">&middot;</span>
+              <Link
+                href="/privacy"
+                className="hover:text-text-primary transition-colors"
+              >
+                Privacy Policy
+              </Link>
+              <span aria-hidden="true">&middot;</span>
+              <span>Serving Crescent City, CA — growing nationwide.</span>
+            </div>
             <p className="text-sm text-text-muted">
               &copy; {new Date().getFullYear()} projectxbidx. All rights
               reserved.

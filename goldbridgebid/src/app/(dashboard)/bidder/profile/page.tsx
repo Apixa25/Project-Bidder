@@ -61,6 +61,12 @@ export default async function BidderProfilePage() {
     .eq("user_id", user.id)
     .order("display_order", { ascending: true });
 
+  const { data: serviceAreas } = await supabase
+    .from("bidder_service_areas")
+    .select("state, city")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: true });
+
   const badgeLevel = credentials?.badge_level as BadgeLevel;
   const badgeInfo = badgeLevel ? BADGE_CONFIG[badgeLevel] : null;
   const selectedSpecialties = (specialties || []).map(
@@ -130,6 +136,7 @@ export default async function BidderProfilePage() {
           profile={profile}
           editorRole="bidder"
           selectedSpecialties={selectedSpecialties}
+          serviceAreas={(serviceAreas || []).map((a) => ({ state: a.state, city: a.city }))}
         />
       </div>
 

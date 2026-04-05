@@ -1,6 +1,6 @@
 export type UserRole = "customer" | "bidder" | "admin";
 
-export type ProjectStatus = "open" | "awarded" | "closed";
+export type ProjectStatus = "open" | "awarded" | "completed" | "closed";
 
 export type BadgeLevel = "gold" | "silver" | "bronze" | null;
 
@@ -218,6 +218,9 @@ export interface Profile {
   instagram_url: string | null;
   other_link_url: string | null;
   other_link_label: string | null;
+  years_in_business: number | null;
+  service_radius_miles: number | null;
+  available_for_work: boolean;
   is_banned: boolean;
   banned_at: string | null;
   banned_by: string | null;
@@ -284,6 +287,14 @@ export interface BidderPayoutAccount {
   last_status_sync_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface BidderServiceArea {
+  id: string;
+  user_id: string;
+  state: string;
+  city: string | null;
+  created_at: string;
 }
 
 export interface BidderSpecialty {
@@ -365,6 +376,16 @@ export interface UserReview {
   status: "published" | "flagged" | "hidden";
   created_at: string;
   updated_at: string;
+}
+
+export interface ProjectQuestion {
+  id: string;
+  project_id: string;
+  asker_id: string;
+  question: string;
+  answer: string | null;
+  answered_at: string | null;
+  created_at: string;
 }
 
 export interface ProjectFile {
@@ -472,6 +493,16 @@ export interface Notification {
   created_at: string;
 }
 
+export interface BidderSavedProjectSearch {
+  id: string;
+  user_id: string;
+  label: string;
+  query_string: string;
+  notify_on_new_matches: boolean;
+  last_notified_at: string | null;
+  created_at: string;
+}
+
 export interface CustomerSavedContractorSearch {
   id: string;
   user_id: string;
@@ -512,6 +543,9 @@ type ProfileInsert = {
   instagram_url?: string | null;
   other_link_url?: string | null;
   other_link_label?: string | null;
+  years_in_business?: number | null;
+  service_radius_miles?: number | null;
+  available_for_work?: boolean;
   is_banned?: boolean;
   banned_at?: string | null;
   banned_by?: string | null;
@@ -545,6 +579,12 @@ type CredentialsInsert = {
   workers_comp_url?: string | null;
   ein_url?: string | null;
   references_url?: string | null;
+};
+
+type BidderServiceAreaInsert = {
+  user_id: string;
+  state: string;
+  city?: string | null;
 };
 
 type BidderSpecialtyInsert = {
@@ -646,6 +686,14 @@ type PaidEstimateDisputeInsert = {
   resolved_at?: string | null;
 };
 
+type ProjectQuestionInsert = {
+  project_id: string;
+  asker_id: string;
+  question: string;
+  answer?: string | null;
+  answered_at?: string | null;
+};
+
 type MessageInsert = {
   project_id: string;
   sender_id: string;
@@ -661,6 +709,14 @@ type NotificationInsert = {
   title: string;
   message: string;
   link?: string | null;
+};
+
+type BidderSavedProjectSearchInsert = {
+  user_id: string;
+  label: string;
+  query_string?: string;
+  notify_on_new_matches?: boolean;
+  last_notified_at?: string | null;
 };
 
 type CustomerSavedContractorSearchInsert = {
@@ -712,6 +768,12 @@ export interface Database {
         Update: Partial<CredentialsInsert>;
         Relationships: [];
       };
+      bidder_service_areas: {
+        Row: BidderServiceArea;
+        Insert: BidderServiceAreaInsert;
+        Update: Partial<Omit<BidderServiceAreaInsert, "user_id">>;
+        Relationships: [];
+      };
       bidder_specialties: {
         Row: BidderSpecialty;
         Insert: BidderSpecialtyInsert;
@@ -752,6 +814,12 @@ export interface Database {
         Row: UserReview;
         Insert: UserReviewInsert;
         Update: Partial<Omit<UserReviewInsert, "review_type" | "reviewer_user_id" | "reviewee_user_id">>;
+        Relationships: [];
+      };
+      project_questions: {
+        Row: ProjectQuestion;
+        Insert: ProjectQuestionInsert;
+        Update: Partial<Omit<ProjectQuestionInsert, "project_id" | "asker_id">>;
         Relationships: [];
       };
       project_files: {
@@ -811,6 +879,12 @@ export interface Database {
         Row: Notification;
         Insert: NotificationInsert;
         Update: { read?: boolean };
+        Relationships: [];
+      };
+      bidder_saved_project_searches: {
+        Row: BidderSavedProjectSearch;
+        Insert: BidderSavedProjectSearchInsert;
+        Update: never;
         Relationships: [];
       };
       customer_saved_contractor_searches: {

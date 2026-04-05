@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import NotificationsList from "@/components/notifications/NotificationsList";
+import PushNotificationToggle from "@/components/notifications/PushNotificationToggle";
 import { userHasRole } from "@/lib/auth/roles";
 
 export default async function BidderNotificationsPage() {
@@ -30,6 +31,9 @@ export default async function BidderNotificationsPage() {
         <p className="mt-1 text-text-secondary">
           Stay updated on project changes, bid status, and messages.
         </p>
+      </div>
+      <div className="mb-6">
+        <PushNotificationToggle />
       </div>
       <NotificationsList notifications={notifications || []} basePath="/bidder" />
     </div>

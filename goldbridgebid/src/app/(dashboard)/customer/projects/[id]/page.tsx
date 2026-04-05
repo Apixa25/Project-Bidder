@@ -37,6 +37,8 @@ import CoreCredentialsCheck from "@/components/credentials/CoreCredentialsCheck"
 import PaidEstimatePoolPanel from "./PaidEstimatePoolPanel";
 import DisputePaidEstimateButton from "./DisputePaidEstimateButton";
 import { isPaidEstimatePoolVisibleAsPaid } from "@/lib/paid-estimates/pools";
+import ProjectQA from "@/components/ProjectQA";
+import BidComparisonToggle from "@/components/BidComparisonToggle";
 import { reconcilePaidEstimatePoolFunding } from "@/lib/paid-estimates/funding";
 import { getStripeServerClient } from "@/lib/stripe/server";
 
@@ -141,6 +143,32 @@ export default async function ProjectDetailPage({
     .eq("project_id", id)
     .order("edited_at", { ascending: false });
 
+  // Fetch Q&A
+  const { data: projectQuestions } = await supabase
+    .from("project_questions")
+    .select("*")
+    .eq("project_id", id)
+    .order("created_at", { ascending: true });
+
+  const questionAskerIds = [
+    ...new Set((projectQuestions || []).map((q) => q.asker_id)),
+  ];
+  const { data: qaAskerProfiles } = questionAskerIds.length
+    ? await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", questionAskerIds)
+    : { data: [] };
+
+  const qaAskerNameMap = new Map(
+    (qaAskerProfiles || []).map((p) => [p.user_id, p.full_name])
+  );
+
+  const formattedQuestions = (projectQuestions || []).map((q) => ({
+    ...q,
+    asker_name: qaAskerNameMap.get(q.asker_id) || "A contractor",
+  }));
+
   const claimIds = (paidEstimateClaims || []).map((claim) => claim.id);
   const { data: paidEstimateDisputes } = claimIds.length
     ? await admin
@@ -215,6 +243,23 @@ export default async function ProjectDetailPage({
         : query.paidEstimateSetup === "failed"
           ? "Your project was created, but the paid estimate checkout was not prepared. You can retry from the Paid Estimate Pool panel below."
         : null;
+
+  const comparisonBids = (bids || []).map((bid) => {
+    const p = profileMap.get(bid.bidder_id);
+    const c = credentialMap.get(bid.bidder_id);
+    return {
+      id: bid.id,
+      bidder_name: p?.full_name || "Unknown",
+      business_name: p?.business_name || null,
+      badge_level: (c?.badge_level as BadgeLevel) || null,
+      trade: bid.trade as TradeCategory,
+      price: bid.price,
+      estimated_timeline: bid.estimated_timeline,
+      estimated_start_date: bid.estimated_start_date,
+      notes: bid.notes,
+      created_at: bid.created_at,
+    };
+  });
 
   return (
     <div>
@@ -388,6 +433,7 @@ export default async function ProjectDetailPage({
             </div>
 
             {bids && bids.length > 0 ? (
+              <BidComparisonToggle bids={comparisonBids}>
               <div className="divide-y divide-border">
                 {bids.map((bid) => {
                   const profile = profileMap.get(bid.bidder_id);
@@ -662,6 +708,7 @@ export default async function ProjectDetailPage({
                   );
                 })}
               </div>
+              </BidComparisonToggle>
             ) : (
               <div className="px-6 py-12 text-center">
                 <ClipboardCheck className="mx-auto h-10 w-10 text-text-muted/40" />
@@ -751,6 +798,14 @@ export default async function ProjectDetailPage({
               ))}
             </div>
           </div>
+
+          {/* Q&A */}
+          <ProjectQA
+            projectId={id}
+            questions={formattedQuestions}
+            currentUserId={user.id}
+            isProjectOwner={true}
+          />
         </div>
       </div>
     </div>

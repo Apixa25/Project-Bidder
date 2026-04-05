@@ -21,6 +21,8 @@ import type {
 import { userHasRole } from "@/lib/auth/roles";
 import { getStripeServerClient } from "@/lib/stripe/server";
 import { validateBidAttachmentFile } from "@/lib/upload-validation";
+import { revalidatePath } from "next/cache";
+import { sendNewBidEmail } from "@/lib/email";
 
 const PAID_SLOT_STATUSES: PaidEstimateClaimStatus[] = [
   "paid_reserved",
@@ -352,6 +354,16 @@ export async function submitBid(formData: FormData) {
       link: `/customer/projects/${projectId}`,
     });
 
+    const { data: customerProfile } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("user_id", project.customer_id)
+      .single();
+
+    if (customerProfile?.email) {
+      sendNewBidEmail(customerProfile.email, project.title, projectId);
+    }
+
     if (claimResult?.claimStatus === "paid_reserved") {
       await supabase.from("notifications").insert({
         user_id: project.customer_id,
@@ -375,4 +387,166 @@ export async function submitBid(formData: FormData) {
   }
 
   redirect(`/bidder/bids`);
+}
+
+export async function saveBidderProjectSearch(formData: FormData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "You must be signed in." };
+  if (!(await userHasRole(user.id, "bidder"))) {
+    return { error: "Enable contractor mode to save project searches." };
+  }
+
+  const label = ((formData.get("label") as string) || "").trim();
+  const queryString = ((formData.get("queryString") as string) || "").trim();
+  const notifyOnNewMatches = formData.get("notifyOnNewMatches") === "on";
+
+  if (!label) return { error: "Please give this search a name." };
+
+  const { error } = await supabase
+    .from("bidder_saved_project_searches")
+    .insert({
+      user_id: user.id,
+      label: label.slice(0, 80),
+      query_string: queryString,
+      notify_on_new_matches: notifyOnNewMatches,
+    });
+
+  if (error) {
+    console.error("Save bidder project search error:", error);
+    return { error: "Could not save this search right now." };
+  }
+
+  revalidatePath("/bidder/projects");
+  return { success: true };
+}
+
+export async function deleteBidderProjectSearch(formData: FormData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "You must be signed in." };
+  if (!(await userHasRole(user.id, "bidder"))) {
+    return { error: "Enable contractor mode to manage saved searches." };
+  }
+
+  const searchId = (formData.get("searchId") as string) || "";
+  if (!searchId) return { error: "Missing saved search id." };
+
+  const { error } = await supabase
+    .from("bidder_saved_project_searches")
+    .delete()
+    .eq("id", searchId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Delete bidder project search error:", error);
+    return { error: "Could not delete this saved search right now." };
+  }
+
+  revalidatePath("/bidder/projects");
+  return { success: true };
+}
+
+export async function checkBidderProjectAlerts() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "You must be signed in." };
+  if (!(await userHasRole(user.id, "bidder"))) {
+    return { error: "Enable contractor mode to check project alerts." };
+  }
+
+  const { data: savedSearches } = await supabase
+    .from("bidder_saved_project_searches")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("notify_on_new_matches", true);
+
+  if (!savedSearches || savedSearches.length === 0) {
+    revalidatePath("/bidder/projects");
+    return { success: true };
+  }
+
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("id, title, trades, location_city, location_state, created_at")
+    .eq("status", "open");
+
+  const nowIso = new Date().toISOString();
+  let createdCount = 0;
+
+  for (const savedSearch of savedSearches) {
+    const since = new Date(
+      savedSearch.last_notified_at || savedSearch.created_at
+    ).getTime();
+
+    const params = new URLSearchParams(savedSearch.query_string);
+    const searchTrade = (params.get("trade") || "").trim();
+    const searchState = (params.get("state") || "").trim().toUpperCase();
+    const searchCity = (params.get("city") || "").trim().toLowerCase();
+
+    const newMatches = (projects || []).filter((project) => {
+      const createdAt = new Date(project.created_at).getTime();
+      if (createdAt <= since) return false;
+
+      if (
+        searchTrade &&
+        !(project.trades as string[]).includes(searchTrade)
+      ) {
+        return false;
+      }
+
+      if (
+        searchState &&
+        project.location_state?.trim().toUpperCase() !== searchState
+      ) {
+        return false;
+      }
+
+      if (
+        searchCity &&
+        project.location_city?.trim().toLowerCase() !== searchCity
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+
+    if (newMatches.length > 0) {
+      const projectLabel =
+        newMatches.length === 1 ? "1 new project" : `${newMatches.length} new projects`;
+
+      await supabase.from("notifications").insert({
+        user_id: user.id,
+        type: "project_search_alert",
+        title: `New matches for "${savedSearch.label}"`,
+        message: `${projectLabel} matched your saved search.`,
+        link: "/bidder/projects",
+      });
+
+      createdCount += 1;
+    }
+
+    await supabase
+      .from("bidder_saved_project_searches")
+      .update({ last_notified_at: nowIso })
+      .eq("id", savedSearch.id)
+      .eq("user_id", user.id);
+  }
+
+  revalidatePath("/bidder/projects");
+  revalidatePath("/bidder/notifications");
+  return { success: true, createdCount };
 }

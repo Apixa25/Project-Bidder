@@ -142,6 +142,24 @@ export default function VerifiedReviewForm({
         />
       </div>
 
+      <div>
+        <label className="mb-1.5 block text-sm font-semibold text-text-primary">
+          Photos{" "}
+          <span className="font-normal text-text-muted">(optional, up to 5)</span>
+        </label>
+        <input
+          type="file"
+          name="reviewPhotos"
+          accept="image/*"
+          multiple
+          disabled={saving}
+          className="block w-full text-sm text-text-primary file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary"
+        />
+        <p className="mt-1 text-xs text-text-muted">
+          Attach photos of the completed work to support your review.
+        </p>
+      </div>
+
       {error && <p className="text-sm text-red-600">{error}</p>}
       {success && <p className="text-sm text-green-600">{success}</p>}
 

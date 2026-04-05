@@ -28,6 +28,7 @@ import type {
 import BidForm from "./BidForm";
 import ProjectPhotosBidder from "./ProjectPhotosBidder";
 import { userHasRole } from "@/lib/auth/roles";
+import ProjectQA from "@/components/ProjectQA";
 import {
   CORE_CREDENTIAL_LABELS,
   getPaidEstimateEligibility,
@@ -88,6 +89,31 @@ export default async function BidderProjectDetailPage({
     .eq("project_id", id)
     .order("display_order", { ascending: true })
     .order("uploaded_at", { ascending: false });
+
+  const { data: projectQuestions } = await supabase
+    .from("project_questions")
+    .select("*")
+    .eq("project_id", id)
+    .order("created_at", { ascending: true });
+
+  const questionAskerIds = [
+    ...new Set((projectQuestions || []).map((q) => q.asker_id)),
+  ];
+  const { data: askerProfiles } = questionAskerIds.length
+    ? await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", questionAskerIds)
+    : { data: [] };
+
+  const askerNameMap = new Map(
+    (askerProfiles || []).map((p) => [p.user_id, p.full_name])
+  );
+
+  const formattedQuestions = (projectQuestions || []).map((q) => ({
+    ...q,
+    asker_name: askerNameMap.get(q.asker_id) || "A contractor",
+  }));
 
   const { data: bidderCredentials } = await supabase
     .from("bidder_credentials")
@@ -636,6 +662,14 @@ export default async function BidderProjectDetailPage({
               Message Project Owner
             </Link>
           </div>
+
+          {/* Q&A */}
+          <ProjectQA
+            projectId={id}
+            questions={formattedQuestions}
+            currentUserId={user.id}
+            isProjectOwner={false}
+          />
 
           {/* Quick Scroll to Bid */}
           {availableTrades.length > 0 && (

@@ -13,6 +13,44 @@ function normalizeOptionalText(value: FormDataEntryValue | null) {
   return text.length > 0 ? text : null;
 }
 
+async function uploadReviewPhotos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  reviewId: string,
+  formData: FormData
+) {
+  const photos = formData.getAll("reviewPhotos") as File[];
+  const validPhotos = photos.filter(
+    (f) => f instanceof File && f.size > 0 && f.type.startsWith("image/")
+  );
+
+  for (const [index, photo] of validPhotos.entries()) {
+    if (index >= 5) break;
+
+    const fileExt = photo.name.split(".").pop() || "jpg";
+    const filePath = `reviews/${reviewId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("project-files")
+      .upload(filePath, photo, { contentType: photo.type });
+
+    if (uploadError) {
+      console.error("Review photo upload error:", uploadError);
+      continue;
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("project-files").getPublicUrl(filePath);
+
+    await supabase.from("review_photos").insert({
+      review_id: reviewId,
+      file_url: publicUrl,
+      file_name: photo.name,
+      display_order: index,
+    });
+  }
+}
+
 export async function giveHeart(targetUserId: string) {
   const supabase = await createClient();
   const {
@@ -73,15 +111,19 @@ export async function createPublicReview(formData: FormData) {
     return { error: "Please write at least 20 characters for the review." };
   }
 
-  const { error } = await supabase.from("user_reviews").insert({
-    review_type: "public_reference",
-    reviewer_user_id: user.id,
-    reviewee_user_id: revieweeUserId,
-    rating_overall: ratingOverall,
-    review_title: reviewTitle,
-    review_body: reviewBody,
-    relationship_context: relationshipContext,
-  });
+  const { data: review, error } = await supabase
+    .from("user_reviews")
+    .insert({
+      review_type: "public_reference",
+      reviewer_user_id: user.id,
+      reviewee_user_id: revieweeUserId,
+      rating_overall: ratingOverall,
+      review_title: reviewTitle,
+      review_body: reviewBody,
+      relationship_context: relationshipContext,
+    })
+    .select("id")
+    .single();
 
   if (error) {
     if (error.code === "23505") {
@@ -90,6 +132,10 @@ export async function createPublicReview(formData: FormData) {
 
     console.error("Create public review error:", error);
     return { error: "Unable to save your public reference right now." };
+  }
+
+  if (review) {
+    await uploadReviewPhotos(supabase, review.id, formData);
   }
 
   revalidatePath(`/profile/${revieweeUserId}`);
@@ -156,19 +202,23 @@ export async function createVerifiedReview(formData: FormData) {
     return { error: "This verified review target does not match the awarded project." };
   }
 
-  const { error } = await supabase.from("user_reviews").insert({
-    review_type: "verified_platform",
-    reviewer_user_id: user.id,
-    reviewee_user_id: revieweeUserId,
-    project_id: projectId,
-    rating_overall: ratingOverall,
-    rating_communication: ratingCommunication,
-    rating_quality: ratingQuality,
-    rating_reliability: ratingReliability,
-    review_title: reviewTitle,
-    review_body: reviewBody,
-    would_work_again: wouldWorkAgain,
-  });
+  const { data: review, error } = await supabase
+    .from("user_reviews")
+    .insert({
+      review_type: "verified_platform",
+      reviewer_user_id: user.id,
+      reviewee_user_id: revieweeUserId,
+      project_id: projectId,
+      rating_overall: ratingOverall,
+      rating_communication: ratingCommunication,
+      rating_quality: ratingQuality,
+      rating_reliability: ratingReliability,
+      review_title: reviewTitle,
+      review_body: reviewBody,
+      would_work_again: wouldWorkAgain,
+    })
+    .select("id")
+    .single();
 
   if (error) {
     if (error.code === "23505") {
@@ -177,6 +227,10 @@ export async function createVerifiedReview(formData: FormData) {
 
     console.error("Create verified review error:", error);
     return { error: "Unable to save your verified review right now." };
+  }
+
+  if (review) {
+    await uploadReviewPhotos(supabase, review.id, formData);
   }
 
   revalidatePath(`/profile/${revieweeUserId}`);

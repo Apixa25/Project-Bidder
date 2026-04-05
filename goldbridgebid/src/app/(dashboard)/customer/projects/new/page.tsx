@@ -16,7 +16,7 @@ import {
   CreditCard,
   ShieldCheck,
 } from "lucide-react";
-import { createProject } from "../actions";
+import { createProject, getCostEstimates } from "../actions";
 import { TRADE_LABELS, FORM_TRADES } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import { compressFiles } from "@/lib/compress-image";
@@ -49,6 +49,18 @@ export default function NewProjectPage() {
   const [paidEstimateFilter, setPaidEstimateFilter] = useState<
     "open_to_anyone" | "core_verified_only"
   >("open_to_anyone");
+  const [costEstimates, setCostEstimates] = useState<
+    Array<{ trade: string; label: string; avg: number; min: number; max: number; count: number }>
+  >([]);
+
+  useEffect(() => {
+    getCostEstimates().then((data) => setCostEstimates(data));
+  }, []);
+
+  const matchedEstimates = costEstimates.filter((est) =>
+    selectedTrades.includes(est.trade as TradeCategory)
+  );
+
   const previews = useMemo(
     () =>
       files.map((file) =>
@@ -492,6 +504,35 @@ export default function NewProjectPage() {
                 />
               </div>
             </div>
+
+            {matchedEstimates.length > 0 && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+                <p className="text-sm font-semibold text-text-primary mb-2">
+                  💰 Bid Insights for Your Selected Trades
+                </p>
+                <div className="space-y-1.5">
+                  {matchedEstimates.map((est) => (
+                    <div
+                      key={est.trade}
+                      className="flex flex-wrap items-center gap-2 text-sm text-text-secondary"
+                    >
+                      <span className="font-medium text-text-primary">
+                        {est.label}:
+                      </span>
+                      <span>
+                        ${est.min.toLocaleString()} – ${est.max.toLocaleString()}
+                      </span>
+                      <span className="text-text-muted">
+                        (avg ${est.avg.toLocaleString()} from {est.count} bids)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-text-muted">
+                  Based on bids received across the platform. Your project may vary.
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>

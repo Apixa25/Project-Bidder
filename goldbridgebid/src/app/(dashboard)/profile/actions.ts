@@ -22,6 +22,10 @@ export async function updateProfile(formData: FormData) {
   const zip = formData.get("zip") as string;
   const bio = formData.get("bio") as string;
   const businessName = formData.get("businessName") as string;
+  const yearsInBusinessRaw = formData.get("yearsInBusiness") as string;
+  const serviceRadiusRaw = formData.get("serviceRadiusMiles") as string;
+  const availableForWork = formData.get("availableForWork") === "on";
+  const serviceAreasRaw = formData.getAll("serviceAreas") as string[];
   const selectedSpecialties = Array.from(
     new Set(
       formData
@@ -43,7 +47,7 @@ export async function updateProfile(formData: FormData) {
     return { error: "One or more selected specialties are invalid." };
   }
 
-  const updateData: Record<string, string | null> = {
+  const updateData: Record<string, string | number | boolean | null> = {
     full_name: fullName,
     phone,
     address,
@@ -56,6 +60,18 @@ export async function updateProfile(formData: FormData) {
   if (businessName !== undefined && businessName !== null) {
     updateData.business_name = businessName || null;
   }
+
+  if (yearsInBusinessRaw !== null && yearsInBusinessRaw !== undefined) {
+    const parsed = parseInt(yearsInBusinessRaw, 10);
+    updateData.years_in_business = isNaN(parsed) ? null : Math.max(0, Math.min(100, parsed));
+  }
+
+  if (serviceRadiusRaw !== null && serviceRadiusRaw !== undefined) {
+    const parsed = parseInt(serviceRadiusRaw, 10);
+    updateData.service_radius_miles = isNaN(parsed) ? 50 : Math.max(0, Math.min(500, parsed));
+  }
+
+  updateData.available_for_work = availableForWork;
 
   const { error } = await supabase
     .from("profiles")
@@ -95,6 +111,38 @@ export async function updateProfile(formData: FormData) {
         console.error("Bidder specialty insert error:", specialtyInsertError);
         return { error: "Profile saved, but specialties could not be updated." };
       }
+    }
+  }
+
+  if (currentRoles.includes("bidder")) {
+    await supabase
+      .from("bidder_service_areas")
+      .delete()
+      .eq("user_id", user.id);
+
+    const parsedAreas: { state: string; city: string | null }[] = [];
+    for (const raw of serviceAreasRaw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.state === "string" && parsed.state.trim()) {
+          parsedAreas.push({
+            state: parsed.state.trim().toUpperCase(),
+            city: parsed.city?.trim() || null,
+          });
+        }
+      } catch {
+        // skip invalid entries
+      }
+    }
+
+    if (parsedAreas.length > 0) {
+      await supabase.from("bidder_service_areas").insert(
+        parsedAreas.map((area) => ({
+          user_id: user.id,
+          state: area.state,
+          city: area.city,
+        }))
+      );
     }
   }
 

@@ -19,21 +19,34 @@ interface ProfileData {
   zip: string;
   bio: string | null;
   business_name: string | null;
+  years_in_business: number | null;
+  available_for_work: boolean;
+  service_radius_miles: number | null;
   role: string;
+}
+
+export interface ServiceAreaEntry {
+  state: string;
+  city: string | null;
 }
 
 export default function ProfileForm({
   profile,
   editorRole = profile.role,
   selectedSpecialties = [],
+  serviceAreas = [],
 }: {
   profile: ProfileData;
   editorRole?: string;
   selectedSpecialties?: TradeCategory[];
+  serviceAreas?: ServiceAreaEntry[];
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [areas, setAreas] = useState<ServiceAreaEntry[]>(serviceAreas);
+  const [newAreaState, setNewAreaState] = useState("");
+  const [newAreaCity, setNewAreaCity] = useState("");
 
   async function handleSubmit(formData: FormData) {
     setSaving(true);
@@ -198,6 +211,139 @@ export default function ProfileForm({
           className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
         />
       </div>
+
+      {editorRole === "bidder" && (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+          <div>
+            <label className="block text-sm font-semibold text-text-primary mb-1.5">
+              Years in Business
+            </label>
+            <input
+              type="number"
+              name="yearsInBusiness"
+              min={0}
+              max={100}
+              defaultValue={profile.years_in_business ?? ""}
+              placeholder="e.g. 15"
+              className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-text-primary mb-1.5">
+              Service Radius (miles)
+            </label>
+            <input
+              type="number"
+              name="serviceRadiusMiles"
+              min={0}
+              max={500}
+              defaultValue={profile.service_radius_miles ?? 50}
+              className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <div className="flex items-end">
+            <label className="flex items-center gap-3 rounded-lg border border-border bg-bg-warm px-4 py-2.5 text-sm text-text-primary w-full">
+              <input
+                type="checkbox"
+                name="availableForWork"
+                defaultChecked={profile.available_for_work}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+              />
+              <span className="font-medium">Available for work</span>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {editorRole === "bidder" && (
+        <div>
+          <label className="block text-sm font-semibold text-text-primary mb-1.5">
+            Service Areas{" "}
+            <span className="font-normal text-text-muted">(where you work)</span>
+          </label>
+          <p className="mb-3 text-sm text-text-muted">
+            Add the states and cities you serve so customers see projects in your area.
+          </p>
+          {areas.map((area, index) => (
+            <input
+              key={`${area.state}-${area.city ?? "all"}-${index}`}
+              type="hidden"
+              name="serviceAreas"
+              value={JSON.stringify(area)}
+            />
+          ))}
+          <div className="space-y-2 mb-3">
+            {areas.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {areas.map((area, index) => (
+                  <span
+                    key={`${area.state}-${area.city ?? "all"}-${index}`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-secondary/10 px-3 py-1.5 text-sm font-medium text-secondary"
+                  >
+                    {area.city ? `${area.city}, ${area.state}` : `All of ${area.state}`}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAreas((prev) => prev.filter((_, i) => i !== index))
+                      }
+                      className="ml-0.5 text-secondary/60 hover:text-red-500 transition-colors"
+                      aria-label="Remove"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-text-muted">
+                No service areas set — you'll see all projects regardless of location.
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 items-end">
+            <div>
+              <input
+                type="text"
+                placeholder="State (e.g. CA)"
+                maxLength={2}
+                value={newAreaState}
+                onChange={(e) => setNewAreaState(e.target.value.toUpperCase())}
+                className="w-20 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <div>
+              <input
+                type="text"
+                placeholder="City (optional)"
+                value={newAreaCity}
+                onChange={(e) => setNewAreaCity(e.target.value)}
+                className="w-44 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!newAreaState.trim()) return;
+                const entry: ServiceAreaEntry = {
+                  state: newAreaState.trim().toUpperCase(),
+                  city: newAreaCity.trim() || null,
+                };
+                const isDuplicate = areas.some(
+                  (a) => a.state === entry.state && a.city === entry.city
+                );
+                if (!isDuplicate) {
+                  setAreas((prev) => [...prev, entry]);
+                }
+                setNewAreaState("");
+                setNewAreaCity("");
+              }}
+              className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark"
+            >
+              Add Area
+            </button>
+          </div>
+        </div>
+      )}
 
       {editorRole === "bidder" && (
         <div>

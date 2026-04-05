@@ -3,13 +3,20 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import type { TradeCategory } from "@/types/database";
+import type { TradeCategory, ProjectStatus } from "@/types/database";
 import { generateAndUploadThumbnail } from "@/lib/generate-thumbnail";
 import { generateAndUploadVideoPoster } from "@/lib/generate-video-poster";
 import { userHasRole } from "@/lib/auth/roles";
 import { isVideoFileType } from "@/lib/file-uploads";
 import { validateProjectUploadFiles } from "@/lib/upload-validation";
 import { createPaidEstimateCheckoutSessionForProject } from "./[id]/paid-estimates/actions";
+import {
+  sendProjectAwardedEmail,
+  sendProjectClosedEmail,
+  sendProjectDeletedEmail,
+  sendProjectEditedEmail,
+} from "@/lib/email";
+import { TRADE_LABELS } from "@/types/database";
 
 interface CreateProjectResult {
   error: string | null;
@@ -52,6 +59,50 @@ async function revalidateProjectMediaPaths(projectId: string) {
   revalidatePath(`/customer/projects/${projectId}/edit`);
   revalidatePath("/bidder/projects");
   revalidatePath(`/bidder/projects/${projectId}`);
+}
+
+export async function getCostEstimates() {
+  const supabase = await createClient();
+
+  const { data: bids } = await supabase
+    .from("bids")
+    .select("trade, price");
+
+  if (!bids || bids.length === 0) return [];
+
+  const tradeGroups = new Map<string, number[]>();
+  for (const bid of bids) {
+    if (bid.price > 0) {
+      const prices = tradeGroups.get(bid.trade) || [];
+      prices.push(bid.price);
+      tradeGroups.set(bid.trade, prices);
+    }
+  }
+
+  const estimates: Array<{
+    trade: string;
+    label: string;
+    avg: number;
+    min: number;
+    max: number;
+    count: number;
+  }> = [];
+
+  for (const [trade, prices] of tradeGroups.entries()) {
+    if (prices.length < 2) continue;
+    const sorted = prices.sort((a, b) => a - b);
+    const avg = sorted.reduce((s, p) => s + p, 0) / sorted.length;
+    estimates.push({
+      trade,
+      label: TRADE_LABELS[trade as TradeCategory] || trade,
+      avg: Math.round(avg),
+      min: sorted[0],
+      max: sorted[sorted.length - 1],
+      count: sorted.length,
+    });
+  }
+
+  return estimates.sort((a, b) => b.count - a.count);
 }
 
 export async function createProject(formData: FormData) {
@@ -318,6 +369,12 @@ export async function updateProjectStatus(projectId: string, status: "open" | "c
   }
 
   if (status === "closed") {
+    const { data: projectInfo } = await supabase
+      .from("projects")
+      .select("title")
+      .eq("id", projectId)
+      .single();
+
     const { data: bids } = await supabase
       .from("bids")
       .select("bidder_id")
@@ -333,6 +390,18 @@ export async function updateProjectStatus(projectId: string, status: "open" | "c
       }));
 
       await supabase.from("notifications").insert(notifications);
+
+      const bidderIds = [...new Set(bids.map((b) => b.bidder_id))];
+      const { data: bidderProfiles } = await supabase
+        .from("profiles")
+        .select("user_id, email")
+        .in("user_id", bidderIds);
+
+      for (const bp of bidderProfiles || []) {
+        if (bp.email) {
+          sendProjectClosedEmail(bp.email, projectInfo?.title || "Untitled");
+        }
+      }
     }
   }
 
@@ -422,6 +491,19 @@ export async function awardBid(projectId: string, bidId: string) {
     });
 
     await supabase.from("notifications").insert(notifications);
+
+    const bidderIds = [...new Set(allBids.map((b) => b.bidder_id))];
+    const { data: bidderProfiles } = await supabase
+      .from("profiles")
+      .select("user_id, email")
+      .in("user_id", bidderIds);
+
+    for (const bp of bidderProfiles || []) {
+      if (bp.email) {
+        const isWinner = bp.user_id === bid.bidder_id;
+        sendProjectAwardedEmail(bp.email, project.title, isWinner);
+      }
+    }
   }
 
   return { success: true };
@@ -464,6 +546,18 @@ export async function deleteProject(projectId: string) {
       link: `/bidder/bids`,
     }));
     await supabase.from("notifications").insert(notifications);
+
+    const bidderIds = [...new Set(bids.map((b) => b.bidder_id))];
+    const { data: bidderProfiles } = await supabase
+      .from("profiles")
+      .select("user_id, email")
+      .in("user_id", bidderIds);
+
+    for (const bp of bidderProfiles || []) {
+      if (bp.email) {
+        sendProjectDeletedEmail(bp.email, project.title);
+      }
+    }
   }
 
   // Delete stored files from Supabase Storage
@@ -498,6 +592,86 @@ export async function deleteProject(projectId: string) {
   }
 
   redirect("/customer/projects");
+}
+
+export async function markProjectCompleted(projectId: string) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Unauthorized" };
+
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to manage projects." };
+  }
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id, title, status, customer_id, awarded_bidder_id")
+    .eq("id", projectId)
+    .eq("customer_id", user.id)
+    .single();
+
+  if (!project) return { error: "Project not found." };
+
+  if (project.status !== "awarded") {
+    return { error: "Only awarded projects can be marked as completed." };
+  }
+
+  const { error: updateError } = await supabase
+    .from("projects")
+    .update({ status: "completed" as ProjectStatus })
+    .eq("id", projectId)
+    .eq("customer_id", user.id);
+
+  if (updateError) {
+    console.error("Mark project completed error:", updateError);
+    return { error: "Failed to mark project as completed." };
+  }
+
+  const notifications: Array<{
+    user_id: string;
+    type: string;
+    title: string;
+    message: string;
+    link: string;
+  }> = [];
+
+  notifications.push({
+    user_id: user.id,
+    type: "review_prompt",
+    title: "Leave a review for the contractor",
+    message: `"${project.title}" is marked complete. Share your experience — your review helps other customers!`,
+    link: `/profile/${project.awarded_bidder_id}`,
+  });
+
+  if (project.awarded_bidder_id) {
+    notifications.push({
+      user_id: project.awarded_bidder_id,
+      type: "project_completed",
+      title: "Project marked complete!",
+      message: `The customer marked "${project.title}" as complete. Great work!`,
+      link: `/bidder/bids`,
+    });
+
+    notifications.push({
+      user_id: project.awarded_bidder_id,
+      type: "review_prompt",
+      title: "Leave a review for the customer",
+      message: `"${project.title}" is complete. Share your experience working with this customer!`,
+      link: `/profile/${user.id}`,
+    });
+  }
+
+  await supabase.from("notifications").insert(notifications);
+
+  revalidatePath(`/customer/projects/${projectId}`);
+  revalidatePath("/customer/projects");
+  revalidatePath("/customer");
+
+  return { success: true };
 }
 
 export async function saveAnnotation(projectFileId: string, formData: FormData) {
@@ -847,14 +1021,32 @@ export async function updateProject(projectId: string, formData: FormData) {
     const changedFieldNames = edits.map((e) =>
       e.field_name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
     );
+    const changedFieldsStr = changedFieldNames.join(", ");
     const notifications = bids.map((bid) => ({
       user_id: bid.bidder_id,
       type: "project_edited",
       title: "A project you bid on was edited",
-      message: `"${current.title}" has been updated. Changed: ${changedFieldNames.join(", ")}. Please review the changes.`,
+      message: `"${current.title}" has been updated. Changed: ${changedFieldsStr}. Please review the changes.`,
       link: `/bidder/projects/${projectId}`,
     }));
     await supabase.from("notifications").insert(notifications);
+
+    const bidderIds = [...new Set(bids.map((b) => b.bidder_id))];
+    const { data: bidderProfiles } = await supabase
+      .from("profiles")
+      .select("user_id, email")
+      .in("user_id", bidderIds);
+
+    for (const bp of bidderProfiles || []) {
+      if (bp.email) {
+        sendProjectEditedEmail(
+          bp.email,
+          current.title,
+          changedFieldsStr,
+          projectId
+        );
+      }
+    }
   }
 
   redirect(`/customer/projects/${projectId}`);

@@ -8,6 +8,7 @@ import {
   calculatePaidEstimateSplit,
   calculatePoolFundingTotal,
 } from "@/lib/paid-estimates/money";
+import { sendPaidEstimateDisputeEmail } from "@/lib/email";
 import { getStripeServerClient, getSiteUrl } from "@/lib/stripe/server";
 import type { PaidEstimateFilter } from "@/types/database";
 
@@ -364,6 +365,25 @@ export async function openPaidEstimateDispute(
       "The project owner opened a dispute on your paid estimate. Our team will review it.",
     link: "/bidder/bids",
   });
+
+  const { data: bidderProfile } = await supabase
+    .from("profiles")
+    .select("email")
+    .eq("user_id", claim.bidder_id)
+    .single();
+
+  if (bidderProfile?.email) {
+    const { data: projectInfo } = await supabase
+      .from("projects")
+      .select("title")
+      .eq("id", claim.project_id)
+      .single();
+
+    sendPaidEstimateDisputeEmail(
+      bidderProfile.email,
+      projectInfo?.title || "Untitled"
+    );
+  }
 
   revalidatePath(`/customer/projects/${claim.project_id}`);
   revalidatePath("/admin/disputes");

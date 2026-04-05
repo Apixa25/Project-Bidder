@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { sendNewMessageEmail } from "@/lib/email";
 
 export async function sendMessage(formData: FormData) {
   const supabase = await createClient();
@@ -38,6 +39,32 @@ export async function sendMessage(formData: FormData) {
     message: `You have a new message regarding a project.`,
     link: `/messages`,
   });
+
+  const { data: senderProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("user_id", user.id)
+    .single();
+
+  const { data: receiverProfile } = await supabase
+    .from("profiles")
+    .select("email")
+    .eq("user_id", receiverId)
+    .single();
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("title")
+    .eq("id", projectId)
+    .single();
+
+  if (receiverProfile?.email) {
+    sendNewMessageEmail(
+      receiverProfile.email,
+      senderProfile?.full_name || "A user",
+      project?.title || "a project"
+    );
+  }
 
   return { success: true };
 }

@@ -268,6 +268,56 @@ export async function checkContractorSearchAlerts() {
   return { success: true, createdCount };
 }
 
+export async function inviteContractorToBid(formData: FormData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "You must be signed in." };
+
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to invite contractors." };
+  }
+
+  const contractorId = (formData.get("contractorId") as string) || "";
+  const projectId = (formData.get("projectId") as string) || "";
+
+  if (!contractorId || !projectId) {
+    return { error: "Missing contractor or project." };
+  }
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id, title, status")
+    .eq("id", projectId)
+    .eq("customer_id", user.id)
+    .eq("status", "open")
+    .single();
+
+  if (!project) {
+    return { error: "Project not found or not open." };
+  }
+
+  const { data: senderProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("user_id", user.id)
+    .single();
+
+  await supabase.from("notifications").insert({
+    user_id: contractorId,
+    type: "bid_invitation",
+    title: "You've been invited to bid!",
+    message: `${senderProfile?.full_name || "A customer"} invited you to bid on "${project.title}".`,
+    link: `/bidder/projects/${projectId}`,
+  });
+
+  revalidatePath("/customer/contractors");
+  return { success: true };
+}
+
 export async function deleteContractorSearch(formData: FormData) {
   const supabase = await createClient();
 

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { XCircle, Loader2, Trash2, Pencil } from "lucide-react";
-import { updateProjectStatus, deleteProject } from "../actions";
+import { XCircle, Loader2, Trash2, Pencil, CheckCircle2 } from "lucide-react";
+import { updateProjectStatus, deleteProject, markProjectCompleted } from "../actions";
 import Link from "next/link";
 
 interface ProjectStatusActionsProps {
@@ -63,20 +63,45 @@ export default function ProjectStatusActions({ projectId, currentStatus }: Proje
       </Link>
 
       {currentStatus === "open" && (
-        <>
-          <button
-            onClick={() => handleStatusChange("closed")}
-            disabled={loading !== null}
-            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary shadow-sm hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors disabled:opacity-60"
-          >
-            {loading === "closed" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <XCircle className="h-4 w-4" />
-            )}
-            Close Project
-          </button>
-        </>
+        <button
+          onClick={() => handleStatusChange("closed")}
+          disabled={loading !== null}
+          className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary shadow-sm hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors disabled:opacity-60"
+        >
+          {loading === "closed" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <XCircle className="h-4 w-4" />
+          )}
+          Close Project
+        </button>
+      )}
+
+      {currentStatus === "awarded" && (
+        <button
+          onClick={async () => {
+            const confirmed = window.confirm(
+              "Mark this project as complete? This will prompt both you and the contractor to leave reviews."
+            );
+            if (!confirmed) return;
+            setLoading("completed");
+            const result = await markProjectCompleted(projectId);
+            if (result?.error) {
+              alert(result.error);
+            }
+            setLoading(null);
+            router.refresh();
+          }}
+          disabled={loading !== null}
+          className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 shadow-sm hover:bg-green-100 hover:border-green-300 transition-colors disabled:opacity-60"
+        >
+          {loading === "completed" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4" />
+          )}
+          Mark Complete
+        </button>
       )}
 
       <button

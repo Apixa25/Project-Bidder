@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import PwaRegistration from "@/components/PwaRegistration";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,11 +28,17 @@ export const metadata: Metadata = {
     icon: "/icon.png",
     apple: "/icon.png",
   },
+  manifest: "/manifest.json",
   openGraph: {
     title: "projectxbidx — Sealed bids for every construction project",
     description:
       "Post your construction project and receive sealed bids from contractors.",
     images: [{ url: "/logo-mark.png" }],
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
   },
 };
 
@@ -45,7 +52,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <PwaRegistration />
+        {children}
+      </body>
     </html>
   );
 }

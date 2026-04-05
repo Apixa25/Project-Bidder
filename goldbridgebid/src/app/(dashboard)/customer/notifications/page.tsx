@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import NotificationsList from "@/components/notifications/NotificationsList";
+import PushNotificationToggle from "@/components/notifications/PushNotificationToggle";
 import { userHasRole } from "@/lib/auth/roles";
 
 export default async function CustomerNotificationsPage() {
@@ -31,6 +32,9 @@ export default async function CustomerNotificationsPage() {
           Stay updated on bids, messages, project activity, and saved contractor
           search alerts.
         </p>
+      </div>
+      <div className="mb-6">
+        <PushNotificationToggle />
       </div>
       <NotificationsList notifications={notifications || []} basePath="/customer" />
     </div>

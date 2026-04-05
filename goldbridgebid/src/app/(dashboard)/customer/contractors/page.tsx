@@ -9,6 +9,7 @@ import AdminPagination from "@/components/admin/AdminPagination";
 import {
   checkContractorSearchAlerts,
   deleteContractorSearch,
+  inviteContractorToBid,
   saveContractorSearch,
 } from "./actions";
 import {
@@ -125,6 +126,13 @@ export default async function CustomerContractorDirectoryPage({
     .select("city, state")
     .eq("user_id", user.id)
     .single();
+
+  const { data: openProjects } = await supabase
+    .from("projects")
+    .select("id, title")
+    .eq("customer_id", user.id)
+    .eq("status", "open")
+    .order("created_at", { ascending: false });
 
   const { data: savedSearches } = await supabase
     .from("customer_saved_contractor_searches")
@@ -496,6 +504,12 @@ export default async function CustomerContractorDirectoryPage({
     await deleteContractorSearch(formData);
   }
 
+  async function handleInviteToBid(formData: FormData) {
+    "use server";
+
+    await inviteContractorToBid(formData);
+  }
+
   const totalItems = contractors.length;
   const page = Math.max(1, Number(params.page || "1"));
   const paginated = contractors.slice(
@@ -773,12 +787,35 @@ export default async function CustomerContractorDirectoryPage({
                     )}
                   </div>
                 </div>
-                <Link
-                  href={`/profile/${contractor.profile.user_id}`}
-                  className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-primary-dark"
-                >
-                  View Profile
-                </Link>
+                <div className="flex shrink-0 flex-col gap-2">
+                  <Link
+                    href={`/profile/${contractor.profile.user_id}`}
+                    className="rounded-lg bg-primary px-4 py-2 text-center text-sm font-semibold text-slate-950 transition-colors hover:bg-primary-dark"
+                  >
+                    View Profile
+                  </Link>
+                  {openProjects && openProjects.length > 0 && (
+                    <details className="relative">
+                      <summary className="cursor-pointer rounded-lg border border-secondary bg-secondary/10 px-4 py-2 text-center text-xs font-semibold text-secondary transition-colors hover:bg-secondary/20 list-none">
+                        Invite to Bid
+                      </summary>
+                      <div className="absolute right-0 z-10 mt-1 w-56 rounded-lg border border-border bg-surface p-2 shadow-lg">
+                        {openProjects.map((proj) => (
+                          <form key={proj.id} action={handleInviteToBid}>
+                            <input type="hidden" name="contractorId" value={contractor.profile.user_id} />
+                            <input type="hidden" name="projectId" value={proj.id} />
+                            <button
+                              type="submit"
+                              className="block w-full truncate rounded-md px-3 py-2 text-left text-xs text-text-primary transition-colors hover:bg-bg-warm"
+                            >
+                              {proj.title}
+                            </button>
+                          </form>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -832,10 +869,17 @@ export default async function CustomerContractorDirectoryPage({
                   {contractor.verifiedReviewCount} verified review
                   {contractor.verifiedReviewCount === 1 ? "" : "s"}
                 </span>
-                <span className="flex items-center gap-1">
-                  <BriefcaseBusiness className="h-4 w-4" />
-                  Joined {new Date(contractor.profile.created_at).toLocaleDateString()}
-                </span>
+                {contractor.profile.years_in_business != null && contractor.profile.years_in_business > 0 && (
+                  <span className="flex items-center gap-1">
+                    <BriefcaseBusiness className="h-4 w-4" />
+                    {contractor.profile.years_in_business} year{contractor.profile.years_in_business === 1 ? "" : "s"} in business
+                  </span>
+                )}
+                {contractor.profile.available_for_work && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                    ✓ Available now
+                  </span>
+                )}
               </div>
 
               {contractor.profile.bio && (
