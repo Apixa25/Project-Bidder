@@ -55,7 +55,9 @@ export default async function BrowseProjectsPage() {
 
   const { data: projects } = await supabase
     .from("projects")
-    .select("*, project_files(id, file_url, thumbnail_url, file_type, annotated_url)")
+    .select(
+      "*, project_files(id, file_url, thumbnail_url, file_type, annotated_url, display_order, uploaded_at)"
+    )
     .eq("status", "open")
     .order("created_at", { ascending: false });
 

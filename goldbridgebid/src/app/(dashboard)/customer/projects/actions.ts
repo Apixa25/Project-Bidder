@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import type { TradeCategory } from "@/types/database";
 import { generateAndUploadThumbnail } from "@/lib/generate-thumbnail";
 import { generateAndUploadVideoPoster } from "@/lib/generate-video-poster";
@@ -13,6 +14,44 @@ import { createPaidEstimateCheckoutSessionForProject } from "./[id]/paid-estimat
 interface CreateProjectResult {
   error: string | null;
   redirectUrl: string | null;
+}
+
+function getNormalizedProjectFileOrder(
+  files: Array<{
+    id: string;
+    display_order: number | null;
+    uploaded_at: string;
+  }>
+) {
+  return [...files].sort((left, right) => {
+    const leftOrder =
+      typeof left.display_order === "number"
+        ? left.display_order
+        : Number.MAX_SAFE_INTEGER;
+    const rightOrder =
+      typeof right.display_order === "number"
+        ? right.display_order
+        : Number.MAX_SAFE_INTEGER;
+
+    if (leftOrder !== rightOrder) {
+      return leftOrder - rightOrder;
+    }
+
+    if (left.uploaded_at !== right.uploaded_at) {
+      return left.uploaded_at.localeCompare(right.uploaded_at);
+    }
+
+    return left.id.localeCompare(right.id);
+  });
+}
+
+async function revalidateProjectMediaPaths(projectId: string) {
+  revalidatePath("/customer");
+  revalidatePath("/customer/projects");
+  revalidatePath(`/customer/projects/${projectId}`);
+  revalidatePath(`/customer/projects/${projectId}/edit`);
+  revalidatePath("/bidder/projects");
+  revalidatePath(`/bidder/projects/${projectId}`);
 }
 
 export async function createProject(formData: FormData) {
@@ -135,6 +174,7 @@ export async function createProject(formData: FormData) {
 
   // Handle file uploads
   if (validFiles.length > 0 && project) {
+    let nextDisplayOrder = 0;
     for (const file of validFiles) {
       try {
         const fileExt = file.name.split(".").pop();
@@ -173,6 +213,7 @@ export async function createProject(formData: FormData) {
           file_url: publicUrl,
           file_name: file.name,
           file_type: file.type,
+          display_order: nextDisplayOrder,
         };
         if (thumbnailUrl) {
           insertData.thumbnail_url = thumbnailUrl;
@@ -185,6 +226,8 @@ export async function createProject(formData: FormData) {
         if (insertError) {
           console.error("project_files insert error:", insertError);
         }
+
+        nextDisplayOrder += 1;
       } catch (err) {
         console.error("File processing error:", err);
       }
@@ -519,6 +562,79 @@ export async function saveAnnotation(projectFileId: string, formData: FormData) 
   return { success: true, annotatedUrl: publicUrl };
 }
 
+export async function setFeaturedProjectFile(projectFileId: string) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Unauthorized" };
+  }
+
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to manage project media." };
+  }
+
+  const { data: selectedFile } = await supabase
+    .from("project_files")
+    .select("id, project_id, file_type")
+    .eq("id", projectFileId)
+    .single();
+
+  if (!selectedFile) {
+    return { error: "Project file not found." };
+  }
+
+  if (!selectedFile.file_type.startsWith("image/") && !isVideoFileType(selectedFile.file_type)) {
+    return { error: "Only photos and videos can be featured on project cards." };
+  }
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("id", selectedFile.project_id)
+    .eq("customer_id", user.id)
+    .single();
+
+  if (!project) {
+    return { error: "Not authorized to manage this project file." };
+  }
+
+  const { data: projectFiles } = await supabase
+    .from("project_files")
+    .select("id, display_order, uploaded_at")
+    .eq("project_id", selectedFile.project_id);
+
+  const orderedFiles = getNormalizedProjectFileOrder(projectFiles || []);
+  const nextOrderedIds = [
+    projectFileId,
+    ...orderedFiles.filter((file) => file.id !== projectFileId).map((file) => file.id),
+  ];
+
+  for (const [index, fileId] of nextOrderedIds.entries()) {
+    const { error: updateError } = await supabase
+      .from("project_files")
+      .update({ display_order: index })
+      .eq("id", fileId)
+      .eq("project_id", selectedFile.project_id);
+
+    if (updateError) {
+      console.error("Project file reorder error:", updateError);
+      return { error: "Failed to update featured project media." };
+    }
+  }
+
+  await revalidateProjectMediaPaths(selectedFile.project_id);
+
+  return {
+    success: true,
+    orderedIds: nextOrderedIds,
+    projectId: selectedFile.project_id,
+  };
+}
+
 export async function updateProject(projectId: string, formData: FormData) {
   const supabase = await createClient();
 
@@ -570,7 +686,7 @@ export async function updateProject(projectId: string, formData: FormData) {
 
   const { data: existingProjectFiles } = await supabase
     .from("project_files")
-    .select("file_type")
+    .select("id, file_type, display_order, uploaded_at")
     .eq("project_id", projectId);
 
   const files = formData.getAll("files") as File[];
@@ -655,6 +771,13 @@ export async function updateProject(projectId: string, formData: FormData) {
 
   // Handle new file uploads
   if (validFiles.length > 0) {
+    let nextDisplayOrder =
+      (existingProjectFiles || []).reduce((maxOrder, file) => {
+        const order =
+          typeof file.display_order === "number" ? file.display_order : -1;
+        return Math.max(maxOrder, order);
+      }, -1) + 1;
+
     for (const file of validFiles) {
       try {
         const fileExt = file.name.split(".").pop();
@@ -693,6 +816,7 @@ export async function updateProject(projectId: string, formData: FormData) {
           file_url: publicUrl,
           file_name: file.name,
           file_type: file.type,
+          display_order: nextDisplayOrder,
         };
         if (thumbnailUrl) {
           insertData.thumbnail_url = thumbnailUrl;
@@ -705,6 +829,8 @@ export async function updateProject(projectId: string, formData: FormData) {
         if (insertError) {
           console.error("project_files insert error:", insertError);
         }
+
+        nextDisplayOrder += 1;
       } catch (err) {
         console.error("File processing error:", err);
       }

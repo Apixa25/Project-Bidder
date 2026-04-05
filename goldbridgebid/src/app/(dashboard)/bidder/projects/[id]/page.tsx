@@ -86,6 +86,7 @@ export default async function BidderProjectDetailPage({
     .from("project_files")
     .select("*")
     .eq("project_id", id)
+    .order("display_order", { ascending: true })
     .order("uploaded_at", { ascending: false });
 
   const { data: bidderCredentials } = await supabase

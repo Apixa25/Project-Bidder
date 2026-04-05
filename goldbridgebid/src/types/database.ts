@@ -373,6 +373,7 @@ export interface ProjectFile {
   file_url: string;
   file_name: string;
   file_type: string;
+  display_order: number;
   thumbnail_url: string | null;
   annotated_url: string | null;
   uploaded_at: string;
@@ -755,7 +756,8 @@ export interface Database {
       };
       project_files: {
         Row: ProjectFile;
-        Insert: Omit<ProjectFile, "id" | "uploaded_at" | "thumbnail_url" | "annotated_url"> & {
+        Insert: Omit<ProjectFile, "id" | "uploaded_at" | "thumbnail_url" | "annotated_url" | "display_order"> & {
+          display_order?: number;
           thumbnail_url?: string | null;
           annotated_url?: string | null;
         };

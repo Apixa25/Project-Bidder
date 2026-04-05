@@ -88,6 +88,7 @@ export default async function ProjectDetailPage({
     .from("project_files")
     .select("*")
     .eq("project_id", id)
+    .order("display_order", { ascending: true })
     .order("uploaded_at", { ascending: false });
 
   const { data: paidEstimatePool } = await admin

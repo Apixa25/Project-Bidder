@@ -12,14 +12,17 @@ import {
 import ImageLightbox from "@/components/ImageLightbox";
 import VideoLightbox from "@/components/VideoLightbox";
 import VideoDurationBadge from "@/components/media/VideoDurationBadge";
+import { getProjectOrderedFiles } from "@/lib/project-media";
 
 interface ProjectFileData {
   id: string;
   file_url: string;
   file_name: string;
   file_type: string;
+  display_order: number;
   thumbnail_url: string | null;
   annotated_url: string | null;
+  uploaded_at?: string;
 }
 
 interface ProjectPhotosBidderProps {
@@ -33,9 +36,10 @@ export default function ProjectPhotosBidder({
   const [viewingImage, setViewingImage] = useState<ProjectFileData | null>(null);
   const [viewingVideo, setViewingVideo] = useState<ProjectFileData | null>(null);
 
-  const imageFiles = files.filter((file) => file.file_type.startsWith("image/"));
-  const videoFiles = files.filter((file) => file.file_type.startsWith("video/"));
-  const docFiles = files.filter(
+  const orderedFiles = getProjectOrderedFiles(files) as ProjectFileData[];
+  const imageFiles = orderedFiles.filter((file) => file.file_type.startsWith("image/"));
+  const videoFiles = orderedFiles.filter((file) => file.file_type.startsWith("video/"));
+  const docFiles = orderedFiles.filter(
     (file) =>
       !file.file_type.startsWith("image/") && !file.file_type.startsWith("video/")
   );

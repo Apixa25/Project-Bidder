@@ -7,20 +7,24 @@ import {
   FileText,
   Video,
   PlayCircle,
+  Star,
 } from "lucide-react";
 import PhotoAnnotator from "@/components/annotation/PhotoAnnotator";
 import ImageLightbox from "@/components/ImageLightbox";
 import VideoLightbox from "@/components/VideoLightbox";
 import VideoDurationBadge from "@/components/media/VideoDurationBadge";
-import { saveAnnotation } from "../actions";
+import { getProjectOrderedFiles, getProjectPreviewFile } from "@/lib/project-media";
+import { saveAnnotation, setFeaturedProjectFile } from "../actions";
 
 interface ProjectFileData {
   id: string;
   file_url: string;
   file_name: string;
   file_type: string;
+  display_order: number;
   thumbnail_url: string | null;
   annotated_url: string | null;
+  uploaded_at?: string;
 }
 
 interface ProjectPhotosProps {
@@ -34,10 +38,13 @@ export default function ProjectPhotos({ files }: ProjectPhotosProps) {
   const [viewingImage, setViewingImage] = useState<ProjectFileData | null>(null);
   const [viewingVideo, setViewingVideo] = useState<ProjectFileData | null>(null);
   const [fileList, setFileList] = useState(files);
+  const [featuringFileId, setFeaturingFileId] = useState<string | null>(null);
 
-  const imageFiles = fileList.filter((f) => f.file_type.startsWith("image/"));
-  const videoFiles = fileList.filter((f) => f.file_type.startsWith("video/"));
-  const docFiles = fileList.filter(
+  const orderedFiles = getProjectOrderedFiles(fileList) as ProjectFileData[];
+  const featuredPreviewId = getProjectPreviewFile(orderedFiles)?.id ?? null;
+  const imageFiles = orderedFiles.filter((f) => f.file_type.startsWith("image/"));
+  const videoFiles = orderedFiles.filter((f) => f.file_type.startsWith("video/"));
+  const docFiles = orderedFiles.filter(
     (f) => !f.file_type.startsWith("image/") && !f.file_type.startsWith("video/")
   );
 
@@ -60,6 +67,34 @@ export default function ProjectPhotos({ files }: ProjectPhotosProps) {
     }
   }
 
+  async function handleSetFeatured(fileId: string) {
+    setFeaturingFileId(fileId);
+
+    const result = await setFeaturedProjectFile(fileId);
+
+    if (!result.success || !result.orderedIds) {
+      setFeaturingFileId(null);
+      return;
+    }
+
+    const orderMap = new Map(
+      result.orderedIds.map((orderedId, index) => [orderedId, index])
+    );
+
+    setFileList((prev) =>
+      [...prev].sort((left, right) => {
+        const leftOrder = orderMap.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder = orderMap.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+        return leftOrder - rightOrder;
+      }).map((file) => ({
+        ...file,
+        display_order: orderMap.get(file.id) ?? file.display_order,
+      }))
+    );
+
+    setFeaturingFileId(null);
+  }
+
   return (
     <>
       {imageFiles.length > 0 && (
@@ -74,6 +109,7 @@ export default function ProjectPhotos({ files }: ProjectPhotosProps) {
             {imageFiles.map((file) => {
               const displayUrl =
                 file.annotated_url || file.thumbnail_url || file.file_url;
+              const isFeaturedPreview = featuredPreviewId === file.id;
 
               return (
                 <div
@@ -91,21 +127,43 @@ export default function ProjectPhotos({ files }: ProjectPhotosProps) {
                       ANNOTATED
                     </div>
                   )}
+                  {isFeaturedPreview && (
+                    <div className="absolute right-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-slate-950 shadow">
+                      FEATURED
+                    </div>
+                  )}
                   <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/70 to-transparent p-2">
-                    <p className="mr-2 truncate text-xs text-white">
-                      {file.file_name}
-                    </p>
-                    <button
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        setAnnotatingFile(file);
-                      }}
-                      className="flex shrink-0 items-center gap-1 rounded-md bg-white/90 px-2 py-1 text-[10px] font-semibold text-gray-800 shadow transition-colors hover:bg-white"
-                    >
-                      <Pencil className="h-3 w-3" />
-                      {file.annotated_url ? "Re-annotate" : "Annotate"}
-                    </button>
+                    <div className="mr-2 min-w-0">
+                      <p className="truncate text-xs text-white">
+                        {file.file_name}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          void handleSetFeatured(file.id);
+                        }}
+                        disabled={featuringFileId === file.id}
+                        className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[10px] font-semibold text-slate-950 shadow transition-colors hover:bg-primary-light disabled:opacity-60"
+                      >
+                        <Star className="h-3 w-3" />
+                        {isFeaturedPreview ? "Featured" : "Feature"}
+                      </button>
+                      <button
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setAnnotatingFile(file);
+                        }}
+                        className="flex shrink-0 items-center gap-1 rounded-md bg-white/90 px-2 py-1 text-[10px] font-semibold text-gray-800 shadow transition-colors hover:bg-white"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        {file.annotated_url ? "Re-annotate" : "Annotate"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -123,7 +181,10 @@ export default function ProjectPhotos({ files }: ProjectPhotosProps) {
             </h2>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {videoFiles.map((file) => (
+            {videoFiles.map((file) => {
+              const isFeaturedPreview = featuredPreviewId === file.id;
+
+              return (
               <button
                 key={file.id}
                 type="button"
@@ -153,6 +214,11 @@ export default function ProjectPhotos({ files }: ProjectPhotosProps) {
                     </div>
                     <VideoDurationBadge videoUrl={file.file_url} />
                   </div>
+                  {isFeaturedPreview && (
+                    <div className="absolute right-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-slate-950 shadow">
+                      FEATURED
+                    </div>
+                  )}
                 </div>
                 <div className="px-4 py-3">
                   <p className="truncate text-sm font-medium text-text-primary">
@@ -161,9 +227,25 @@ export default function ProjectPhotos({ files }: ProjectPhotosProps) {
                   <p className="mt-1 text-xs text-text-muted">
                     Contractors will see this video when reviewing the project.
                   </p>
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        void handleSetFeatured(file.id);
+                      }}
+                      disabled={featuringFileId === file.id}
+                      className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-slate-950 shadow transition-colors hover:bg-primary-light disabled:opacity-60"
+                    >
+                      <Star className="h-3.5 w-3.5" />
+                      {isFeaturedPreview ? "Featured Preview" : "Set as Featured Preview"}
+                    </button>
+                  </div>
                 </div>
               </button>
-            ))}
+            );
+            })}
           </div>
         </section>
       )}
