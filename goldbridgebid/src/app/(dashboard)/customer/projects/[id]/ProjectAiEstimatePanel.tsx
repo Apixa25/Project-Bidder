@@ -1,0 +1,430 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  RefreshCw,
+  Send,
+  UploadCloud,
+  Eye,
+  EyeOff,
+  Sparkles,
+} from "lucide-react";
+import AiEstimateSummary from "@/components/ai/AiEstimateSummary";
+import type {
+  ProjectAiRecommendedQuestion,
+  ProjectAiTradeBreakdownItem,
+  ProjectAiEstimateStatus,
+  ProjectAiConfidenceLevel,
+} from "@/lib/ai-estimates";
+import {
+  answerProjectAiClarification,
+  refreshProjectAiEstimate,
+  setProjectAiEstimatePublication,
+} from "../actions";
+
+interface ClarificationRow {
+  id: string;
+  question_key: string;
+  question_text: string;
+  question_type:
+    | "single_select"
+    | "multi_select"
+    | "number"
+    | "text"
+    | "upload_request";
+  help_text: string | null;
+  placeholder: string | null;
+  options_json: Array<{ id?: string; label?: string }>;
+  answer_value_json: unknown;
+  status: "pending" | "answered" | "dismissed";
+}
+
+interface ProjectAiEstimatePanelProps {
+  projectId: string;
+  estimate: {
+    status: ProjectAiEstimateStatus;
+    scope_completeness_score: number;
+    confidence_level: ProjectAiConfidenceLevel;
+    summary: string | null;
+    baseline_low: number | null;
+    baseline_high: number | null;
+    assumptions_json: string[];
+    exclusions_json: string[];
+    missing_items_json: string[];
+    recommended_questions_json: ProjectAiRecommendedQuestion[];
+    trade_breakdown_json: ProjectAiTradeBreakdownItem[];
+    published_to_bidders: boolean;
+    stale_after_edit: boolean;
+    last_analyzed_at: string;
+  } | null;
+  clarifications: ClarificationRow[];
+}
+
+function getInitialAnswers(clarifications: ClarificationRow[]) {
+  const nextState: Record<string, string[]> = {};
+
+  for (const clarification of clarifications) {
+    if (clarification.question_type === "multi_select") {
+      nextState[clarification.id] = Array.isArray(clarification.answer_value_json)
+        ? clarification.answer_value_json.filter(
+            (value): value is string => typeof value === "string"
+          )
+        : [];
+      continue;
+    }
+
+    if (typeof clarification.answer_value_json === "string") {
+      nextState[clarification.id] = [clarification.answer_value_json];
+      continue;
+    }
+
+    if (typeof clarification.answer_value_json === "number") {
+      nextState[clarification.id] = [String(clarification.answer_value_json)];
+      continue;
+    }
+
+    nextState[clarification.id] = [""];
+  }
+
+  return nextState;
+}
+
+export default function ProjectAiEstimatePanel({
+  projectId,
+  estimate,
+  clarifications,
+}: ProjectAiEstimatePanelProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string[]>>(() =>
+    getInitialAnswers(clarifications)
+  );
+
+  const actionableClarifications = useMemo(
+    () => clarifications.filter((item) => item.status !== "dismissed"),
+    [clarifications]
+  );
+
+  function setSingleValue(id: string, value: string) {
+    setAnswers((prev) => ({ ...prev, [id]: [value] }));
+  }
+
+  function toggleMultiValue(id: string, optionId: string) {
+    setAnswers((prev) => {
+      const existing = prev[id] || [];
+      const nextValues = existing.includes(optionId)
+        ? existing.filter((value) => value !== optionId)
+        : [...existing, optionId];
+
+      return { ...prev, [id]: nextValues };
+    });
+  }
+
+  function handleRefresh() {
+    setError(null);
+    setFeedback(null);
+    startTransition(async () => {
+      const result = await refreshProjectAiEstimate(projectId);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      setFeedback("AI estimate refreshed.");
+      router.refresh();
+    });
+  }
+
+  function handlePublicationToggle(nextPublished: boolean) {
+    setError(null);
+    setFeedback(null);
+    startTransition(async () => {
+      const result = await setProjectAiEstimatePublication(
+        projectId,
+        nextPublished
+      );
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      setFeedback(
+        nextPublished
+          ? "AI baseline is now visible to bidders."
+          : "AI baseline is hidden from bidders."
+      );
+      router.refresh();
+    });
+  }
+
+  function handleSaveClarification(clarification: ClarificationRow) {
+    const nextAnswer =
+      clarification.question_type === "multi_select"
+        ? answers[clarification.id] || []
+        : answers[clarification.id]?.[0] || "";
+
+    setError(null);
+    setFeedback(null);
+    startTransition(async () => {
+      const result = await answerProjectAiClarification(
+        projectId,
+        clarification.id,
+        nextAnswer
+      );
+
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      setFeedback("Clarification saved and AI estimate updated.");
+      router.refresh();
+    });
+  }
+
+  return (
+    <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold text-text-primary">
+              AI Scope & Estimate Assistant
+            </h2>
+          </div>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-text-secondary">
+            This follows the platform vision of clearer scopes, explicit completion
+            criteria, and higher bidder confidence before pricing starts. The AI
+            baseline is a planning tool, not a contractor quote.
+          </p>
+          {estimate?.last_analyzed_at && (
+            <p className="mt-2 text-xs text-text-muted">
+              Last analyzed {new Date(estimate.last_analyzed_at).toLocaleString()}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isPending}
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-warm disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${isPending ? "animate-spin" : ""}`} />
+            Refresh AI Estimate
+          </button>
+
+          {estimate && (
+            <button
+              type="button"
+              onClick={() =>
+                handlePublicationToggle(!estimate.published_to_bidders)
+              }
+              disabled={isPending}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-primary-dark disabled:opacity-60"
+            >
+              {estimate.published_to_bidders ? (
+                <>
+                  <EyeOff className="h-4 w-4" />
+                  Hide From Bidders
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4" />
+                  Share With Bidders
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {feedback && (
+        <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {feedback}
+        </div>
+      )}
+
+      {estimate ? (
+        <div className="mt-5 space-y-5">
+          <AiEstimateSummary
+            status={estimate.status}
+            score={estimate.scope_completeness_score}
+            confidence={estimate.confidence_level}
+            summary={estimate.summary || ""}
+            baselineLow={estimate.baseline_low}
+            baselineHigh={estimate.baseline_high}
+            assumptions={estimate.assumptions_json}
+            exclusions={estimate.exclusions_json}
+            missingItems={estimate.missing_items_json}
+            questions={estimate.recommended_questions_json}
+            tradeBreakdown={estimate.trade_breakdown_json}
+          />
+
+          {estimate.published_to_bidders && (
+            <div className="rounded-lg border border-secondary/30 bg-secondary/5 px-4 py-3 text-sm text-text-primary">
+              Bidders can currently see the AI baseline estimate on this project.
+            </div>
+          )}
+
+          {actionableClarifications.length > 0 && (
+            <div className="rounded-xl border border-border bg-bg-warm px-5 py-4">
+              <h3 className="text-sm font-semibold text-text-primary">
+                Clarification workflow
+              </h3>
+              <p className="mt-1 text-sm text-text-secondary">
+                Answering these structured questions improves scope completeness and
+                helps tighten the estimate range.
+              </p>
+
+              <div className="mt-4 space-y-4">
+                {actionableClarifications.map((clarification) => (
+                  <div
+                    key={clarification.id}
+                    className="rounded-lg border border-border bg-surface px-4 py-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-text-primary">
+                          {clarification.question_text}
+                        </p>
+                        {clarification.help_text && (
+                          <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                            {clarification.help_text}
+                          </p>
+                        )}
+                      </div>
+                      <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-text-secondary">
+                        {clarification.status === "answered"
+                          ? "Answered"
+                          : clarification.question_type === "upload_request"
+                            ? "Upload needed"
+                            : "Action needed"}
+                      </span>
+                    </div>
+
+                    <div className="mt-3">
+                      {clarification.question_type === "text" && (
+                        <textarea
+                          value={answers[clarification.id]?.[0] || ""}
+                          onChange={(event) =>
+                            setSingleValue(clarification.id, event.target.value)
+                          }
+                          rows={3}
+                          placeholder={clarification.placeholder || ""}
+                          className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                      )}
+
+                      {clarification.question_type === "number" && (
+                        <input
+                          type="number"
+                          value={answers[clarification.id]?.[0] || ""}
+                          onChange={(event) =>
+                            setSingleValue(clarification.id, event.target.value)
+                          }
+                          placeholder={clarification.placeholder || ""}
+                          className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                      )}
+
+                      {clarification.question_type === "single_select" && (
+                        <select
+                          value={answers[clarification.id]?.[0] || ""}
+                          onChange={(event) =>
+                            setSingleValue(clarification.id, event.target.value)
+                          }
+                          className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        >
+                          <option value="">Select an answer</option>
+                          {clarification.options_json.map((option) => (
+                            <option
+                              key={option.id || option.label}
+                              value={option.id || option.label || ""}
+                            >
+                              {option.label || option.id}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
+                      {clarification.question_type === "multi_select" && (
+                        <div className="space-y-2">
+                          {clarification.options_json.map((option) => {
+                            const optionValue = option.id || option.label || "";
+                            const isChecked =
+                              answers[clarification.id]?.includes(optionValue) ||
+                              false;
+
+                            return (
+                              <label
+                                key={optionValue}
+                                className="flex items-center gap-2 text-sm text-text-secondary"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() =>
+                                    toggleMultiValue(
+                                      clarification.id,
+                                      optionValue
+                                    )
+                                  }
+                                />
+                                <span>{option.label || option.id}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {clarification.question_type === "upload_request" && (
+                        <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 px-4 py-3 text-sm text-text-secondary">
+                          <div className="flex items-start gap-2">
+                            <UploadCloud className="mt-0.5 h-4 w-4 text-primary" />
+                            <div>
+                              Upload the requested media from the project edit flow,
+                              then click <span className="font-semibold">Refresh AI Estimate</span>.
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {clarification.question_type !== "upload_request" && (
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveClarification(clarification)}
+                          disabled={isPending}
+                          className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
+                        >
+                          <Send className="h-4 w-4" />
+                          Save Answer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-5 rounded-xl border border-border bg-bg-warm px-5 py-4 text-sm text-text-secondary">
+          No AI analysis yet. Click <span className="font-semibold text-text-primary">Refresh AI Estimate</span> to generate the first scope check and baseline.
+        </div>
+      )}
+    </section>
+  );
+}

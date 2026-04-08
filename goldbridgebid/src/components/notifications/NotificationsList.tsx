@@ -32,6 +32,9 @@ const TYPE_ICONS: Record<string, typeof Bell> = {
   project_closed: AlertTriangle,
   bid_not_selected: AlertTriangle,
   contractor_search_alert: Users,
+  estimate_clarification_needed: AlertTriangle,
+  estimate_ready: CheckCheck,
+  estimate_stale_after_edit: AlertTriangle,
 };
 
 export default function NotificationsList({

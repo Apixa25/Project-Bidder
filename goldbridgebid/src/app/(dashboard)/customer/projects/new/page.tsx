@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,8 +15,9 @@ import {
   BadgeDollarSign,
   CreditCard,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
-import { createProject, getCostEstimates } from "../actions";
+import { analyzeProjectDraft, createProject, getCostEstimates } from "../actions";
 import { TRADE_LABELS, FORM_TRADES } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import { compressFiles } from "@/lib/compress-image";
@@ -27,6 +28,8 @@ import {
   PROJECT_DOCUMENT_FILE_ACCEPT,
 } from "@/lib/file-uploads";
 import { PAID_ESTIMATE_FILTER_LABELS } from "@/lib/paid-estimates/eligibility";
+import AiEstimateSummary from "@/components/ai/AiEstimateSummary";
+import type { ProjectAiAnalysisResult } from "@/lib/ai-estimates";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
@@ -37,6 +40,7 @@ const US_STATES = [
 
 export default function NewProjectPage() {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement | null>(null);
   const [selectedTrades, setSelectedTrades] = useState<TradeCategory[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +56,9 @@ export default function NewProjectPage() {
   const [costEstimates, setCostEstimates] = useState<
     Array<{ trade: string; label: string; avg: number; min: number; max: number; count: number }>
   >([]);
+  const [aiAnalysis, setAiAnalysis] = useState<ProjectAiAnalysisResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
     getCostEstimates().then((data) => setCostEstimates(data));
@@ -137,6 +144,49 @@ export default function NewProjectPage() {
 
   function removeFile(index: number) {
     setFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleAiScopeCheck() {
+    if (!formRef.current) {
+      return;
+    }
+
+    const formData = new FormData(formRef.current);
+    setAiLoading(true);
+    setAiError(null);
+
+    const result = await analyzeProjectDraft({
+      title: (formData.get("title") as string) || "",
+      description: (formData.get("description") as string) || "",
+      completionCriteria: (formData.get("completionCriteria") as string) || "",
+      trades: selectedTrades,
+      locationAddress: (formData.get("locationAddress") as string) || "",
+      locationCity: (formData.get("locationCity") as string) || "",
+      locationState: (formData.get("locationState") as string) || "",
+      locationZip: (formData.get("locationZip") as string) || "",
+      budgetMin: formData.get("budgetMin")
+        ? Number(formData.get("budgetMin"))
+        : null,
+      budgetMax: formData.get("budgetMax")
+        ? Number(formData.get("budgetMax"))
+        : null,
+      desiredStartDate: (formData.get("desiredStartDate") as string) || "",
+      timeline: (formData.get("timeline") as string) || "",
+      files: files.map((file) => ({
+        file_name: file.name,
+        file_type: file.type,
+      })),
+      clarificationAnswers: [],
+    });
+
+    if (result.error) {
+      setAiError(result.error);
+      setAiLoading(false);
+      return;
+    }
+
+    setAiAnalysis(result.analysis);
+    setAiLoading(false);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -283,7 +333,7 @@ export default function NewProjectPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
         {/* Project Basics */}
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <h2 className="mb-5 text-lg font-semibold text-text-primary">
@@ -583,6 +633,78 @@ export default function NewProjectPage() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  AI Scope Check
+                </h2>
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                This supports the project vision by helping customers define a
+                clearer scope before bidding starts. Run it any time while filling
+                out the form to see missing details, estimate readiness, and a
+                planning baseline range.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAiScopeCheck}
+              disabled={aiLoading}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-primary-dark disabled:opacity-60"
+            >
+              {aiLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Running AI Scope Check...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Run AI Scope Check
+                </>
+              )}
+            </button>
+          </div>
+
+          {aiError && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {aiError}
+            </div>
+          )}
+
+          {aiAnalysis ? (
+            <div className="mt-5">
+              <AiEstimateSummary
+                status={aiAnalysis.status}
+                score={aiAnalysis.scope_completeness_score}
+                confidence={aiAnalysis.confidence_level}
+                summary={aiAnalysis.summary}
+                baselineLow={aiAnalysis.baseline_low}
+                baselineHigh={aiAnalysis.baseline_high}
+                assumptions={aiAnalysis.assumptions}
+                exclusions={aiAnalysis.exclusions}
+                missingItems={aiAnalysis.missing_items}
+                questions={aiAnalysis.recommended_questions}
+                tradeBreakdown={aiAnalysis.trade_breakdown}
+              />
+              <p className="mt-4 text-xs leading-relaxed text-text-muted">
+                The AI estimate is a planning baseline, not a contractor quote.
+                After posting, you will be able to answer structured clarification
+                questions and choose whether bidders can see the baseline estimate.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-5 rounded-lg border border-border bg-bg-warm px-4 py-4 text-sm text-text-secondary">
+              No AI analysis yet. Fill in the main project details, then run the
+              scope check to see what information is still missing.
+            </div>
+          )}
         </section>
 
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm ring-1 ring-amber-200">

@@ -37,7 +37,9 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/banned") ||
     request.nextUrl.pathname.startsWith("/terms") ||
     request.nextUrl.pathname.startsWith("/privacy") ||
-    request.nextUrl.pathname.startsWith("/how-it-works");
+    request.nextUrl.pathname.startsWith("/how-it-works") ||
+    request.nextUrl.pathname === "/manifest.json" ||
+    request.nextUrl.pathname === "/sw.js";
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();

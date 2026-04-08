@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { TradeCategory, ProjectStatus } from "@/types/database";
@@ -17,6 +18,13 @@ import {
   sendProjectEditedEmail,
 } from "@/lib/email";
 import { TRADE_LABELS } from "@/types/database";
+import {
+  analyzeProjectAiEstimate,
+  type ProjectAiAnalysisInput,
+  type ProjectAiAnalysisResult,
+  type ProjectAiClarificationAnswerInput,
+  type ProjectAiRecommendedQuestion,
+} from "@/lib/ai-estimates";
 
 interface CreateProjectResult {
   error: string | null;
@@ -62,7 +70,7 @@ async function revalidateProjectMediaPaths(projectId: string) {
 }
 
 export async function getCostEstimates() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: bids } = await supabase
     .from("bids")
@@ -103,6 +111,515 @@ export async function getCostEstimates() {
   }
 
   return estimates.sort((a, b) => b.count - a.count);
+}
+
+function buildProjectAiInput(params: {
+  project: {
+    title: string;
+    description: string;
+    completion_criteria: string;
+    trades: string[];
+    location_address: string;
+    location_city: string;
+    location_state: string;
+    location_zip: string;
+    budget_min: number | null;
+    budget_max: number | null;
+    desired_start_date: string | null;
+    timeline: string | null;
+  };
+  files: Array<{ file_name?: string | null; file_type?: string | null }>;
+  clarifications: Array<{
+    question_key: string;
+    answer_value_json: unknown;
+    status: "pending" | "answered" | "dismissed";
+  }>;
+}): ProjectAiAnalysisInput {
+  const { project, files, clarifications } = params;
+
+  return {
+    title: project.title,
+    description: project.description,
+    completionCriteria: project.completion_criteria,
+    trades: project.trades,
+    locationAddress: project.location_address,
+    locationCity: project.location_city,
+    locationState: project.location_state,
+    locationZip: project.location_zip,
+    budgetMin: project.budget_min,
+    budgetMax: project.budget_max,
+    desiredStartDate: project.desired_start_date,
+    timeline: project.timeline,
+    files,
+    clarificationAnswers: clarifications.map((item) => ({
+      question_key: item.question_key,
+      answer_value_json: item.answer_value_json,
+      status: item.status,
+    })),
+  };
+}
+
+async function syncProjectAiClarifications(params: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  projectId: string;
+  questions: ProjectAiRecommendedQuestion[];
+}) {
+  const { supabase, projectId, questions } = params;
+
+  const { data: existingClarifications } = await supabase
+    .from("project_ai_clarifications")
+    .select("id, question_key, answer_value_json, status, answered_at")
+    .eq("project_id", projectId);
+
+  const existingByKey = new Map(
+    (existingClarifications || []).map((row) => [row.question_key, row])
+  );
+
+  if (questions.length > 0) {
+    const nextRows = questions.map((question, index) => {
+      const existing = existingByKey.get(question.question_key);
+      const hasAnsweredValue =
+        existing?.status === "answered" &&
+        existing.answer_value_json !== null &&
+        existing.answer_value_json !== undefined;
+
+      return {
+        project_id: projectId,
+        question_key: question.question_key,
+        question_text: question.question_text,
+        question_type: question.question_type,
+        help_text: question.help_text,
+        placeholder: question.placeholder,
+        options_json: question.options,
+        answer_value_json: existing?.answer_value_json ?? null,
+        status: hasAnsweredValue ? "answered" : "pending",
+        asked_by: "ai" as const,
+        display_order: index,
+        answered_at: hasAnsweredValue ? existing?.answered_at : null,
+      };
+    });
+
+    const { error: upsertError } = await supabase
+      .from("project_ai_clarifications")
+      .upsert(nextRows, { onConflict: "project_id,question_key" });
+
+    if (upsertError) {
+      console.error("AI clarification sync error:", upsertError);
+    }
+  }
+
+  const activeKeys = new Set(questions.map((question) => question.question_key));
+  const stalePendingIds = (existingClarifications || [])
+    .filter(
+      (row) => row.status === "pending" && !activeKeys.has(row.question_key)
+    )
+    .map((row) => row.id);
+
+  if (stalePendingIds.length > 0) {
+    const { error: dismissError } = await supabase
+      .from("project_ai_clarifications")
+      .update({ status: "dismissed" })
+      .in("id", stalePendingIds);
+
+    if (dismissError) {
+      console.error("AI clarification dismiss error:", dismissError);
+    }
+  }
+}
+
+async function insertProjectAiNotification(params: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+  projectId: string;
+  projectTitle: string;
+  analysis: ProjectAiAnalysisResult;
+  previousStatus: string | null;
+  isEditRefresh: boolean;
+}) {
+  const { supabase, userId, projectId, projectTitle, analysis, previousStatus, isEditRefresh } =
+    params;
+
+  let notification:
+    | {
+        user_id: string;
+        type: string;
+        title: string;
+        message: string;
+        link: string;
+      }
+    | null = null;
+
+  if (isEditRefresh) {
+    notification = {
+      user_id: userId,
+      type: "estimate_stale_after_edit",
+      title: "AI baseline needs review",
+      message: `Your AI baseline for "${projectTitle}" was marked stale after recent project edits. Review and republish it before sharing with bidders.`,
+      link: `/customer/projects/${projectId}`,
+    };
+  } else if (analysis.status === "ready" && previousStatus !== "ready") {
+    notification = {
+      user_id: userId,
+      type: "estimate_ready",
+      title: "AI baseline estimate is ready",
+      message: `Your project "${projectTitle}" now has an AI baseline estimate ready for review.`,
+      link: `/customer/projects/${projectId}`,
+    };
+  } else if (
+    analysis.status !== "ready" &&
+    previousStatus !== analysis.status
+  ) {
+    notification = {
+      user_id: userId,
+      type: "estimate_clarification_needed",
+      title: "AI needs more project details",
+      message: `The AI assistant found follow-up items on "${projectTitle}" that would improve estimate quality.`,
+      link: `/customer/projects/${projectId}`,
+    };
+  }
+
+  if (!notification) {
+    return;
+  }
+
+  const { error } = await supabase.from("notifications").insert(notification);
+  if (error) {
+    console.error("AI notification insert error:", error);
+  }
+}
+
+async function runAndPersistProjectAiEstimate(params: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+  projectId: string;
+  projectTitle: string;
+  input: ProjectAiAnalysisInput;
+  triggerType: "create" | "edit" | "manual_refresh" | "clarification_answered";
+  isEditRefresh?: boolean;
+}) {
+  const { supabase, userId, projectId, projectTitle, input, triggerType, isEditRefresh = false } =
+    params;
+
+  const startedAt = Date.now();
+  const [benchmarks, previousEstimateResult] = await Promise.all([
+    getCostEstimates(),
+    supabase
+      .from("project_ai_estimates")
+      .select("status, published_to_bidders")
+      .eq("project_id", projectId)
+      .maybeSingle(),
+  ]);
+
+  const previousEstimate = previousEstimateResult.data;
+  const analysis = analyzeProjectAiEstimate(input, benchmarks);
+  const effectiveStatus = isEditRefresh ? "stale" : analysis.status;
+  const publishedToBidders = isEditRefresh
+    ? false
+    : (previousEstimate?.published_to_bidders ?? false);
+
+  const estimatePayload = {
+    project_id: projectId,
+    status: effectiveStatus,
+    scope_completeness_score: analysis.scope_completeness_score,
+    confidence_level: analysis.confidence_level,
+    baseline_low: analysis.baseline_low,
+    baseline_high: analysis.baseline_high,
+    summary: analysis.summary,
+    assumptions_json: analysis.assumptions,
+    exclusions_json: analysis.exclusions,
+    missing_items_json: analysis.missing_items,
+    recommended_questions_json: analysis.recommended_questions,
+    trade_breakdown_json: analysis.trade_breakdown,
+    analysis_source_summary_json: analysis.analysis_source_summary,
+    analysis_version: analysis.analysis_version,
+    stale_after_edit: isEditRefresh,
+    published_to_bidders: publishedToBidders,
+    last_analyzed_at: new Date().toISOString(),
+  };
+
+  const { error: estimateError } = await supabase
+    .from("project_ai_estimates")
+    .upsert(estimatePayload, { onConflict: "project_id" });
+
+  if (estimateError) {
+    console.error("AI estimate upsert error:", estimateError);
+  }
+
+  await syncProjectAiClarifications({
+    supabase,
+    projectId,
+    questions: analysis.recommended_questions,
+  });
+
+  const { error: runInsertError } = await supabase
+    .from("project_ai_analysis_runs")
+    .insert({
+      project_id: projectId,
+      trigger_type: triggerType,
+      input_snapshot_json: input as Record<string, unknown>,
+      output_snapshot_json: {
+        ...analysis,
+        status: effectiveStatus,
+        stale_after_edit: isEditRefresh,
+        published_to_bidders: publishedToBidders,
+      } as Record<string, unknown>,
+      model_name: analysis.analysis_version,
+      duration_ms: Date.now() - startedAt,
+      succeeded: !estimateError,
+      error_message: estimateError?.message ?? null,
+    });
+
+  if (runInsertError) {
+    console.error("AI analysis run insert error:", runInsertError);
+  }
+
+  await insertProjectAiNotification({
+    supabase,
+    userId,
+    projectId,
+    projectTitle,
+    analysis,
+    previousStatus: previousEstimate?.status ?? null,
+    isEditRefresh,
+  });
+
+  revalidatePath(`/customer/projects/${projectId}`);
+  revalidatePath(`/bidder/projects/${projectId}`);
+
+  return {
+    ...analysis,
+    status: effectiveStatus,
+    stale_after_edit: isEditRefresh,
+    published_to_bidders: publishedToBidders,
+  };
+}
+
+export async function analyzeProjectDraft(input: ProjectAiAnalysisInput) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "You must be logged in to use AI Scope Check.", analysis: null };
+  }
+
+  if (!(await userHasRole(user.id, "customer"))) {
+    return {
+      error: "Enable customer mode to use AI Scope Check.",
+      analysis: null,
+    };
+  }
+
+  const analysis = analyzeProjectAiEstimate(input, await getCostEstimates());
+  return { error: null, analysis };
+}
+
+export async function refreshProjectAiEstimate(projectId: string) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Unauthorized" };
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to refresh AI estimates." };
+  }
+
+  const [{ data: project }, { data: files }, { data: clarifications }] =
+    await Promise.all([
+      supabase
+        .from("projects")
+        .select(
+          "id, title, description, completion_criteria, trades, location_address, location_city, location_state, location_zip, budget_min, budget_max, desired_start_date, timeline"
+        )
+        .eq("id", projectId)
+        .eq("customer_id", user.id)
+        .single(),
+      supabase
+        .from("project_files")
+        .select("file_name, file_type")
+        .eq("project_id", projectId),
+      supabase
+        .from("project_ai_clarifications")
+        .select("question_key, answer_value_json, status")
+        .eq("project_id", projectId),
+    ]);
+
+  if (!project) {
+    return { error: "Project not found." };
+  }
+
+  const analysis = await runAndPersistProjectAiEstimate({
+    supabase,
+    userId: user.id,
+    projectId,
+    projectTitle: project.title,
+    input: buildProjectAiInput({
+      project,
+      files: files || [],
+      clarifications:
+        (clarifications as Array<{
+          question_key: string;
+          answer_value_json: unknown;
+          status: "pending" | "answered" | "dismissed";
+        }>) || [],
+    }),
+    triggerType: "manual_refresh",
+  });
+
+  return { error: null, analysis };
+}
+
+export async function answerProjectAiClarification(
+  projectId: string,
+  clarificationId: string,
+  answerValue: string | string[]
+) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Unauthorized" };
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to answer AI clarifications." };
+  }
+
+  const [{ data: project }, { data: clarification }] = await Promise.all([
+    supabase
+      .from("projects")
+      .select(
+        "id, title, description, completion_criteria, trades, location_address, location_city, location_state, location_zip, budget_min, budget_max, desired_start_date, timeline"
+      )
+      .eq("id", projectId)
+      .eq("customer_id", user.id)
+      .single(),
+    supabase
+      .from("project_ai_clarifications")
+      .select("id, question_type")
+      .eq("id", clarificationId)
+      .eq("project_id", projectId)
+      .single(),
+  ]);
+
+  if (!project || !clarification) {
+    return { error: "Clarification question not found." };
+  }
+
+  const normalizedAnswer =
+    clarification.question_type === "multi_select"
+      ? Array.isArray(answerValue)
+        ? answerValue
+        : [answerValue].filter(Boolean)
+      : Array.isArray(answerValue)
+        ? answerValue.join(", ")
+        : answerValue;
+
+  if (
+    (typeof normalizedAnswer === "string" && normalizedAnswer.trim().length === 0) ||
+    (Array.isArray(normalizedAnswer) && normalizedAnswer.length === 0)
+  ) {
+    return { error: "Please enter an answer before saving." };
+  }
+
+  const { error: updateError } = await supabase
+    .from("project_ai_clarifications")
+    .update({
+      answer_value_json: normalizedAnswer,
+      status: "answered",
+      answered_at: new Date().toISOString(),
+    })
+    .eq("id", clarificationId)
+    .eq("project_id", projectId);
+
+  if (updateError) {
+    console.error("AI clarification answer error:", updateError);
+    return { error: "Failed to save your clarification answer." };
+  }
+
+  const [{ data: files }, { data: clarifications }] = await Promise.all([
+    supabase
+      .from("project_files")
+      .select("file_name, file_type")
+      .eq("project_id", projectId),
+    supabase
+      .from("project_ai_clarifications")
+      .select("question_key, answer_value_json, status")
+      .eq("project_id", projectId),
+  ]);
+
+  const analysis = await runAndPersistProjectAiEstimate({
+    supabase,
+    userId: user.id,
+    projectId,
+    projectTitle: project.title,
+    input: buildProjectAiInput({
+      project,
+      files: files || [],
+      clarifications:
+        (clarifications as Array<{
+          question_key: string;
+          answer_value_json: unknown;
+          status: "pending" | "answered" | "dismissed";
+        }>) || [],
+    }),
+    triggerType: "clarification_answered",
+  });
+
+  return { error: null, analysis };
+}
+
+export async function setProjectAiEstimatePublication(
+  projectId: string,
+  published: boolean
+) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Unauthorized" };
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to manage AI baseline visibility." };
+  }
+
+  const { data: estimate } = await supabase
+    .from("project_ai_estimates")
+    .select("id, status")
+    .eq("project_id", projectId)
+    .single();
+
+  if (!estimate) {
+    return { error: "Run the AI analysis before sharing it with bidders." };
+  }
+
+  if (published && estimate.status !== "ready") {
+    return {
+      error: "Only ready AI baselines can be shared with bidders.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("project_ai_estimates")
+    .update({
+      published_to_bidders: published,
+      stale_after_edit: false,
+    })
+    .eq("project_id", projectId);
+
+  if (error) {
+    console.error("AI estimate publication error:", error);
+    return { error: "Failed to update AI baseline visibility." };
+  }
+
+  revalidatePath(`/customer/projects/${projectId}`);
+  revalidatePath(`/bidder/projects/${projectId}`);
+  return { error: null, success: true };
 }
 
 export async function createProject(formData: FormData) {
@@ -284,6 +801,33 @@ export async function createProject(formData: FormData) {
       }
     }
   }
+
+  await runAndPersistProjectAiEstimate({
+    supabase,
+    userId: user.id,
+    projectId: project.id,
+    projectTitle: title,
+    input: {
+      title,
+      description,
+      completionCriteria,
+      trades,
+      locationAddress,
+      locationCity,
+      locationState,
+      locationZip,
+      budgetMin: budgetMin ? parseFloat(budgetMin) : null,
+      budgetMax: budgetMax ? parseFloat(budgetMax) : null,
+      desiredStartDate: desiredStartDate || null,
+      timeline: timeline || null,
+      files: validFiles.map((file) => ({
+        file_name: file.name,
+        file_type: file.type,
+      })),
+      clarificationAnswers: [],
+    },
+    triggerType: "create",
+  });
 
   const shouldCreatePaidEstimate =
     formData.get("enablePaidEstimate") === "true";
@@ -906,7 +1450,7 @@ export async function updateProject(projectId: string, formData: FormData) {
     }
   }
 
-  if (edits.length === 0) {
+  if (edits.length === 0 && validFiles.length === 0) {
     return { error: "No changes detected." };
   }
 
@@ -1048,6 +1592,52 @@ export async function updateProject(projectId: string, formData: FormData) {
       }
     }
   }
+
+  const { data: latestClarifications } = await supabase
+    .from("project_ai_clarifications")
+    .select("question_key, answer_value_json, status")
+    .eq("project_id", projectId);
+
+  await runAndPersistProjectAiEstimate({
+    supabase,
+    userId: user.id,
+    projectId,
+    projectTitle: title,
+    input: buildProjectAiInput({
+      project: {
+        title,
+        description,
+        completion_criteria: completionCriteria,
+        trades,
+        location_address: locationAddress,
+        location_city: locationCity,
+        location_state: locationState,
+        location_zip: locationZip,
+        budget_min: budgetMin ? parseFloat(budgetMin) : null,
+        budget_max: budgetMax ? parseFloat(budgetMax) : null,
+        desired_start_date: desiredStartDate || null,
+        timeline: timeline || null,
+      },
+      files: [
+        ...(existingProjectFiles || []).map((file) => ({
+          file_name: null,
+          file_type: file.file_type,
+        })),
+        ...validFiles.map((file) => ({
+          file_name: file.name,
+          file_type: file.type,
+        })),
+      ],
+      clarifications:
+        (latestClarifications as Array<{
+          question_key: string;
+          answer_value_json: unknown;
+          status: "pending" | "answered" | "dismissed";
+        }>) || [],
+    }),
+    triggerType: "edit",
+    isEditRefresh: true,
+  });
 
   redirect(`/customer/projects/${projectId}`);
 }

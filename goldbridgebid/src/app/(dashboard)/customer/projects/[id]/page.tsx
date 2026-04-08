@@ -36,11 +36,16 @@ import CredentialChecklist from "@/components/credentials/CredentialChecklist";
 import CoreCredentialsCheck from "@/components/credentials/CoreCredentialsCheck";
 import PaidEstimatePoolPanel from "./PaidEstimatePoolPanel";
 import DisputePaidEstimateButton from "./DisputePaidEstimateButton";
+import ProjectAiEstimatePanel from "./ProjectAiEstimatePanel";
 import { isPaidEstimatePoolVisibleAsPaid } from "@/lib/paid-estimates/pools";
 import ProjectQA from "@/components/ProjectQA";
 import BidComparisonToggle from "@/components/BidComparisonToggle";
 import { reconcilePaidEstimatePoolFunding } from "@/lib/paid-estimates/funding";
 import { getStripeServerClient } from "@/lib/stripe/server";
+import type {
+  ProjectAiRecommendedQuestion,
+  ProjectAiTradeBreakdownItem,
+} from "@/lib/ai-estimates";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
   title: "Title",
@@ -92,6 +97,19 @@ export default async function ProjectDetailPage({
     .eq("project_id", id)
     .order("display_order", { ascending: true })
     .order("uploaded_at", { ascending: false });
+
+  const { data: aiEstimate } = await supabase
+    .from("project_ai_estimates")
+    .select("*")
+    .eq("project_id", id)
+    .maybeSingle();
+
+  const { data: aiClarifications } = await supabase
+    .from("project_ai_clarifications")
+    .select("*")
+    .eq("project_id", id)
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
   const { data: paidEstimatePool } = await admin
     .from("project_paid_estimate_pools")
@@ -350,6 +368,48 @@ export default async function ProjectDetailPage({
               {project.completion_criteria}
             </p>
           </section>
+
+          <ProjectAiEstimatePanel
+            projectId={project.id}
+            estimate={
+              aiEstimate
+                ? {
+                    status: aiEstimate.status,
+                    scope_completeness_score: aiEstimate.scope_completeness_score,
+                    confidence_level: aiEstimate.confidence_level,
+                    summary: aiEstimate.summary,
+                    baseline_low: aiEstimate.baseline_low,
+                    baseline_high: aiEstimate.baseline_high,
+                    assumptions_json: aiEstimate.assumptions_json,
+                    exclusions_json: aiEstimate.exclusions_json,
+                    missing_items_json: aiEstimate.missing_items_json,
+                    recommended_questions_json:
+                      aiEstimate.recommended_questions_json as ProjectAiRecommendedQuestion[],
+                    trade_breakdown_json:
+                      aiEstimate.trade_breakdown_json as ProjectAiTradeBreakdownItem[],
+                    published_to_bidders: aiEstimate.published_to_bidders,
+                    stale_after_edit: aiEstimate.stale_after_edit,
+                    last_analyzed_at: aiEstimate.last_analyzed_at,
+                  }
+                : null
+            }
+            clarifications={
+              (aiClarifications || []).map((clarification) => ({
+                id: clarification.id,
+                question_key: clarification.question_key,
+                question_text: clarification.question_text,
+                question_type: clarification.question_type,
+                help_text: clarification.help_text,
+                placeholder: clarification.placeholder,
+                options_json: clarification.options_json as Array<{
+                  id?: string;
+                  label?: string;
+                }>,
+                answer_value_json: clarification.answer_value_json,
+                status: clarification.status,
+              }))
+            }
+          />
 
           {/* Edit History */}
           {projectEdits && projectEdits.length > 0 && (

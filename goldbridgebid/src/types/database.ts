@@ -388,6 +388,65 @@ export interface ProjectQuestion {
   created_at: string;
 }
 
+export interface ProjectAiEstimate {
+  id: string;
+  project_id: string;
+  status: "insufficient_data" | "needs_clarification" | "ready" | "stale";
+  scope_completeness_score: number;
+  confidence_level: "low" | "medium" | "high";
+  baseline_low: number | null;
+  baseline_high: number | null;
+  summary: string | null;
+  assumptions_json: string[];
+  exclusions_json: string[];
+  missing_items_json: string[];
+  recommended_questions_json: Array<Record<string, unknown>>;
+  trade_breakdown_json: Array<Record<string, unknown>>;
+  analysis_source_summary_json: Record<string, unknown>;
+  analysis_version: string;
+  stale_after_edit: boolean;
+  published_to_bidders: boolean;
+  last_analyzed_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectAiClarification {
+  id: string;
+  project_id: string;
+  question_key: string;
+  question_text: string;
+  question_type:
+    | "single_select"
+    | "multi_select"
+    | "number"
+    | "text"
+    | "upload_request";
+  help_text: string | null;
+  placeholder: string | null;
+  options_json: Array<Record<string, unknown>>;
+  answer_value_json: unknown;
+  status: "pending" | "answered" | "dismissed";
+  asked_by: "ai" | "admin";
+  display_order: number;
+  answered_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectAiAnalysisRun {
+  id: string;
+  project_id: string;
+  trigger_type: "create" | "edit" | "manual_refresh" | "clarification_answered";
+  input_snapshot_json: Record<string, unknown>;
+  output_snapshot_json: Record<string, unknown>;
+  model_name: string;
+  duration_ms: number | null;
+  succeeded: boolean;
+  error_message: string | null;
+  created_at: string;
+}
+
 export interface ProjectFile {
   id: string;
   project_id: string;
@@ -694,6 +753,57 @@ type ProjectQuestionInsert = {
   answered_at?: string | null;
 };
 
+type ProjectAiEstimateInsert = {
+  project_id: string;
+  status?: "insufficient_data" | "needs_clarification" | "ready" | "stale";
+  scope_completeness_score?: number;
+  confidence_level?: "low" | "medium" | "high";
+  baseline_low?: number | null;
+  baseline_high?: number | null;
+  summary?: string | null;
+  assumptions_json?: string[];
+  exclusions_json?: string[];
+  missing_items_json?: string[];
+  recommended_questions_json?: Array<Record<string, unknown>>;
+  trade_breakdown_json?: Array<Record<string, unknown>>;
+  analysis_source_summary_json?: Record<string, unknown>;
+  analysis_version?: string;
+  stale_after_edit?: boolean;
+  published_to_bidders?: boolean;
+  last_analyzed_at?: string;
+};
+
+type ProjectAiClarificationInsert = {
+  project_id: string;
+  question_key: string;
+  question_text: string;
+  question_type:
+    | "single_select"
+    | "multi_select"
+    | "number"
+    | "text"
+    | "upload_request";
+  help_text?: string | null;
+  placeholder?: string | null;
+  options_json?: Array<Record<string, unknown>>;
+  answer_value_json?: unknown;
+  status?: "pending" | "answered" | "dismissed";
+  asked_by?: "ai" | "admin";
+  display_order?: number;
+  answered_at?: string | null;
+};
+
+type ProjectAiAnalysisRunInsert = {
+  project_id: string;
+  trigger_type: "create" | "edit" | "manual_refresh" | "clarification_answered";
+  input_snapshot_json?: Record<string, unknown>;
+  output_snapshot_json?: Record<string, unknown>;
+  model_name?: string;
+  duration_ms?: number | null;
+  succeeded?: boolean;
+  error_message?: string | null;
+};
+
 type MessageInsert = {
   project_id: string;
   sender_id: string;
@@ -820,6 +930,24 @@ export interface Database {
         Row: ProjectQuestion;
         Insert: ProjectQuestionInsert;
         Update: Partial<Omit<ProjectQuestionInsert, "project_id" | "asker_id">>;
+        Relationships: [];
+      };
+      project_ai_estimates: {
+        Row: ProjectAiEstimate;
+        Insert: ProjectAiEstimateInsert;
+        Update: Partial<Omit<ProjectAiEstimateInsert, "project_id">>;
+        Relationships: [];
+      };
+      project_ai_clarifications: {
+        Row: ProjectAiClarification;
+        Insert: ProjectAiClarificationInsert;
+        Update: Partial<Omit<ProjectAiClarificationInsert, "project_id" | "question_key">>;
+        Relationships: [];
+      };
+      project_ai_analysis_runs: {
+        Row: ProjectAiAnalysisRun;
+        Insert: ProjectAiAnalysisRunInsert;
+        Update: never;
         Relationships: [];
       };
       project_files: {
