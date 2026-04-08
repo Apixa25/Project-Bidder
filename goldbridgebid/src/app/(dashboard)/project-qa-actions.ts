@@ -39,6 +39,15 @@ export async function askProjectQuestion(formData: FormData) {
 
   if (error) {
     console.error("Ask question error:", error);
+    if (
+      error.code === "PGRST205" &&
+      error.message.includes("public.project_questions")
+    ) {
+      return {
+        error:
+          "Project Q&A is not available yet because the project_questions table is missing in the database. Run the Project Q&A migration in Supabase first.",
+      };
+    }
     return { error: "Failed to submit question." };
   }
 
@@ -95,6 +104,15 @@ export async function answerProjectQuestion(formData: FormData) {
 
   if (error) {
     console.error("Answer question error:", error);
+    if (
+      error.code === "PGRST205" &&
+      error.message.includes("public.project_questions")
+    ) {
+      return {
+        error:
+          "Project Q&A is not available yet because the project_questions table is missing in the database. Run the Project Q&A migration in Supabase first.",
+      };
+    }
     return { error: "Failed to post answer." };
   }
 

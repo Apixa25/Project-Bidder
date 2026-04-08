@@ -514,6 +514,38 @@ function getQuestionMissingLabel(questionKey: string) {
   }
 }
 
+function formatClarificationAnswer(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string | number => typeof item === "string" || typeof item === "number")
+      .map((item) => String(item).trim())
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+
+  return "";
+}
+
+function truncateAnswer(value: string, maxLength = 120) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength - 1).trimEnd()}...`;
+}
+
 function roundCurrency(value: number) {
   return Math.round(value / 10) * 10;
 }
@@ -722,6 +754,17 @@ export function analyzeProjectAiEstimate(
     clarificationAnswers,
     hasVisualMedia
   );
+  const answeredClarificationSummaries = clarificationAnswers
+    .filter(
+      (entry) =>
+        entry.status !== "dismissed" && hasMeaningfulAnswer(entry.answer_value_json)
+    )
+    .map((entry) => {
+      const label = getQuestionMissingLabel(entry.question_key);
+      const answer = truncateAnswer(formatClarificationAnswer(entry.answer_value_json));
+      return answer ? `${label}: ${answer}` : null;
+    })
+    .filter((value): value is string => Boolean(value));
 
   const unresolvedQuestionLabels = candidateQuestions.map((question) =>
     getQuestionMissingLabel(question.question_key)
@@ -790,6 +833,13 @@ export function analyzeProjectAiEstimate(
   }
   if (!hasVisualMedia) {
     assumptions.push("The current estimate was prepared without visual verification of site conditions.");
+  }
+  if (answeredClarificationSummaries.length > 0) {
+    assumptions.push(
+      `Customer clarifications considered: ${answeredClarificationSummaries
+        .slice(0, 3)
+        .join(" | ")}`
+    );
   }
 
   completenessScore = clampScore(completenessScore);

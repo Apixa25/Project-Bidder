@@ -4,7 +4,6 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   RefreshCw,
-  Send,
   UploadCloud,
   Eye,
   EyeOff,
@@ -18,8 +17,8 @@ import type {
   ProjectAiConfidenceLevel,
 } from "@/lib/ai-estimates";
 import {
-  answerProjectAiClarification,
   refreshProjectAiEstimate,
+  saveProjectAiClarificationsAndShare,
   setProjectAiEstimatePublication,
 } from "../actions";
 
@@ -99,6 +98,7 @@ export default function ProjectAiEstimatePanel({
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [advisory, setAdvisory] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string[]>>(() =>
     getInitialAnswers(clarifications)
   );
@@ -126,6 +126,7 @@ export default function ProjectAiEstimatePanel({
   function handleRefresh() {
     setError(null);
     setFeedback(null);
+    setAdvisory(null);
     startTransition(async () => {
       const result = await refreshProjectAiEstimate(projectId);
       if (result.error) {
@@ -141,6 +142,7 @@ export default function ProjectAiEstimatePanel({
   function handlePublicationToggle(nextPublished: boolean) {
     setError(null);
     setFeedback(null);
+    setAdvisory(null);
     startTransition(async () => {
       const result = await setProjectAiEstimatePublication(
         projectId,
@@ -151,28 +153,34 @@ export default function ProjectAiEstimatePanel({
         return;
       }
 
+      if (result.advisory) {
+        setAdvisory(result.advisory);
+      }
       setFeedback(
         nextPublished
-          ? "AI baseline is now visible to bidders."
+          ? "The project update is now visible to bidders."
           : "AI baseline is hidden from bidders."
       );
       router.refresh();
     });
   }
 
-  function handleSaveClarification(clarification: ClarificationRow) {
-    const nextAnswer =
-      clarification.question_type === "multi_select"
-        ? answers[clarification.id] || []
-        : answers[clarification.id]?.[0] || "";
-
+  function handleSaveAndShare() {
     setError(null);
     setFeedback(null);
+    setAdvisory(null);
     startTransition(async () => {
-      const result = await answerProjectAiClarification(
+      const result = await saveProjectAiClarificationsAndShare(
         projectId,
-        clarification.id,
-        nextAnswer
+        actionableClarifications
+          .filter((clarification) => clarification.question_type !== "upload_request")
+          .map((clarification) => ({
+            clarificationId: clarification.id,
+            answerValue:
+              clarification.question_type === "multi_select"
+                ? answers[clarification.id] || []
+                : answers[clarification.id]?.[0] || "",
+          }))
       );
 
       if (result.error) {
@@ -180,7 +188,14 @@ export default function ProjectAiEstimatePanel({
         return;
       }
 
-      setFeedback("Clarification saved and AI estimate updated.");
+      if (result.advisory) {
+        setAdvisory(result.advisory);
+      }
+      setFeedback(
+        estimate?.published_to_bidders
+          ? "Answers saved and bidder-facing project details updated."
+          : "Answers saved and bidder-facing project details shared."
+      );
       router.refresh();
     });
   }
@@ -218,7 +233,8 @@ export default function ProjectAiEstimatePanel({
             Refresh AI Estimate
           </button>
 
-          {estimate && (
+          {estimate &&
+            (!actionableClarifications.length || estimate.published_to_bidders) && (
             <button
               type="button"
               onClick={() =>
@@ -255,8 +271,20 @@ export default function ProjectAiEstimatePanel({
         </div>
       )}
 
+      {advisory && (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {advisory}
+        </div>
+      )}
+
       {estimate ? (
         <div className="mt-5 space-y-5">
+          {!estimate.published_to_bidders && (
+            <div className="rounded-lg border border-border bg-bg-warm px-4 py-3 text-sm text-text-secondary">
+              Bidders will not see this AI baseline or its clarification-informed assumptions until you click <span className="font-semibold text-text-primary">Share With Bidders</span>. Even after sharing, bidders only see a short planning summary, not the full internal clarification workflow.
+            </div>
+          )}
+
           <AiEstimateSummary
             status={estimate.status}
             score={estimate.scope_completeness_score}
@@ -401,21 +429,26 @@ export default function ProjectAiEstimatePanel({
                       )}
                     </div>
 
-                    {clarification.question_type !== "upload_request" && (
-                      <div className="mt-3 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => handleSaveClarification(clarification)}
-                          disabled={isPending}
-                          className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
-                        >
-                          <Send className="h-4 w-4" />
-                          Save Answer
-                        </button>
-                      </div>
-                    )}
                   </div>
                 ))}
+              </div>
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-4">
+                <p className="text-sm text-text-secondary">
+                  Save all clarification answers together and update what bidders
+                  see. The AI can still recommend stronger scope details, but it
+                  will not block the bidder update.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSaveAndShare}
+                  disabled={isPending}
+                  className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
+                >
+                  <Eye className="h-4 w-4" />
+                  {estimate?.published_to_bidders
+                    ? "Save and Update Bidder View"
+                    : "Save and Share With Bidders"}
+                </button>
               </div>
             </div>
           )}

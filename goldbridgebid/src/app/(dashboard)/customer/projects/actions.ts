@@ -394,6 +394,29 @@ async function runAndPersistProjectAiEstimate(params: {
   };
 }
 
+function buildAiPublicationAdvisory(
+  analysis: {
+    status: string;
+    missing_items?: string[];
+  } | null | undefined
+) {
+  if (!analysis) {
+    return null;
+  }
+
+  const missingItems = analysis.missing_items || [];
+  if (missingItems.length === 0 && analysis.status === "ready") {
+    return null;
+  }
+
+  const topItems = missingItems.slice(0, 3);
+  if (topItems.length > 0) {
+    return `The bidder update is live, but the AI still recommends adding more detail about: ${topItems.join(", ")}.`;
+  }
+
+  return "The bidder update is live, but the AI still recommends adding more detail to strengthen the project scope.";
+}
+
 export async function analyzeProjectDraft(input: ProjectAiAnalysisInput) {
   const supabase = await createClient();
 
@@ -573,6 +596,135 @@ export async function answerProjectAiClarification(
   return { error: null, analysis };
 }
 
+export async function saveProjectAiClarificationsAndShare(
+  projectId: string,
+  answers: Array<{
+    clarificationId: string;
+    answerValue: string | string[];
+  }>
+) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Unauthorized" };
+  if (!(await userHasRole(user.id, "customer"))) {
+    return { error: "Enable customer mode to update AI clarifications." };
+  }
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select(
+      "id, title, description, completion_criteria, trades, location_address, location_city, location_state, location_zip, budget_min, budget_max, desired_start_date, timeline, customer_id"
+    )
+    .eq("id", projectId)
+    .eq("customer_id", user.id)
+    .single();
+
+  if (!project) {
+    return { error: "Project not found." };
+  }
+
+  for (const entry of answers) {
+    const { data: clarification } = await supabase
+      .from("project_ai_clarifications")
+      .select("id, question_type")
+      .eq("id", entry.clarificationId)
+      .eq("project_id", projectId)
+      .single();
+
+    if (!clarification) {
+      continue;
+    }
+
+    const normalizedAnswer =
+      clarification.question_type === "multi_select"
+        ? Array.isArray(entry.answerValue)
+          ? entry.answerValue.filter(Boolean)
+          : [entry.answerValue].filter(Boolean)
+        : Array.isArray(entry.answerValue)
+          ? entry.answerValue.join(", ")
+          : entry.answerValue;
+
+    const hasAnswer =
+      (typeof normalizedAnswer === "string" && normalizedAnswer.trim().length > 0) ||
+      (Array.isArray(normalizedAnswer) && normalizedAnswer.length > 0);
+
+    if (!hasAnswer) {
+      continue;
+    }
+
+    const { error: updateError } = await supabase
+      .from("project_ai_clarifications")
+      .update({
+        answer_value_json: normalizedAnswer,
+        status: "answered",
+        answered_at: new Date().toISOString(),
+      })
+      .eq("id", clarification.id)
+      .eq("project_id", projectId);
+
+    if (updateError) {
+      console.error("Bulk AI clarification answer error:", updateError);
+      return { error: "Failed to save one of the clarification answers." };
+    }
+  }
+
+  const [{ data: files }, { data: clarifications }] = await Promise.all([
+    supabase
+      .from("project_files")
+      .select("file_name, file_type")
+      .eq("project_id", projectId),
+    supabase
+      .from("project_ai_clarifications")
+      .select("question_key, answer_value_json, status")
+      .eq("project_id", projectId),
+  ]);
+
+  const analysis = await runAndPersistProjectAiEstimate({
+    supabase,
+    userId: user.id,
+    projectId,
+    projectTitle: project.title,
+    input: buildProjectAiInput({
+      project,
+      files: files || [],
+      clarifications:
+        (clarifications as Array<{
+          question_key: string;
+          answer_value_json: unknown;
+          status: "pending" | "answered" | "dismissed";
+        }>) || [],
+    }),
+    triggerType: "clarification_answered",
+  });
+
+  const { error: publishError } = await supabase
+    .from("project_ai_estimates")
+    .update({
+      published_to_bidders: true,
+      stale_after_edit: false,
+    })
+    .eq("project_id", projectId);
+
+  if (publishError) {
+    console.error("AI publish after clarification error:", publishError);
+    return { error: "Clarifications were saved, but the bidder update could not be published." };
+  }
+
+  revalidatePath(`/customer/projects/${projectId}`);
+  revalidatePath(`/bidder/projects/${projectId}`);
+
+  return {
+    error: null,
+    success: true,
+    analysis,
+    advisory: buildAiPublicationAdvisory(analysis),
+  };
+}
+
 export async function setProjectAiEstimatePublication(
   projectId: string,
   published: boolean
@@ -598,10 +750,52 @@ export async function setProjectAiEstimatePublication(
     return { error: "Run the AI analysis before sharing it with bidders." };
   }
 
-  if (published && estimate.status !== "ready") {
-    return {
-      error: "Only ready AI baselines can be shared with bidders.",
-    };
+  let advisory: string | null = null;
+
+  if (published) {
+    const [{ data: project }, { data: files }, { data: clarifications }] =
+      await Promise.all([
+        supabase
+          .from("projects")
+          .select(
+            "id, title, description, completion_criteria, trades, location_address, location_city, location_state, location_zip, budget_min, budget_max, desired_start_date, timeline"
+          )
+          .eq("id", projectId)
+          .eq("customer_id", user.id)
+          .single(),
+        supabase
+          .from("project_files")
+          .select("file_name, file_type")
+          .eq("project_id", projectId),
+        supabase
+          .from("project_ai_clarifications")
+          .select("question_key, answer_value_json, status")
+          .eq("project_id", projectId),
+      ]);
+
+    if (!project) {
+      return { error: "Project not found." };
+    }
+
+    const refreshedAnalysis = await runAndPersistProjectAiEstimate({
+      supabase,
+      userId: user.id,
+      projectId,
+      projectTitle: project.title,
+      input: buildProjectAiInput({
+        project,
+        files: files || [],
+        clarifications:
+          (clarifications as Array<{
+            question_key: string;
+            answer_value_json: unknown;
+            status: "pending" | "answered" | "dismissed";
+          }>) || [],
+      }),
+      triggerType: "manual_refresh",
+    });
+
+    advisory = buildAiPublicationAdvisory(refreshedAnalysis);
   }
 
   const { error } = await supabase
@@ -619,7 +813,7 @@ export async function setProjectAiEstimatePublication(
 
   revalidatePath(`/customer/projects/${projectId}`);
   revalidatePath(`/bidder/projects/${projectId}`);
-  return { error: null, success: true };
+  return { error: null, success: true, advisory };
 }
 
 export async function createProject(formData: FormData) {
