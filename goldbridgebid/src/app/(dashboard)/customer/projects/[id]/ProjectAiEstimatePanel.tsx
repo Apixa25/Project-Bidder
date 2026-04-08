@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import AiEstimateSummary from "@/components/ai/AiEstimateSummary";
+import ActionPendingOverlay from "@/components/loading/ActionPendingOverlay";
 import type {
   ProjectAiRecommendedQuestion,
   ProjectAiTradeBreakdownItem,
@@ -99,6 +100,7 @@ export default function ProjectAiEstimatePanel({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [advisory, setAdvisory] = useState<string | null>(null);
+  const [pendingLabel, setPendingLabel] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string[]>>(() =>
     getInitialAnswers(clarifications)
   );
@@ -127,10 +129,12 @@ export default function ProjectAiEstimatePanel({
     setError(null);
     setFeedback(null);
     setAdvisory(null);
+    setPendingLabel("Refreshing AI estimate...");
     startTransition(async () => {
       const result = await refreshProjectAiEstimate(projectId);
       if (result.error) {
         setError(result.error);
+        setPendingLabel(null);
         return;
       }
 
@@ -143,6 +147,11 @@ export default function ProjectAiEstimatePanel({
     setError(null);
     setFeedback(null);
     setAdvisory(null);
+    setPendingLabel(
+      nextPublished
+        ? "Updating bidder-facing project details..."
+        : "Hiding bidder-facing AI summary..."
+    );
     startTransition(async () => {
       const result = await setProjectAiEstimatePublication(
         projectId,
@@ -150,6 +159,7 @@ export default function ProjectAiEstimatePanel({
       );
       if (result.error) {
         setError(result.error);
+        setPendingLabel(null);
         return;
       }
 
@@ -169,6 +179,7 @@ export default function ProjectAiEstimatePanel({
     setError(null);
     setFeedback(null);
     setAdvisory(null);
+    setPendingLabel("Saving answers and updating bidder view...");
     startTransition(async () => {
       const result = await saveProjectAiClarificationsAndShare(
         projectId,
@@ -185,6 +196,7 @@ export default function ProjectAiEstimatePanel({
 
       if (result.error) {
         setError(result.error);
+        setPendingLabel(null);
         return;
       }
 
@@ -201,7 +213,8 @@ export default function ProjectAiEstimatePanel({
   }
 
   return (
-    <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+    <section className="relative rounded-xl border border-border bg-surface p-6 shadow-sm">
+      {isPending && pendingLabel && <ActionPendingOverlay label={pendingLabel} />}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { MessageCircleQuestion, CheckCircle2, Loader2 } from "lucide-react";
 import { askProjectQuestion, answerProjectQuestion } from "@/app/(dashboard)/project-qa-actions";
+import ActionPendingOverlay from "@/components/loading/ActionPendingOverlay";
 
 interface Question {
   id: string;
@@ -31,11 +32,13 @@ export default function ProjectQA({
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [pendingLabel, setPendingLabel] = useState<string | null>(null);
 
   async function handleAsk(formData: FormData) {
     setSubmitting(true);
     setError(null);
     setSuccess(null);
+    setPendingLabel("Submitting your question...");
     const result = await askProjectQuestion(formData);
     if (result?.error) {
       setError(result.error);
@@ -43,21 +46,27 @@ export default function ProjectQA({
       setSuccess("Question submitted!");
       setTimeout(() => setSuccess(null), 3000);
     }
+    setPendingLabel(null);
     setSubmitting(false);
   }
 
   async function handleAnswer(formData: FormData) {
     setAnsweringId(formData.get("questionId") as string);
     setError(null);
+    setPendingLabel("Posting your answer...");
     const result = await answerProjectQuestion(formData);
     if (result?.error) {
       setError(result.error);
     }
+    setPendingLabel(null);
     setAnsweringId(null);
   }
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+    <div className="relative rounded-xl border border-border bg-surface p-6 shadow-sm">
+      {(submitting || Boolean(answeringId)) && pendingLabel && (
+        <ActionPendingOverlay label={pendingLabel} />
+      )}
       <h2 className="flex items-center gap-2 text-lg font-semibold text-text-primary mb-1">
         <MessageCircleQuestion className="h-5 w-5" />
         Project Q&A

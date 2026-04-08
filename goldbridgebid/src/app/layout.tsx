@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import PwaRegistration from "@/components/PwaRegistration";
 
@@ -53,6 +54,15 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <NextTopLoader
+          color="#2563eb"
+          crawlSpeed={200}
+          height={4}
+          easing="ease"
+          speed={250}
+          showSpinner={false}
+          shadow="0 0 10px #2563eb,0 0 5px #2563eb"
+        />
         <PwaRegistration />
         {children}
       </body>
