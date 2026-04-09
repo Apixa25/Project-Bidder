@@ -513,8 +513,16 @@ export default function ProjectAiScopeItemsSection({
                               <div className="flex items-start gap-2">
                                 <UploadCloud className="mt-0.5 h-4 w-4 text-primary" />
                                 <div>
-                                  Upload the requested media from the project edit
-                                  flow, then refresh the AI estimate.
+                                  <div className="font-medium text-text-primary">
+                                    Add the requested files from the project edit
+                                    flow, then refresh the AI estimate.
+                                  </div>
+                                  <div className="mt-1">
+                                    This item is asking for stronger evidence.
+                                    Photos, short site video, or supporting
+                                    documents can help tighten the range and
+                                    upgrade confidence.
+                                  </div>
                                 </div>
                               </div>
                             </div>

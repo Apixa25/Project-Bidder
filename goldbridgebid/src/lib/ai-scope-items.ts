@@ -505,7 +505,7 @@ function getScopeItemAnswerStats(
   item: ProjectAiScopeItemDraft,
   input: ProjectAiAnalysisInput
 ) {
-  const blueprints = getScopeItemClarificationBlueprints(item);
+  const blueprints = getScopeItemClarificationBlueprints(item, input);
   const clarificationAnswers = input.clarificationAnswers || [];
   const answeredCount = blueprints.filter((blueprint) =>
     hasMeaningfulAnswer(
@@ -517,6 +517,73 @@ function getScopeItemAnswerStats(
     total: blueprints.length,
     answered: answeredCount,
   };
+}
+
+function buildScopeItemUploadRequestBlueprints(
+  item: ProjectAiScopeItemDraft,
+  input: ProjectAiAnalysisInput
+) {
+  const { imageCount, videoCount, documentCount } = getFileSignalCounts(input.files);
+  const requests: Array<{
+    question_key: string;
+    question_text: string;
+    question_type: "upload_request";
+    help_text: string;
+    placeholder: string | null;
+    options_json: Array<Record<string, unknown>>;
+  }> = [];
+
+  const needsVisualCoverage = [
+    "modular_site_prep",
+    "modular_delivery_set_logistics",
+    "grading_and_drainage",
+    "site_access_logistics",
+    "utility_tie_in_verification",
+  ].includes(item.item_key);
+
+  const needsTechnicalDocumentation = [
+    "electrical_service_upgrade",
+    "modular_foundation_support",
+    "permit_and_inspection_coordination",
+  ].includes(item.item_key);
+
+  if (needsVisualCoverage && imageCount === 0 && videoCount === 0) {
+    requests.push({
+      question_key: buildScopeItemQuestionKey(item.item_key, "upload_visual_evidence"),
+      question_text: `Upload site photos or a short walkaround video for ${item.item_label.toLowerCase()}.`,
+      question_type: "upload_request",
+      help_text:
+        "The estimator can reason more confidently when it has visual context for access, grading, pad condition, utility locations, or delivery constraints.",
+      placeholder: null,
+      options_json: [],
+    });
+  }
+
+  if (needsTechnicalDocumentation && documentCount === 0) {
+    requests.push({
+      question_key: buildScopeItemQuestionKey(item.item_key, "upload_supporting_documents"),
+      question_text: `Upload any plans, permits, sketches, or utility paperwork related to ${item.item_label.toLowerCase()}.`,
+      question_type: "upload_request",
+      help_text:
+        "Technical documents can tighten the AI planning range by reducing uncertainty around code, sizing, layout, or approval requirements.",
+      placeholder: null,
+      options_json: [],
+    });
+  }
+
+  if (item.item_key === "electrical_service_upgrade" && imageCount === 0) {
+    requests.push({
+      question_key: buildScopeItemQuestionKey(item.item_key, "upload_electrical_photos"),
+      question_text: "Upload photos of the existing panel, meter area, and proposed hookup path if available.",
+      question_type: "upload_request",
+      help_text:
+        "Panel and path photos help the estimator judge access, routing complexity, and whether the current electrical setup appears simple or constrained.",
+      placeholder: null,
+      options_json: [],
+    });
+  }
+
+  return requests;
 }
 
 function buildDefaultItemExclusions(item: ProjectAiScopeItemDraft) {
@@ -1705,7 +1772,14 @@ export function buildProjectAiScopeItems(params: {
   );
 }
 
-function getScopeItemClarificationBlueprints(item: ProjectAiScopeItemDraft) {
+function getScopeItemClarificationBlueprints(
+  item: ProjectAiScopeItemDraft,
+  input?: ProjectAiAnalysisInput
+) {
+  const mediaBlueprints = input
+    ? buildScopeItemUploadRequestBlueprints(item, input)
+    : [];
+
   switch (item.item_key) {
     case "modular_site_prep":
       return [
@@ -1732,6 +1806,7 @@ function getScopeItemClarificationBlueprints(item: ProjectAiScopeItemDraft) {
           placeholder: "Example: approximately 60 ft x 30 ft, mostly level, replacing two RV pads",
           options_json: [],
         },
+        ...mediaBlueprints,
       ];
     case "modular_foundation_support":
       return [
@@ -1748,6 +1823,7 @@ function getScopeItemClarificationBlueprints(item: ProjectAiScopeItemDraft) {
             buildOption("unsure", "Not sure yet"),
           ],
         },
+        ...mediaBlueprints,
       ];
     case "modular_delivery_set_logistics":
       return [
@@ -1760,6 +1836,7 @@ function getScopeItemClarificationBlueprints(item: ProjectAiScopeItemDraft) {
           placeholder: "Example: narrow gate, overhead power line near entrance, flat open staging area, unknown",
           options_json: [],
         },
+        ...mediaBlueprints,
       ];
     case "electrical_service_upgrade":
       return [
@@ -1787,6 +1864,7 @@ function getScopeItemClarificationBlueprints(item: ProjectAiScopeItemDraft) {
           placeholder: "Example: about 40 feet from existing panel, same side of lot, unknown",
           options_json: [],
         },
+        ...mediaBlueprints,
       ];
     case "utility_tie_in_verification":
       return [
@@ -1804,6 +1882,7 @@ function getScopeItemClarificationBlueprints(item: ProjectAiScopeItemDraft) {
             buildOption("unknown", "Not sure yet"),
           ],
         },
+        ...mediaBlueprints,
       ];
     case "grading_and_drainage":
       return [
@@ -1821,6 +1900,7 @@ function getScopeItemClarificationBlueprints(item: ProjectAiScopeItemDraft) {
             buildOption("unknown", "Not sure yet"),
           ],
         },
+        ...mediaBlueprints,
       ];
     case "permit_and_inspection_coordination":
       return [
@@ -1838,6 +1918,7 @@ function getScopeItemClarificationBlueprints(item: ProjectAiScopeItemDraft) {
             buildOption("unknown", "Not sure yet"),
           ],
         },
+        ...mediaBlueprints,
       ];
     case "site_access_logistics":
       return [
@@ -1850,6 +1931,7 @@ function getScopeItemClarificationBlueprints(item: ProjectAiScopeItemDraft) {
           placeholder: "Example: narrow gate, soft shoulder, limited truck turnaround, no issues known yet",
           options_json: [],
         },
+        ...mediaBlueprints,
       ];
     default:
       if (
@@ -1868,10 +1950,11 @@ function getScopeItemClarificationBlueprints(item: ProjectAiScopeItemDraft) {
             placeholder: "Add any quantities, measurements, access notes, or must-have details",
             options_json: [],
           },
+          ...mediaBlueprints,
         ];
       }
 
-      return [];
+      return mediaBlueprints;
   }
 }
 
@@ -1882,7 +1965,7 @@ export function buildProjectAiItemClarifications(params: {
   const { items, input } = params;
 
   return items.flatMap((item) => {
-    const blueprints = getScopeItemClarificationBlueprints(item);
+    const blueprints = getScopeItemClarificationBlueprints(item, input);
 
     return blueprints.map((blueprint, index) => {
       const answer = getClarificationAnswer(
