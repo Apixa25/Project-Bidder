@@ -29,7 +29,10 @@ import {
 } from "@/lib/file-uploads";
 import { PAID_ESTIMATE_FILTER_LABELS } from "@/lib/paid-estimates/eligibility";
 import AiEstimateSummary from "@/components/ai/AiEstimateSummary";
-import type { ProjectAiAnalysisResult } from "@/lib/ai-estimates";
+import type {
+  ProjectAiAnalysisResult,
+  ProjectAiRecommendedQuestion,
+} from "@/lib/ai-estimates";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
@@ -37,6 +40,23 @@ const US_STATES = [
   "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT",
   "VA","WA","WV","WI","WY",
 ];
+
+function hasDraftClarificationAnswer(value: string | string[]) {
+  return Array.isArray(value) ? value.length > 0 : value.trim().length > 0;
+}
+
+function getDraftClarificationValue(
+  question: ProjectAiRecommendedQuestion,
+  answers: Record<string, string[]>
+) {
+  const values = answers[question.question_key] || [];
+
+  if (question.question_type === "multi_select") {
+    return values.filter(Boolean);
+  }
+
+  return values[0] || "";
+}
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -59,6 +79,9 @@ export default function NewProjectPage() {
   const [aiAnalysis, setAiAnalysis] = useState<ProjectAiAnalysisResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [draftClarificationAnswers, setDraftClarificationAnswers] = useState<
+    Record<string, string[]>
+  >({});
 
   useEffect(() => {
     getCostEstimates().then((data) => setCostEstimates(data));
@@ -126,6 +149,36 @@ export default function NewProjectPage() {
     [previews]
   );
 
+  const draftClarificationPayload = useMemo(() => {
+    if (!aiAnalysis) {
+      return [];
+    }
+
+    return aiAnalysis.recommended_questions.map((question, index) => {
+      const answerValue = getDraftClarificationValue(
+        question,
+        draftClarificationAnswers
+      );
+
+      return {
+        question_key: question.question_key,
+        question_text: question.question_text,
+        question_type: question.question_type,
+        help_text: question.help_text,
+        placeholder: question.placeholder,
+        options: question.options,
+        answer_value_json: answerValue,
+        status: hasDraftClarificationAnswer(answerValue) ? "answered" : "pending",
+        display_order: index,
+      };
+    });
+  }, [aiAnalysis, draftClarificationAnswers]);
+
+  const serializedDraftClarifications = useMemo(
+    () => JSON.stringify(draftClarificationPayload),
+    [draftClarificationPayload]
+  );
+
   function toggleTrade(trade: TradeCategory) {
     setSelectedTrades((prev) =>
       prev.includes(trade)
@@ -144,6 +197,27 @@ export default function NewProjectPage() {
 
   function removeFile(index: number) {
     setFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function setDraftSingleValue(questionKey: string, value: string) {
+    setDraftClarificationAnswers((prev) => ({
+      ...prev,
+      [questionKey]: [value],
+    }));
+  }
+
+  function toggleDraftMultiValue(questionKey: string, optionId: string) {
+    setDraftClarificationAnswers((prev) => {
+      const existing = prev[questionKey] || [];
+      const nextValues = existing.includes(optionId)
+        ? existing.filter((value) => value !== optionId)
+        : [...existing, optionId];
+
+      return {
+        ...prev,
+        [questionKey]: nextValues,
+      };
+    });
   }
 
   async function handleAiScopeCheck() {
@@ -176,7 +250,11 @@ export default function NewProjectPage() {
         file_name: file.name,
         file_type: file.type,
       })),
-      clarificationAnswers: [],
+      clarificationAnswers: draftClarificationPayload.map((clarification) => ({
+        question_key: clarification.question_key,
+        answer_value_json: clarification.answer_value_json,
+        status: clarification.status as "pending" | "answered",
+      })),
     });
 
     if (result.error) {
@@ -185,7 +263,24 @@ export default function NewProjectPage() {
       return;
     }
 
+    if (!result.analysis) {
+      setAiError("AI Scope Check did not return an analysis.");
+      setAiLoading(false);
+      return;
+    }
+
     setAiAnalysis(result.analysis);
+    setDraftClarificationAnswers((prev) => {
+      const nextState = { ...prev };
+
+      for (const question of result.analysis.recommended_questions) {
+        if (!nextState[question.question_key]) {
+          nextState[question.question_key] = [];
+        }
+      }
+
+      return nextState;
+    });
     setAiLoading(false);
   }
 
@@ -334,6 +429,11 @@ export default function NewProjectPage() {
       )}
 
       <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
+        <input
+          type="hidden"
+          name="draftAiClarifications"
+          value={serializedDraftClarifications}
+        />
         {/* Project Basics */}
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <h2 className="mb-5 text-lg font-semibold text-text-primary">
@@ -690,13 +790,190 @@ export default function NewProjectPage() {
                 assumptions={aiAnalysis.assumptions}
                 exclusions={aiAnalysis.exclusions}
                 missingItems={aiAnalysis.missing_items}
-                questions={aiAnalysis.recommended_questions}
+                questions={[]}
                 tradeBreakdown={aiAnalysis.trade_breakdown}
               />
+              {aiAnalysis.recommended_questions.length > 0 && (
+                <div className="mt-5 rounded-xl border border-border bg-bg-warm px-5 py-4">
+                  <h3 className="text-sm font-semibold text-text-primary">
+                    Clarification workflow
+                  </h3>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    Answer these now to strengthen the scope before you post.
+                    These draft clarification answers will carry into the project
+                    after posting so the AI baseline starts from the improved
+                    version of the scope.
+                  </p>
+
+                  <div className="mt-4 space-y-4">
+                    {aiAnalysis.recommended_questions.map((question) => (
+                      <div
+                        key={question.question_key}
+                        className="rounded-lg border border-border bg-surface px-4 py-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-text-primary">
+                              {question.question_text}
+                            </p>
+                            {question.help_text && (
+                              <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                                {question.help_text}
+                              </p>
+                            )}
+                          </div>
+                          <span className="rounded-full bg-bg-warm px-2.5 py-1 text-xs font-medium text-text-secondary">
+                            {question.question_type === "upload_request"
+                              ? "Upload needed"
+                              : hasDraftClarificationAnswer(
+                                    getDraftClarificationValue(
+                                      question,
+                                      draftClarificationAnswers
+                                    )
+                                  )
+                                ? "Answered"
+                                : "Action needed"}
+                          </span>
+                        </div>
+
+                        <div className="mt-3">
+                          {question.question_type === "text" && (
+                            <textarea
+                              value={
+                                draftClarificationAnswers[question.question_key]?.[0] ||
+                                ""
+                              }
+                              onChange={(event) =>
+                                setDraftSingleValue(
+                                  question.question_key,
+                                  event.target.value
+                                )
+                              }
+                              rows={3}
+                              placeholder={question.placeholder || ""}
+                              className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                          )}
+
+                          {question.question_type === "number" && (
+                            <input
+                              type="number"
+                              value={
+                                draftClarificationAnswers[question.question_key]?.[0] ||
+                                ""
+                              }
+                              onChange={(event) =>
+                                setDraftSingleValue(
+                                  question.question_key,
+                                  event.target.value
+                                )
+                              }
+                              placeholder={question.placeholder || ""}
+                              className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                          )}
+
+                          {question.question_type === "single_select" && (
+                            <select
+                              value={
+                                draftClarificationAnswers[question.question_key]?.[0] ||
+                                ""
+                              }
+                              onChange={(event) =>
+                                setDraftSingleValue(
+                                  question.question_key,
+                                  event.target.value
+                                )
+                              }
+                              className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            >
+                              <option value="">Select an answer</option>
+                              {question.options.map((option) => (
+                                <option
+                                  key={option.id || option.label}
+                                  value={option.id || option.label || ""}
+                                >
+                                  {option.label || option.id}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+
+                          {question.question_type === "multi_select" && (
+                            <div className="space-y-2">
+                              {question.options.map((option) => {
+                                const optionValue = option.id || option.label || "";
+                                const isChecked =
+                                  draftClarificationAnswers[
+                                    question.question_key
+                                  ]?.includes(optionValue) || false;
+
+                                return (
+                                  <label
+                                    key={optionValue}
+                                    className="flex items-center gap-2 text-sm text-text-secondary"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() =>
+                                        toggleDraftMultiValue(
+                                          question.question_key,
+                                          optionValue
+                                        )
+                                      }
+                                    />
+                                    <span>{option.label || option.id}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {question.question_type === "upload_request" && (
+                            <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 px-4 py-3 text-sm text-text-secondary">
+                              Add the requested photos, video, or documents in the
+                              upload sections on this page, then run the AI scope
+                              check again.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-4">
+                    <p className="text-sm text-text-secondary">
+                      Re-run the assistant after answering questions so it can
+                      update the score, baseline, and remaining missing
+                      information before you post.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleAiScopeCheck}
+                      disabled={aiLoading}
+                      className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
+                    >
+                      {aiLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Updating AI Scope Check...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          Apply Answers and Re-run AI Scope Check
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
               <p className="mt-4 text-xs leading-relaxed text-text-muted">
                 The AI estimate is a planning baseline, not a contractor quote.
-                After posting, you will be able to answer structured clarification
-                questions and choose whether bidders can see the baseline estimate.
+                Draft clarification answers entered here will be included when
+                you post the project, and you can continue refining the AI
+                workflow from the project detail page afterward.
               </p>
             </div>
           ) : (

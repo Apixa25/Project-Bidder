@@ -19,16 +19,32 @@ import {
 } from "@/lib/email";
 import { TRADE_LABELS } from "@/types/database";
 import {
-  analyzeProjectAiEstimate,
   type ProjectAiAnalysisInput,
   type ProjectAiAnalysisResult,
-  type ProjectAiClarificationAnswerInput,
   type ProjectAiRecommendedQuestion,
 } from "@/lib/ai-estimates";
+import { analyzeProjectAiHybrid } from "@/lib/ai/project-ai-hybrid";
 
 interface CreateProjectResult {
   error: string | null;
   redirectUrl: string | null;
+}
+
+interface DraftProjectAiClarificationSubmission {
+  question_key: string;
+  question_text: string;
+  question_type:
+    | "single_select"
+    | "multi_select"
+    | "number"
+    | "text"
+    | "upload_request";
+  help_text: string | null;
+  placeholder: string | null;
+  options: Array<{ id?: string; label?: string }>;
+  answer_value_json: string | string[];
+  status: "pending" | "answered";
+  display_order: number;
 }
 
 function getNormalizedProjectFileOrder(
@@ -157,6 +173,100 @@ function buildProjectAiInput(params: {
       status: item.status,
     })),
   };
+}
+
+function parseDraftProjectAiClarifications(
+  rawValue: FormDataEntryValue | null
+): DraftProjectAiClarificationSubmission[] {
+  if (typeof rawValue !== "string" || rawValue.trim().length === 0) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((entry, index) => {
+        if (!entry || typeof entry !== "object") {
+          return null;
+        }
+
+        const questionType =
+          typeof entry.question_type === "string" ? entry.question_type : "";
+        if (
+          ![
+            "single_select",
+            "multi_select",
+            "number",
+            "text",
+            "upload_request",
+          ].includes(questionType)
+        ) {
+          return null;
+        }
+
+        const questionKey =
+          typeof entry.question_key === "string" ? entry.question_key.trim() : "";
+        const questionText =
+          typeof entry.question_text === "string"
+            ? entry.question_text.trim()
+            : "";
+
+        if (!questionKey || !questionText) {
+          return null;
+        }
+
+        const answerValue =
+          questionType === "multi_select"
+            ? Array.isArray(entry.answer_value_json)
+              ? entry.answer_value_json.filter(
+                  (value: unknown): value is string =>
+                    typeof value === "string" && value.trim().length > 0
+                )
+              : []
+            : typeof entry.answer_value_json === "string"
+              ? entry.answer_value_json.trim()
+              : "";
+
+        const hasAnswer =
+          (typeof answerValue === "string" && answerValue.length > 0) ||
+          (Array.isArray(answerValue) && answerValue.length > 0);
+
+        return {
+          question_key: questionKey,
+          question_text: questionText,
+          question_type: questionType as DraftProjectAiClarificationSubmission["question_type"],
+          help_text:
+            typeof entry.help_text === "string" && entry.help_text.trim().length > 0
+              ? entry.help_text.trim()
+              : null,
+          placeholder:
+            typeof entry.placeholder === "string" &&
+            entry.placeholder.trim().length > 0
+              ? entry.placeholder.trim()
+              : null,
+          options: Array.isArray(entry.options)
+            ? entry.options.filter(
+                (option: unknown): option is { id?: string; label?: string } =>
+                  Boolean(option) && typeof option === "object"
+              )
+            : [],
+          answer_value_json: answerValue,
+          status: hasAnswer ? "answered" : "pending",
+          display_order:
+            typeof entry.display_order === "number" ? entry.display_order : index,
+        };
+      })
+      .filter(
+        (entry): entry is DraftProjectAiClarificationSubmission => Boolean(entry)
+      );
+  } catch (error) {
+    console.error("Failed to parse draft AI clarifications:", error);
+    return [];
+  }
 }
 
 async function syncProjectAiClarifications(params: {
@@ -311,7 +421,7 @@ async function runAndPersistProjectAiEstimate(params: {
   ]);
 
   const previousEstimate = previousEstimateResult.data;
-  const analysis = analyzeProjectAiEstimate(input, benchmarks);
+  const analysis = await analyzeProjectAiHybrid(input, benchmarks);
   const effectiveStatus = isEditRefresh ? "stale" : analysis.status;
   const publishedToBidders = isEditRefresh
     ? false
@@ -363,7 +473,7 @@ async function runAndPersistProjectAiEstimate(params: {
         stale_after_edit: isEditRefresh,
         published_to_bidders: publishedToBidders,
       } as Record<string, unknown>,
-      model_name: analysis.analysis_version,
+      model_name: analysis.model_name,
       duration_ms: Date.now() - startedAt,
       succeeded: !estimateError,
       error_message: estimateError?.message ?? null,
@@ -435,7 +545,7 @@ export async function analyzeProjectDraft(input: ProjectAiAnalysisInput) {
     };
   }
 
-  const analysis = analyzeProjectAiEstimate(input, await getCostEstimates());
+  const analysis = await analyzeProjectAiHybrid(input, await getCostEstimates());
   return { error: null, analysis };
 }
 
@@ -849,6 +959,9 @@ export async function createProject(formData: FormData) {
   const budgetMax = formData.get("budgetMax") as string;
   const desiredStartDate = formData.get("desiredStartDate") as string;
   const timeline = formData.get("timeline") as string;
+  const draftAiClarifications = parseDraftProjectAiClarifications(
+    formData.get("draftAiClarifications")
+  );
 
   console.info("createProject: received submit", {
     userId: user.id,
@@ -865,6 +978,7 @@ export async function createProject(formData: FormData) {
     maxPaidSlots: formData.get("maxPaidSlots"),
     filter: formData.get("filter"),
     fileCount: formData.getAll("files").filter((file) => file instanceof File && file.size > 0).length,
+    draftAiClarificationCount: draftAiClarifications.length,
   });
 
   if (
@@ -933,6 +1047,44 @@ export async function createProject(formData: FormData) {
     projectId: project.id,
     enablePaidEstimate: formData.get("enablePaidEstimate") === "true",
   });
+
+  if (project && draftAiClarifications.length > 0) {
+    const { error: draftClarificationError } = await supabase
+      .from("project_ai_clarifications")
+      .upsert(
+        draftAiClarifications.map((clarification, index) => ({
+          project_id: project.id,
+          question_key: clarification.question_key,
+          question_text: clarification.question_text,
+          question_type: clarification.question_type,
+          help_text: clarification.help_text,
+          placeholder: clarification.placeholder,
+          options_json: clarification.options,
+          answer_value_json:
+            clarification.status === "answered"
+              ? clarification.answer_value_json
+              : null,
+          status: clarification.status,
+          asked_by: "ai" as const,
+          display_order:
+            typeof clarification.display_order === "number"
+              ? clarification.display_order
+              : index,
+          answered_at:
+            clarification.status === "answered"
+              ? new Date().toISOString()
+              : null,
+        })),
+        { onConflict: "project_id,question_key" }
+      );
+
+    if (draftClarificationError) {
+      console.error(
+        "Draft AI clarification seed error:",
+        draftClarificationError
+      );
+    }
+  }
 
   // Handle file uploads
   if (validFiles.length > 0 && project) {
@@ -1018,7 +1170,14 @@ export async function createProject(formData: FormData) {
         file_name: file.name,
         file_type: file.type,
       })),
-      clarificationAnswers: [],
+      clarificationAnswers: draftAiClarifications.map((clarification) => ({
+        question_key: clarification.question_key,
+        answer_value_json:
+          clarification.status === "answered"
+            ? clarification.answer_value_json
+            : null,
+        status: clarification.status,
+      })),
     },
     triggerType: "create",
   });
