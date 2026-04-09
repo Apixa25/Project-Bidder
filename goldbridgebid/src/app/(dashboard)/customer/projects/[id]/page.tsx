@@ -46,6 +46,10 @@ import type {
   ProjectAiRecommendedQuestion,
   ProjectAiTradeBreakdownItem,
 } from "@/lib/ai-estimates";
+import type {
+  ProjectAiScopeItemEvidenceSignal,
+  ProjectAiScopeItemQuantityDriver,
+} from "@/lib/ai-scope-items";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
   title: "Title",
@@ -445,6 +449,18 @@ export default async function ProjectDetailPage({
                 confidence_reason: item.confidence_reason,
                 estimated_low: item.estimated_low,
                 estimated_high: item.estimated_high,
+                labor_low: item.labor_low,
+                labor_high: item.labor_high,
+                material_low: item.material_low,
+                material_high: item.material_high,
+                equipment_low: item.equipment_low,
+                equipment_high: item.equipment_high,
+                quantity_drivers_json:
+                  item.quantity_drivers_json as ProjectAiScopeItemQuantityDriver[],
+                evidence_signals_json:
+                  item.evidence_signals_json as ProjectAiScopeItemEvidenceSignal[],
+                assumptions_json: item.assumptions_json,
+                exclusions_json: item.exclusions_json,
                 source_method: item.source_method,
                 needs_clarification: item.needs_clarification,
               }))

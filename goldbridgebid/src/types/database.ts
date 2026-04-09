@@ -480,6 +480,10 @@ export interface ProjectAiScopeItem {
   material_high: number | null;
   equipment_low: number | null;
   equipment_high: number | null;
+  quantity_drivers_json: Array<Record<string, unknown>>;
+  evidence_signals_json: Array<Record<string, unknown>>;
+  assumptions_json: string[];
+  exclusions_json: string[];
   source_method:
     | "historical_bids"
     | "ai_assembly"
@@ -905,6 +909,10 @@ type ProjectAiScopeItemInsert = {
   material_high?: number | null;
   equipment_low?: number | null;
   equipment_high?: number | null;
+  quantity_drivers_json?: Array<Record<string, unknown>>;
+  evidence_signals_json?: Array<Record<string, unknown>>;
+  assumptions_json?: string[];
+  exclusions_json?: string[];
   source_method?:
     | "historical_bids"
     | "ai_assembly"

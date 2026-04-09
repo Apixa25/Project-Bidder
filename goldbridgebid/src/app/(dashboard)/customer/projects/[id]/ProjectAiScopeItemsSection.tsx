@@ -2,6 +2,8 @@ import { UploadCloud } from "lucide-react";
 import type {
   ProjectAiItemClarification,
   ProjectAiScopeItem,
+  ProjectAiScopeItemEvidenceSignal,
+  ProjectAiScopeItemQuantityDriver,
 } from "@/lib/ai-scope-items";
 import { getProjectAiScopeItemPricingReasoning } from "@/lib/ai-scope-items";
 
@@ -35,6 +37,16 @@ interface ProjectAiScopeItemsSectionProps {
       | "confidence_reason"
       | "estimated_low"
       | "estimated_high"
+      | "labor_low"
+      | "labor_high"
+      | "material_low"
+      | "material_high"
+      | "equipment_low"
+      | "equipment_high"
+      | "quantity_drivers_json"
+      | "evidence_signals_json"
+      | "assumptions_json"
+      | "exclusions_json"
       | "source_method"
       | "needs_clarification"
     >
@@ -66,6 +78,126 @@ function formatRange(low: number | null, high: number | null) {
   }
 
   return `${lowLabel} - ${highLabel}`;
+}
+
+function renderCostSplitLabel(
+  label: string,
+  low: number | null,
+  high: number | null
+) {
+  return (
+    <div className="rounded-lg border border-border bg-surface px-3 py-2">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-medium text-text-primary">
+        {formatRange(low, high)}
+      </div>
+    </div>
+  );
+}
+
+function renderSimpleList(title: string, items: string[], tone: "amber" | "slate") {
+  if (items.length === 0) {
+    return null;
+  }
+
+  const toneClasses =
+    tone === "amber"
+      ? "border-amber-200 bg-amber-50 text-amber-900"
+      : "border-slate-200 bg-slate-50 text-slate-800";
+
+  return (
+    <div className={`mt-4 rounded-lg border px-3 py-3 ${toneClasses}`}>
+      <div className="text-xs font-semibold uppercase tracking-wide">
+        {title}
+      </div>
+      <ul className="mt-2 space-y-1 text-sm leading-relaxed">
+        {items.map((item) => (
+          <li key={item}>- {item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function renderQuantityDrivers(items: ProjectAiScopeItemQuantityDriver[]) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-violet-200 bg-violet-50 px-3 py-3">
+      <div className="text-xs font-semibold uppercase tracking-wide text-violet-800">
+        Quantity drivers
+      </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        {items.map((driver) => (
+          <div
+            key={`${driver.key}-${driver.label}`}
+            className="rounded-lg border border-violet-200 bg-white px-3 py-2"
+          >
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">
+              {driver.label}
+            </div>
+            <div className="mt-1 text-sm font-medium text-text-primary">
+              {driver.value}
+              {driver.unit ? ` ${driver.unit}` : ""}
+            </div>
+            <div className="mt-1 text-[11px] text-text-muted">
+              {driver.source.replaceAll("_", " ")} • {driver.confidence} confidence
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function getEvidenceStrengthClassName(
+  strength: ProjectAiScopeItemEvidenceSignal["strength"]
+) {
+  switch (strength) {
+    case "direct":
+      return "border-emerald-200 bg-emerald-50 text-emerald-900";
+    case "supporting":
+      return "border-sky-200 bg-sky-50 text-sky-900";
+    default:
+      return "border-amber-200 bg-amber-50 text-amber-900";
+  }
+}
+
+function renderEvidenceSignals(items: ProjectAiScopeItemEvidenceSignal[]) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3">
+      <div className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+        Evidence signals
+      </div>
+      <div className="mt-2 space-y-2">
+        {items.map((signal) => (
+          <div
+            key={`${signal.key}-${signal.label}`}
+            className={`rounded-lg border px-3 py-2 ${getEvidenceStrengthClassName(signal.strength)}`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm font-semibold">{signal.label}</div>
+              <div className="text-[11px] uppercase tracking-wide">
+                {signal.strength} evidence
+              </div>
+            </div>
+            <div className="mt-1 text-sm leading-relaxed">{signal.summary}</div>
+            <div className="mt-1 text-[11px] text-text-muted">
+              Source: {signal.source.replaceAll("_", " ")}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function getRequiredStatusLabel(value: ProjectAiScopeItem["required_status"]) {
@@ -203,6 +335,36 @@ export default function ProjectAiScopeItemsSection({
               </div>
             </div>
 
+            {(item.labor_low !== null ||
+              item.material_low !== null ||
+              item.equipment_low !== null) && (
+              <div className="mt-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  Cost component split
+                </div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  {renderCostSplitLabel("Labor", item.labor_low, item.labor_high)}
+                  {renderCostSplitLabel(
+                    "Material",
+                    item.material_low,
+                    item.material_high
+                  )}
+                  {renderCostSplitLabel(
+                    "Equipment",
+                    item.equipment_low,
+                    item.equipment_high
+                  )}
+                </div>
+              </div>
+            )}
+
+            {renderQuantityDrivers(
+              item.quantity_drivers_json as ProjectAiScopeItemQuantityDriver[]
+            )}
+            {renderEvidenceSignals(
+              item.evidence_signals_json as ProjectAiScopeItemEvidenceSignal[]
+            )}
+
             <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-3">
               <div className="text-xs font-semibold uppercase tracking-wide text-sky-700">
                 Pricing reasoning
@@ -233,6 +395,9 @@ export default function ProjectAiScopeItemsSection({
                 </p>
               </div>
             )}
+
+            {renderSimpleList("Assumptions", item.assumptions_json, "slate")}
+            {renderSimpleList("Exclusions", item.exclusions_json, "amber")}
 
             {itemClarifications.filter(
               (clarification) => clarification.scope_item_id === item.id
