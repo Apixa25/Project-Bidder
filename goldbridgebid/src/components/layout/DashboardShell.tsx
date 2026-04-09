@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import type { UserRole } from "@/types/database";
@@ -11,6 +12,7 @@ interface DashboardShellProps {
   defaultRole: UserRole;
   availableRoles: UserRole[];
   userName: string;
+  avatarUrl?: string | null;
   unreadNotifications?: number;
   children: ReactNode;
 }
@@ -19,6 +21,7 @@ export default function DashboardShell({
   defaultRole,
   availableRoles,
   userName,
+  avatarUrl = null,
   unreadNotifications = 0,
   children,
 }: DashboardShellProps) {
@@ -67,6 +70,7 @@ export default function DashboardShell({
         currentRole={currentRole}
         availableRoles={availableRoles}
         userName={userName}
+        avatarUrl={avatarUrl}
         unreadNotifications={unreadNotifications}
         isMobileOpen={isMobileNavOpen}
         onClose={() => setIsMobileNavOpen(false)}
@@ -79,11 +83,37 @@ export default function DashboardShell({
         />
         <header className="relative z-20 sticky top-0 border-b border-border bg-surface/95 backdrop-blur lg:hidden">
           <div className="flex items-center justify-between gap-3 px-4 py-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-text-primary">
-                {userName}
-              </p>
-              <p className="text-xs capitalize text-text-muted">{currentRole} account</p>
+            <div className="flex min-w-0 items-center gap-3">
+              <Link
+                href={`/${currentRole}/profile`}
+                className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-border bg-bg-warm transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                aria-label="Open profile"
+              >
+                {avatarUrl ? (
+                  <Image
+                    src={avatarUrl}
+                    alt={userName}
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-secondary/15 text-xs font-semibold text-text-primary">
+                    {userName
+                      .split(" ")
+                      .map((part) => part[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2)}
+                  </div>
+                )}
+              </Link>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-text-primary">
+                  {userName}
+                </p>
+                <p className="text-xs capitalize text-text-muted">{currentRole} account</p>
+              </div>
             </div>
 
             <button

@@ -41,6 +41,7 @@ export default async function DashboardLayout({
       defaultRole={profile.role}
       availableRoles={availableRoles}
       userName={profile.full_name || profile.email}
+      avatarUrl={profile.avatar_url}
       unreadNotifications={unreadCount || 0}
     >
       {children}

@@ -32,6 +32,7 @@ interface DashboardNavProps {
   currentRole: UserRole;
   availableRoles: UserRole[];
   userName: string;
+  avatarUrl?: string | null;
   unreadNotifications?: number;
   isMobileOpen?: boolean;
   onClose?: () => void;
@@ -74,12 +75,20 @@ export default function DashboardNav({
   currentRole,
   availableRoles,
   userName,
+  avatarUrl = null,
   unreadNotifications = 0,
   isMobileOpen = false,
   onClose,
 }: DashboardNavProps) {
   const pathname = usePathname();
   const items = NAV_ITEMS[currentRole];
+  const profileHref = `/${currentRole}/profile`;
+  const userInitials = userName
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <nav
@@ -117,10 +126,34 @@ export default function DashboardNav({
 
       {/* User Info */}
       <div className="border-b border-border px-6 py-4">
-        <p className="text-sm font-medium text-text-primary truncate">
-          {userName}
-        </p>
-        <p className="text-xs text-text-muted capitalize">{currentRole} Account</p>
+        <div className="flex items-center gap-3">
+          <Link
+            href={profileHref}
+            onClick={onClose}
+            aria-label="Open profile"
+            className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border bg-bg-warm transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt={userName}
+                fill
+                sizes="48px"
+                className="object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-secondary/15 text-sm font-semibold text-text-primary">
+                {userInitials}
+              </div>
+            )}
+          </Link>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-text-primary">
+              {userName}
+            </p>
+            <p className="text-xs text-text-muted capitalize">{currentRole} Account</p>
+          </div>
+        </div>
         <div className="mt-4">
           <RoleSwitcher
             availableRoles={availableRoles}
