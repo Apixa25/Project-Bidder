@@ -34,6 +34,10 @@ import type {
   ProjectAiRecommendedQuestion,
 } from "@/lib/ai-estimates";
 
+type DraftAiAnalysis = ProjectAiAnalysisResult & {
+  model_name?: string | null;
+};
+
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
   "KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
@@ -76,7 +80,7 @@ export default function NewProjectPage() {
   const [costEstimates, setCostEstimates] = useState<
     Array<{ trade: string; label: string; avg: number; min: number; max: number; count: number }>
   >([]);
-  const [aiAnalysis, setAiAnalysis] = useState<ProjectAiAnalysisResult | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<DraftAiAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [draftClarificationAnswers, setDraftClarificationAnswers] = useState<
@@ -792,6 +796,8 @@ export default function NewProjectPage() {
                 missingItems={aiAnalysis.missing_items}
                 questions={[]}
                 tradeBreakdown={aiAnalysis.trade_breakdown}
+                modelName={aiAnalysis.model_name || null}
+                analysisVersion={aiAnalysis.analysis_version}
               />
               {aiAnalysis.recommended_questions.length > 0 && (
                 <div className="mt-5 rounded-xl border border-border bg-bg-warm px-5 py-4">

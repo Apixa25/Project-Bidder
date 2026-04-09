@@ -57,7 +57,9 @@ interface ProjectAiEstimatePanelProps {
     published_to_bidders: boolean;
     stale_after_edit: boolean;
     last_analyzed_at: string;
+    analysis_version?: string | null;
   } | null;
+  latestRunModelName?: string | null;
   clarifications: ClarificationRow[];
 }
 
@@ -93,6 +95,7 @@ function getInitialAnswers(clarifications: ClarificationRow[]) {
 export default function ProjectAiEstimatePanel({
   projectId,
   estimate,
+  latestRunModelName = null,
   clarifications,
 }: ProjectAiEstimatePanelProps) {
   const router = useRouter();
@@ -310,6 +313,8 @@ export default function ProjectAiEstimatePanel({
             missingItems={estimate.missing_items_json}
             questions={estimate.recommended_questions_json}
             tradeBreakdown={estimate.trade_breakdown_json}
+            modelName={latestRunModelName}
+            analysisVersion={estimate.analysis_version || null}
           />
 
           {estimate.published_to_bidders && (

@@ -111,6 +111,14 @@ export default async function ProjectDetailPage({
     .order("display_order", { ascending: true })
     .order("created_at", { ascending: true });
 
+  const { data: latestAiRun } = await supabase
+    .from("project_ai_analysis_runs")
+    .select("model_name")
+    .eq("project_id", id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const { data: paidEstimatePool } = await admin
     .from("project_paid_estimate_pools")
     .select("*")
@@ -390,9 +398,11 @@ export default async function ProjectDetailPage({
                     published_to_bidders: aiEstimate.published_to_bidders,
                     stale_after_edit: aiEstimate.stale_after_edit,
                     last_analyzed_at: aiEstimate.last_analyzed_at,
+                    analysis_version: aiEstimate.analysis_version,
                   }
                 : null
             }
+            latestRunModelName={latestAiRun?.model_name || null}
             clarifications={
               (aiClarifications || []).map((clarification) => ({
                 id: clarification.id,

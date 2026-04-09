@@ -24,6 +24,8 @@ interface AiEstimateSummaryProps {
   missingItems?: string[];
   questions?: ProjectAiRecommendedQuestion[];
   tradeBreakdown?: ProjectAiTradeBreakdownItem[];
+  modelName?: string | null;
+  analysisVersion?: string | null;
   compact?: boolean;
 }
 
@@ -70,6 +72,73 @@ function getConfidenceClass(confidence: ProjectAiConfidenceLevel) {
   return "text-amber-700";
 }
 
+function getAiSourceLabel(modelName?: string | null, analysisVersion?: string | null) {
+  if (modelName?.startsWith("openai:")) {
+    return `OpenAI ${modelName.replace("openai:", "")} + rules engine`;
+  }
+
+  if (modelName?.startsWith("fallback:")) {
+    return "Rules fallback (LLM unavailable)";
+  }
+
+  if (analysisVersion === "v2-openai-hybrid") {
+    return "OpenAI hybrid + rules engine";
+  }
+
+  return "Rules engine";
+}
+
+function getEstimateMethod(tradeBreakdown: ProjectAiTradeBreakdownItem[]) {
+  if (tradeBreakdown.length === 0) {
+    return {
+      label: "Scope readiness only",
+      detail: "No pricing method was available yet because the scope still needs more signal.",
+    };
+  }
+
+  const sources = new Set(tradeBreakdown.map((item) => item.source));
+
+  if (sources.size === 1 && sources.has("historical_bids")) {
+    return {
+      label: "Historical bid benchmark",
+      detail: "Trade ranges come from internal bid history and are widened or tightened by scope completeness.",
+    };
+  }
+
+  if (sources.size === 1 && sources.has("budget_signal")) {
+    return {
+      label: "Budget split fallback",
+      detail: "The current budget was split across the selected trades because internal bid data was limited.",
+    };
+  }
+
+  if (sources.size === 1 && sources.has("insufficient_signal")) {
+    return {
+      label: "Insufficient pricing signal",
+      detail: "The scope is being analyzed, but there is not enough budget or historical bid data for trade-level pricing yet.",
+    };
+  }
+
+  if (sources.has("historical_bids") && sources.has("budget_signal")) {
+    return {
+      label: "Mixed benchmark + budget fallback",
+      detail: "Some selected trades used internal bid history while others fell back to the stated budget.",
+    };
+  }
+
+  if (sources.has("historical_bids") && sources.has("insufficient_signal")) {
+    return {
+      label: "Partial benchmark with gaps",
+      detail: "Some trades used internal bid history, but others still lacked enough signal for pricing.",
+    };
+  }
+
+  return {
+    label: "Mixed heuristic estimate",
+    detail: "This estimate combines multiple fallback methods based on the pricing signal available for each selected trade.",
+  };
+}
+
 export default function AiEstimateSummary({
   status,
   score,
@@ -82,10 +151,14 @@ export default function AiEstimateSummary({
   missingItems = [],
   questions = [],
   tradeBreakdown = [],
+  modelName = null,
+  analysisVersion = null,
   compact = false,
 }: AiEstimateSummaryProps) {
   const statusConfig = getStatusConfig(status);
   const StatusIcon = statusConfig.Icon;
+  const aiSourceLabel = getAiSourceLabel(modelName, analysisVersion);
+  const estimateMethod = getEstimateMethod(tradeBreakdown);
 
   return (
     <div className="space-y-4">
@@ -128,6 +201,33 @@ export default function AiEstimateSummary({
           </p>
         </div>
       </div>
+
+      {!compact && (
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-xl border border-border bg-surface px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              AI source
+            </p>
+            <p className="mt-1 text-sm font-semibold text-text-primary">
+              {aiSourceLabel}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-text-muted">
+              The LLM can improve wording, missing items, and clarification questions, while the current pricing math still uses the rules engine.
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-surface px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Estimate method
+            </p>
+            <p className="mt-1 text-sm font-semibold text-text-primary">
+              {estimateMethod.label}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-text-muted">
+              {estimateMethod.detail}
+            </p>
+          </div>
+        </div>
+      )}
 
       {!compact && tradeBreakdown.length > 0 && (
         <div className="grid gap-3 md:grid-cols-2">
