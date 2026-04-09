@@ -111,6 +111,20 @@ export default async function ProjectDetailPage({
     .order("display_order", { ascending: true })
     .order("created_at", { ascending: true });
 
+  const { data: aiScopeItems } = await supabase
+    .from("project_ai_scope_items")
+    .select("*")
+    .eq("project_id", id)
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  const { data: aiItemClarifications } = await supabase
+    .from("project_ai_item_clarifications")
+    .select("*")
+    .eq("project_id", id)
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
   const { data: latestAiRun } = await supabase
     .from("project_ai_analysis_runs")
     .select("model_name")
@@ -406,6 +420,39 @@ export default async function ProjectDetailPage({
             clarifications={
               (aiClarifications || []).map((clarification) => ({
                 id: clarification.id,
+                question_key: clarification.question_key,
+                question_text: clarification.question_text,
+                question_type: clarification.question_type,
+                help_text: clarification.help_text,
+                placeholder: clarification.placeholder,
+                options_json: clarification.options_json as Array<{
+                  id?: string;
+                  label?: string;
+                }>,
+                answer_value_json: clarification.answer_value_json,
+                status: clarification.status,
+              }))
+            }
+            scopeItems={
+              (aiScopeItems || []).map((item) => ({
+                id: item.id,
+                item_label: item.item_label,
+                item_category: item.item_category,
+                required_status: item.required_status,
+                confidence_level: item.confidence_level,
+                description: item.description,
+                why_it_may_apply: item.why_it_may_apply,
+                confidence_reason: item.confidence_reason,
+                estimated_low: item.estimated_low,
+                estimated_high: item.estimated_high,
+                source_method: item.source_method,
+                needs_clarification: item.needs_clarification,
+              }))
+            }
+            itemClarifications={
+              (aiItemClarifications || []).map((clarification) => ({
+                id: clarification.id,
+                scope_item_id: clarification.scope_item_id,
                 question_key: clarification.question_key,
                 question_text: clarification.question_text,
                 question_type: clarification.question_type,

@@ -447,6 +447,75 @@ export interface ProjectAiAnalysisRun {
   created_at: string;
 }
 
+export interface ProjectAiScopeItem {
+  id: string;
+  project_id: string;
+  item_key: string;
+  item_label: string;
+  item_category:
+    | "site_prep"
+    | "utility"
+    | "electrical"
+    | "water"
+    | "sewer"
+    | "grading"
+    | "drainage"
+    | "foundation"
+    | "delivery"
+    | "permit"
+    | "finish"
+    | "demolition"
+    | "landscape"
+    | "other";
+  required_status: "required" | "likely" | "possible" | "unknown";
+  confidence_level: "low" | "medium" | "high";
+  description: string | null;
+  why_it_may_apply: string | null;
+  confidence_reason: string | null;
+  estimated_low: number | null;
+  estimated_high: number | null;
+  labor_low: number | null;
+  labor_high: number | null;
+  material_low: number | null;
+  material_high: number | null;
+  equipment_low: number | null;
+  equipment_high: number | null;
+  source_method:
+    | "historical_bids"
+    | "ai_assembly"
+    | "budget_signal"
+    | "insufficient_signal"
+    | "manual_review";
+  needs_clarification: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectAiItemClarification {
+  id: string;
+  project_id: string;
+  scope_item_id: string;
+  question_key: string;
+  question_text: string;
+  question_type:
+    | "single_select"
+    | "multi_select"
+    | "number"
+    | "text"
+    | "upload_request";
+  help_text: string | null;
+  placeholder: string | null;
+  options_json: Array<Record<string, unknown>>;
+  answer_value_json: unknown;
+  status: "pending" | "answered" | "dismissed";
+  asked_by: "ai" | "admin";
+  display_order: number;
+  answered_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ProjectFile {
   id: string;
   project_id: string;
@@ -804,6 +873,69 @@ type ProjectAiAnalysisRunInsert = {
   error_message?: string | null;
 };
 
+type ProjectAiScopeItemInsert = {
+  project_id: string;
+  item_key: string;
+  item_label: string;
+  item_category?:
+    | "site_prep"
+    | "utility"
+    | "electrical"
+    | "water"
+    | "sewer"
+    | "grading"
+    | "drainage"
+    | "foundation"
+    | "delivery"
+    | "permit"
+    | "finish"
+    | "demolition"
+    | "landscape"
+    | "other";
+  required_status?: "required" | "likely" | "possible" | "unknown";
+  confidence_level?: "low" | "medium" | "high";
+  description?: string | null;
+  why_it_may_apply?: string | null;
+  confidence_reason?: string | null;
+  estimated_low?: number | null;
+  estimated_high?: number | null;
+  labor_low?: number | null;
+  labor_high?: number | null;
+  material_low?: number | null;
+  material_high?: number | null;
+  equipment_low?: number | null;
+  equipment_high?: number | null;
+  source_method?:
+    | "historical_bids"
+    | "ai_assembly"
+    | "budget_signal"
+    | "insufficient_signal"
+    | "manual_review";
+  needs_clarification?: boolean;
+  display_order?: number;
+};
+
+type ProjectAiItemClarificationInsert = {
+  project_id: string;
+  scope_item_id: string;
+  question_key: string;
+  question_text: string;
+  question_type:
+    | "single_select"
+    | "multi_select"
+    | "number"
+    | "text"
+    | "upload_request";
+  help_text?: string | null;
+  placeholder?: string | null;
+  options_json?: Array<Record<string, unknown>>;
+  answer_value_json?: unknown;
+  status?: "pending" | "answered" | "dismissed";
+  asked_by?: "ai" | "admin";
+  display_order?: number;
+  answered_at?: string | null;
+};
+
 type MessageInsert = {
   project_id: string;
   sender_id: string;
@@ -948,6 +1080,20 @@ export interface Database {
         Row: ProjectAiAnalysisRun;
         Insert: ProjectAiAnalysisRunInsert;
         Update: never;
+        Relationships: [];
+      };
+      project_ai_scope_items: {
+        Row: ProjectAiScopeItem;
+        Insert: ProjectAiScopeItemInsert;
+        Update: Partial<Omit<ProjectAiScopeItemInsert, "project_id" | "item_key">>;
+        Relationships: [];
+      };
+      project_ai_item_clarifications: {
+        Row: ProjectAiItemClarification;
+        Insert: ProjectAiItemClarificationInsert;
+        Update: Partial<
+          Omit<ProjectAiItemClarificationInsert, "project_id" | "scope_item_id" | "question_key">
+        >;
         Relationships: [];
       };
       project_files: {

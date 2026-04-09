@@ -23,6 +23,11 @@ import {
   type ProjectAiAnalysisResult,
   type ProjectAiRecommendedQuestion,
 } from "@/lib/ai-estimates";
+import {
+  applyItemClarificationStateToScopeItems,
+  buildProjectAiItemClarifications,
+  buildProjectAiScopeItems,
+} from "@/lib/ai-scope-items";
 import { analyzeProjectAiHybrid } from "@/lib/ai/project-ai-hybrid";
 
 interface CreateProjectResult {
@@ -337,6 +342,220 @@ async function syncProjectAiClarifications(params: {
   }
 }
 
+async function syncProjectAiScopeItems(params: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  projectId: string;
+  items: ReturnType<typeof buildProjectAiScopeItems>;
+}) {
+  const { supabase, projectId, items } = params;
+
+  const { data: existingItems } = await supabase
+    .from("project_ai_scope_items")
+    .select("id, item_key")
+    .eq("project_id", projectId);
+
+  if (items.length > 0) {
+    const { error: upsertError } = await supabase
+      .from("project_ai_scope_items")
+      .upsert(
+        items.map((item, index) => ({
+          project_id: projectId,
+          item_key: item.item_key,
+          item_label: item.item_label,
+          item_category: item.item_category,
+          required_status: item.required_status,
+          confidence_level: item.confidence_level,
+          description: item.description,
+          why_it_may_apply: item.why_it_may_apply,
+          confidence_reason: item.confidence_reason,
+          estimated_low: item.estimated_low,
+          estimated_high: item.estimated_high,
+          labor_low: item.labor_low,
+          labor_high: item.labor_high,
+          material_low: item.material_low,
+          material_high: item.material_high,
+          equipment_low: item.equipment_low,
+          equipment_high: item.equipment_high,
+          source_method: item.source_method,
+          needs_clarification: item.needs_clarification,
+          display_order: index,
+        })),
+        { onConflict: "project_id,item_key" }
+      );
+
+    if (upsertError) {
+      console.error("AI scope item sync error:", upsertError);
+    }
+  }
+
+  const activeItemKeys = new Set(items.map((item) => item.item_key));
+  const staleItemIds = (existingItems || [])
+    .filter((item) => !activeItemKeys.has(item.item_key))
+    .map((item) => item.id);
+
+  if (staleItemIds.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("project_ai_scope_items")
+      .delete()
+      .in("id", staleItemIds);
+
+    if (deleteError) {
+      console.error("AI scope item cleanup error:", deleteError);
+    }
+  }
+
+  const { data: persistedItems, error: selectError } = await supabase
+    .from("project_ai_scope_items")
+    .select("id, item_key")
+    .eq("project_id", projectId);
+
+  if (selectError) {
+    console.error("AI scope item readback error:", selectError);
+    return [];
+  }
+
+  return persistedItems || [];
+}
+
+async function syncProjectAiItemClarifications(params: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  projectId: string;
+  scopeItems: Array<{ id: string; item_key: string }>;
+  clarifications: ReturnType<typeof buildProjectAiItemClarifications>;
+}) {
+  const { supabase, projectId, scopeItems, clarifications } = params;
+  const scopeItemIds = scopeItems.map((item) => item.id);
+  const itemIdByKey = new Map(scopeItems.map((item) => [item.item_key, item.id]));
+
+  const { data: existingClarifications } =
+    scopeItemIds.length > 0
+      ? await supabase
+          .from("project_ai_item_clarifications")
+          .select("id, scope_item_id, question_key, status, answered_at")
+          .eq("project_id", projectId)
+          .in("scope_item_id", scopeItemIds)
+      : { data: [] };
+
+  const existingByCompositeKey = new Map(
+    (existingClarifications || []).map((row) => [
+      `${row.scope_item_id}::${row.question_key}`,
+      row,
+    ])
+  );
+
+  const nextRows = clarifications
+    .map((clarification) => {
+      const scopeItemId = itemIdByKey.get(clarification.scope_item_key);
+      if (!scopeItemId) {
+        return null;
+      }
+
+      const existing = existingByCompositeKey.get(
+        `${scopeItemId}::${clarification.question_key}`
+      );
+
+      return {
+        project_id: projectId,
+        scope_item_id: scopeItemId,
+        question_key: clarification.question_key,
+        question_text: clarification.question_text,
+        question_type: clarification.question_type,
+        help_text: clarification.help_text,
+        placeholder: clarification.placeholder,
+        options_json: clarification.options_json,
+        answer_value_json: clarification.answer_value_json,
+        status: clarification.status,
+        asked_by: "ai" as const,
+        display_order: clarification.display_order,
+        answered_at:
+          clarification.status === "answered"
+            ? existing?.answered_at || new Date().toISOString()
+            : null,
+      };
+    })
+    .filter(
+      (
+        row
+      ): row is {
+        project_id: string;
+        scope_item_id: string;
+        question_key: string;
+        question_text: string;
+        question_type: "single_select" | "multi_select" | "number" | "text" | "upload_request";
+        help_text: string | null;
+        placeholder: string | null;
+        options_json: Array<Record<string, unknown>>;
+        answer_value_json: unknown;
+        status: "pending" | "answered" | "dismissed";
+        asked_by: "ai";
+        display_order: number;
+        answered_at: string | null;
+      } => Boolean(row)
+    );
+
+  if (nextRows.length > 0) {
+    const { error: upsertError } = await supabase
+      .from("project_ai_item_clarifications")
+      .upsert(nextRows, { onConflict: "scope_item_id,question_key" });
+
+    if (upsertError) {
+      console.error("AI item clarification sync error:", upsertError);
+    }
+  }
+
+  const activeCompositeKeys = new Set(
+    nextRows.map((row) => `${row.scope_item_id}::${row.question_key}`)
+  );
+  const stalePendingIds = (existingClarifications || [])
+    .filter(
+      (row) =>
+        row.status === "pending" &&
+        !activeCompositeKeys.has(`${row.scope_item_id}::${row.question_key}`)
+    )
+    .map((row) => row.id);
+
+  if (stalePendingIds.length > 0) {
+    const { error: dismissError } = await supabase
+      .from("project_ai_item_clarifications")
+      .update({ status: "dismissed" })
+      .in("id", stalePendingIds);
+
+    if (dismissError) {
+      console.error("AI item clarification dismiss error:", dismissError);
+    }
+  }
+}
+
+async function getProjectAiCombinedClarifications(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  projectId: string
+) {
+  const [{ data: projectClarifications }, { data: itemClarifications }] =
+    await Promise.all([
+      supabase
+        .from("project_ai_clarifications")
+        .select("question_key, answer_value_json, status")
+        .eq("project_id", projectId),
+      supabase
+        .from("project_ai_item_clarifications")
+        .select("question_key, answer_value_json, status")
+        .eq("project_id", projectId),
+    ]);
+
+  return [
+    ...((projectClarifications as Array<{
+      question_key: string;
+      answer_value_json: unknown;
+      status: "pending" | "answered" | "dismissed";
+    }>) || []),
+    ...((itemClarifications as Array<{
+      question_key: string;
+      answer_value_json: unknown;
+      status: "pending" | "answered" | "dismissed";
+    }>) || []),
+  ];
+}
+
 async function insertProjectAiNotification(params: {
   supabase: Awaited<ReturnType<typeof createClient>>;
   userId: string;
@@ -422,6 +641,15 @@ async function runAndPersistProjectAiEstimate(params: {
 
   const previousEstimate = previousEstimateResult.data;
   const analysis = await analyzeProjectAiHybrid(input, benchmarks);
+  const draftScopeItems = buildProjectAiScopeItems({ input, analysis });
+  const itemClarifications = buildProjectAiItemClarifications({
+    items: draftScopeItems,
+    input,
+  });
+  const scopeItems = applyItemClarificationStateToScopeItems({
+    items: draftScopeItems,
+    clarifications: itemClarifications,
+  });
   const effectiveStatus = isEditRefresh ? "stale" : analysis.status;
   const publishedToBidders = isEditRefresh
     ? false
@@ -459,6 +687,19 @@ async function runAndPersistProjectAiEstimate(params: {
     supabase,
     projectId,
     questions: analysis.recommended_questions,
+  });
+
+  const persistedScopeItems = await syncProjectAiScopeItems({
+    supabase,
+    projectId,
+    items: scopeItems,
+  });
+
+  await syncProjectAiItemClarifications({
+    supabase,
+    projectId,
+    scopeItems: persistedScopeItems,
+    clarifications: itemClarifications,
   });
 
   const { error: runInsertError } = await supabase
@@ -561,7 +802,7 @@ export async function refreshProjectAiEstimate(projectId: string) {
     return { error: "Enable customer mode to refresh AI estimates." };
   }
 
-  const [{ data: project }, { data: files }, { data: clarifications }] =
+  const [{ data: project }, { data: files }, clarifications] =
     await Promise.all([
       supabase
         .from("projects")
@@ -575,10 +816,7 @@ export async function refreshProjectAiEstimate(projectId: string) {
         .from("project_files")
         .select("file_name, file_type")
         .eq("project_id", projectId),
-      supabase
-        .from("project_ai_clarifications")
-        .select("question_key, answer_value_json, status")
-        .eq("project_id", projectId),
+      getProjectAiCombinedClarifications(supabase, projectId),
     ]);
 
   if (!project) {
@@ -593,12 +831,7 @@ export async function refreshProjectAiEstimate(projectId: string) {
     input: buildProjectAiInput({
       project,
       files: files || [],
-      clarifications:
-        (clarifications as Array<{
-          question_key: string;
-          answer_value_json: unknown;
-          status: "pending" | "answered" | "dismissed";
-        }>) || [],
+      clarifications,
     }),
     triggerType: "manual_refresh",
   });
@@ -674,15 +907,12 @@ export async function answerProjectAiClarification(
     return { error: "Failed to save your clarification answer." };
   }
 
-  const [{ data: files }, { data: clarifications }] = await Promise.all([
+  const [{ data: files }, clarifications] = await Promise.all([
     supabase
       .from("project_files")
       .select("file_name, file_type")
       .eq("project_id", projectId),
-    supabase
-      .from("project_ai_clarifications")
-      .select("question_key, answer_value_json, status")
-      .eq("project_id", projectId),
+    getProjectAiCombinedClarifications(supabase, projectId),
   ]);
 
   const analysis = await runAndPersistProjectAiEstimate({
@@ -693,12 +923,7 @@ export async function answerProjectAiClarification(
     input: buildProjectAiInput({
       project,
       files: files || [],
-      clarifications:
-        (clarifications as Array<{
-          question_key: string;
-          answer_value_json: unknown;
-          status: "pending" | "answered" | "dismissed";
-        }>) || [],
+      clarifications,
     }),
     triggerType: "clarification_answered",
   });
@@ -708,10 +933,16 @@ export async function answerProjectAiClarification(
 
 export async function saveProjectAiClarificationsAndShare(
   projectId: string,
-  answers: Array<{
-    clarificationId: string;
-    answerValue: string | string[];
-  }>
+  answers: {
+    projectAnswers: Array<{
+      clarificationId: string;
+      answerValue: string | string[];
+    }>;
+    itemAnswers: Array<{
+      clarificationId: string;
+      answerValue: string | string[];
+    }>;
+  }
 ) {
   const supabase = await createClient();
 
@@ -737,7 +968,7 @@ export async function saveProjectAiClarificationsAndShare(
     return { error: "Project not found." };
   }
 
-  for (const entry of answers) {
+  for (const entry of answers.projectAnswers) {
     const { data: clarification } = await supabase
       .from("project_ai_clarifications")
       .select("id, question_type")
@@ -782,15 +1013,57 @@ export async function saveProjectAiClarificationsAndShare(
     }
   }
 
-  const [{ data: files }, { data: clarifications }] = await Promise.all([
+  for (const entry of answers.itemAnswers) {
+    const { data: clarification } = await supabase
+      .from("project_ai_item_clarifications")
+      .select("id, question_type")
+      .eq("id", entry.clarificationId)
+      .eq("project_id", projectId)
+      .single();
+
+    if (!clarification) {
+      continue;
+    }
+
+    const normalizedAnswer =
+      clarification.question_type === "multi_select"
+        ? Array.isArray(entry.answerValue)
+          ? entry.answerValue.filter(Boolean)
+          : [entry.answerValue].filter(Boolean)
+        : Array.isArray(entry.answerValue)
+          ? entry.answerValue.join(", ")
+          : entry.answerValue;
+
+    const hasAnswer =
+      (typeof normalizedAnswer === "string" && normalizedAnswer.trim().length > 0) ||
+      (Array.isArray(normalizedAnswer) && normalizedAnswer.length > 0);
+
+    if (!hasAnswer) {
+      continue;
+    }
+
+    const { error: updateError } = await supabase
+      .from("project_ai_item_clarifications")
+      .update({
+        answer_value_json: normalizedAnswer,
+        status: "answered",
+        answered_at: new Date().toISOString(),
+      })
+      .eq("id", clarification.id)
+      .eq("project_id", projectId);
+
+    if (updateError) {
+      console.error("Bulk AI item clarification answer error:", updateError);
+      return { error: "Failed to save one of the item clarification answers." };
+    }
+  }
+
+  const [{ data: files }, clarifications] = await Promise.all([
     supabase
       .from("project_files")
       .select("file_name, file_type")
       .eq("project_id", projectId),
-    supabase
-      .from("project_ai_clarifications")
-      .select("question_key, answer_value_json, status")
-      .eq("project_id", projectId),
+    getProjectAiCombinedClarifications(supabase, projectId),
   ]);
 
   const analysis = await runAndPersistProjectAiEstimate({
@@ -801,12 +1074,7 @@ export async function saveProjectAiClarificationsAndShare(
     input: buildProjectAiInput({
       project,
       files: files || [],
-      clarifications:
-        (clarifications as Array<{
-          question_key: string;
-          answer_value_json: unknown;
-          status: "pending" | "answered" | "dismissed";
-        }>) || [],
+      clarifications,
     }),
     triggerType: "clarification_answered",
   });
@@ -863,7 +1131,7 @@ export async function setProjectAiEstimatePublication(
   let advisory: string | null = null;
 
   if (published) {
-    const [{ data: project }, { data: files }, { data: clarifications }] =
+    const [{ data: project }, { data: files }, clarifications] =
       await Promise.all([
         supabase
           .from("projects")
@@ -877,10 +1145,7 @@ export async function setProjectAiEstimatePublication(
           .from("project_files")
           .select("file_name, file_type")
           .eq("project_id", projectId),
-        supabase
-          .from("project_ai_clarifications")
-          .select("question_key, answer_value_json, status")
-          .eq("project_id", projectId),
+        getProjectAiCombinedClarifications(supabase, projectId),
       ]);
 
     if (!project) {
@@ -895,12 +1160,7 @@ export async function setProjectAiEstimatePublication(
       input: buildProjectAiInput({
         project,
         files: files || [],
-        clarifications:
-          (clarifications as Array<{
-            question_key: string;
-            answer_value_json: unknown;
-            status: "pending" | "answered" | "dismissed";
-          }>) || [],
+        clarifications,
       }),
       triggerType: "manual_refresh",
     });
@@ -1946,10 +2206,10 @@ export async function updateProject(projectId: string, formData: FormData) {
     }
   }
 
-  const { data: latestClarifications } = await supabase
-    .from("project_ai_clarifications")
-    .select("question_key, answer_value_json, status")
-    .eq("project_id", projectId);
+  const latestClarifications = await getProjectAiCombinedClarifications(
+    supabase,
+    projectId
+  );
 
   await runAndPersistProjectAiEstimate({
     supabase,
@@ -1981,12 +2241,7 @@ export async function updateProject(projectId: string, formData: FormData) {
           file_type: file.type,
         })),
       ],
-      clarifications:
-        (latestClarifications as Array<{
-          question_key: string;
-          answer_value_json: unknown;
-          status: "pending" | "answered" | "dismissed";
-        }>) || [],
+      clarifications: latestClarifications,
     }),
     triggerType: "edit",
     isEditRefresh: true,

@@ -17,11 +17,13 @@ import type {
   ProjectAiEstimateStatus,
   ProjectAiConfidenceLevel,
 } from "@/lib/ai-estimates";
+import type { ProjectAiScopeItem } from "@/lib/ai-scope-items";
 import {
   refreshProjectAiEstimate,
   saveProjectAiClarificationsAndShare,
   setProjectAiEstimatePublication,
 } from "../actions";
+import ProjectAiScopeItemsSection from "./ProjectAiScopeItemsSection";
 
 interface ClarificationRow {
   id: string;
@@ -38,6 +40,10 @@ interface ClarificationRow {
   options_json: Array<{ id?: string; label?: string }>;
   answer_value_json: unknown;
   status: "pending" | "answered" | "dismissed";
+}
+
+interface ItemClarificationRow extends ClarificationRow {
+  scope_item_id: string;
 }
 
 interface ProjectAiEstimatePanelProps {
@@ -61,9 +67,27 @@ interface ProjectAiEstimatePanelProps {
   } | null;
   latestRunModelName?: string | null;
   clarifications: ClarificationRow[];
+  itemClarifications: ItemClarificationRow[];
+  scopeItems: Array<
+    Pick<
+      ProjectAiScopeItem,
+      | "id"
+      | "item_label"
+      | "item_category"
+      | "required_status"
+      | "confidence_level"
+      | "description"
+      | "why_it_may_apply"
+      | "confidence_reason"
+      | "estimated_low"
+      | "estimated_high"
+      | "source_method"
+      | "needs_clarification"
+    >
+  >;
 }
 
-function getInitialAnswers(clarifications: ClarificationRow[]) {
+function getInitialAnswers(clarifications: Array<ClarificationRow | ItemClarificationRow>) {
   const nextState: Record<string, string[]> = {};
 
   for (const clarification of clarifications) {
@@ -97,6 +121,8 @@ export default function ProjectAiEstimatePanel({
   estimate,
   latestRunModelName = null,
   clarifications,
+  itemClarifications,
+  scopeItems,
 }: ProjectAiEstimatePanelProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -105,12 +131,17 @@ export default function ProjectAiEstimatePanel({
   const [advisory, setAdvisory] = useState<string | null>(null);
   const [pendingLabel, setPendingLabel] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string[]>>(() =>
-    getInitialAnswers(clarifications)
+    getInitialAnswers([...clarifications, ...itemClarifications])
   );
 
   const actionableClarifications = useMemo(
     () => clarifications.filter((item) => item.status !== "dismissed"),
     [clarifications]
+  );
+
+  const actionableItemClarifications = useMemo(
+    () => itemClarifications.filter((item) => item.status !== "dismissed"),
+    [itemClarifications]
   );
 
   function setSingleValue(id: string, value: string) {
@@ -186,15 +217,26 @@ export default function ProjectAiEstimatePanel({
     startTransition(async () => {
       const result = await saveProjectAiClarificationsAndShare(
         projectId,
-        actionableClarifications
-          .filter((clarification) => clarification.question_type !== "upload_request")
-          .map((clarification) => ({
-            clarificationId: clarification.id,
-            answerValue:
-              clarification.question_type === "multi_select"
-                ? answers[clarification.id] || []
-                : answers[clarification.id]?.[0] || "",
-          }))
+        {
+          projectAnswers: actionableClarifications
+            .filter((clarification) => clarification.question_type !== "upload_request")
+            .map((clarification) => ({
+              clarificationId: clarification.id,
+              answerValue:
+                clarification.question_type === "multi_select"
+                  ? answers[clarification.id] || []
+                  : answers[clarification.id]?.[0] || "",
+            })),
+          itemAnswers: actionableItemClarifications
+            .filter((clarification) => clarification.question_type !== "upload_request")
+            .map((clarification) => ({
+              clarificationId: clarification.id,
+              answerValue:
+                clarification.question_type === "multi_select"
+                  ? answers[clarification.id] || []
+                  : answers[clarification.id]?.[0] || "",
+            })),
+        }
       );
 
       if (result.error) {
@@ -317,6 +359,14 @@ export default function ProjectAiEstimatePanel({
             analysisVersion={estimate.analysis_version || null}
           />
 
+          <ProjectAiScopeItemsSection
+            items={scopeItems}
+            itemClarifications={actionableItemClarifications}
+            answers={answers}
+            setSingleValue={setSingleValue}
+            toggleMultiValue={toggleMultiValue}
+          />
+
           {estimate.published_to_bidders && (
             <div className="rounded-lg border border-secondary/30 bg-secondary/5 px-4 py-3 text-sm text-text-primary">
               Bidders can currently see the AI baseline estimate on this project.
@@ -326,7 +376,7 @@ export default function ProjectAiEstimatePanel({
           {actionableClarifications.length > 0 && (
             <div className="rounded-xl border border-border bg-bg-warm px-5 py-4">
               <h3 className="text-sm font-semibold text-text-primary">
-                Clarification workflow
+                Project-level clarification workflow
               </h3>
               <p className="mt-1 text-sm text-text-secondary">
                 Answering these structured questions improves scope completeness and
@@ -450,24 +500,28 @@ export default function ProjectAiEstimatePanel({
                   </div>
                 ))}
               </div>
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-4">
-                <p className="text-sm text-text-secondary">
-                  Save all clarification answers together and update what bidders
-                  see. The AI can still recommend stronger scope details, but it
-                  will not block the bidder update.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleSaveAndShare}
-                  disabled={isPending}
-                  className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
-                >
-                  <Eye className="h-4 w-4" />
-                  {estimate?.published_to_bidders
-                    ? "Save and Update Bidder View"
-                    : "Save and Share With Bidders"}
-                </button>
-              </div>
+            </div>
+          )}
+
+          {(actionableClarifications.length > 0 ||
+            actionableItemClarifications.length > 0) && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-bg-warm px-4 py-4">
+              <p className="text-sm text-text-secondary">
+                Save all project-level and item-level AI answers together and
+                update what bidders see. The AI can still recommend stronger
+                scope details, but it will not block the bidder update.
+              </p>
+              <button
+                type="button"
+                onClick={handleSaveAndShare}
+                disabled={isPending}
+                className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
+              >
+                <Eye className="h-4 w-4" />
+                {estimate?.published_to_bidders
+                  ? "Save and Update Bidder View"
+                  : "Save and Share With Bidders"}
+              </button>
             </div>
           )}
         </div>
