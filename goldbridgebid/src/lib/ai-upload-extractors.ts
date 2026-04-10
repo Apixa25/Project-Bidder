@@ -144,6 +144,33 @@ function buildExtractedTextHints(text: string) {
   return Array.from(hints);
 }
 
+async function runOcrOnImageBuffer(buffer: Buffer) {
+  const worker = await createWorker("eng", 1, {
+    logger: () => {},
+  });
+
+  try {
+    const result = await worker.recognize(buffer);
+    return normalizeExtractedText(result.data.text || "");
+  } finally {
+    await worker.terminate();
+  }
+}
+
+function buildExtractionEntities(params: {
+  metadataEntities: ProjectAiFileExtractionEntity[];
+  extractedHints: string[];
+}) {
+  return [
+    ...params.metadataEntities,
+    ...params.extractedHints.map((hint) => ({
+      label: hint,
+      kind: "scope_hint" as const,
+      confidence: "medium" as const,
+    })),
+  ];
+}
+
 function buildEntities(params: {
   fileKind: ProjectAiFileKind;
   derivedTags: string[];
@@ -250,53 +277,40 @@ export async function extractProjectAiFile(params: {
       }
 
       const buffer = Buffer.from(await response.arrayBuffer());
-      const worker = await createWorker("eng", 1, {
-        logger: () => {},
+      const text = await runOcrOnImageBuffer(buffer);
+
+      if (text.length === 0) {
+        return {
+          ...metadataResult,
+          adapter: "image_ocr_parse",
+          status: "fetch_failed",
+          summary: `The OCR adapter opened "${params.file.file_name || "image"}" but did not find readable text.`,
+          recommended_next_step:
+            "Upload a sharper, higher-contrast image or a text/PDF version of the document if available.",
+        };
+      }
+
+      const excerpt = text.slice(0, 320);
+      const extractedHints = buildExtractedTextHints(text).slice(0, 6);
+      const entities = buildExtractionEntities({
+        metadataEntities: metadataResult.entities,
+        extractedHints,
       });
 
-      try {
-        const result = await worker.recognize(buffer);
-        const text = normalizeExtractedText(result.data.text || "");
-
-        if (text.length === 0) {
-          return {
-            ...metadataResult,
-            adapter: "image_ocr_parse",
-            status: "fetch_failed",
-            summary: `The OCR adapter opened "${params.file.file_name || "image"}" but did not find readable text.`,
-            recommended_next_step:
-              "Upload a sharper, higher-contrast image or a text/PDF version of the document if available.",
-          };
-        }
-
-        const excerpt = text.slice(0, 320);
-        const extractedHints = buildExtractedTextHints(text).slice(0, 6);
-        const entities: ProjectAiFileExtractionEntity[] = [
-          ...metadataResult.entities,
-          ...extractedHints.map((hint) => ({
-            label: hint,
-            kind: "scope_hint" as const,
-            confidence: "medium" as const,
-          })),
-        ];
-
-        return {
-          adapter: "image_ocr_parse",
-          status: "parsed_ocr_text",
-          summary: `The OCR adapter read "${params.file.file_name || "image"}" and extracted text${extractedHints.length > 0 ? " with scope-related hints" : ""}.`,
-          content_hints: Array.from(
-            new Set([...metadataResult.content_hints, ...extractedHints, "ocr_text_extracted"])
-          ),
-          entities,
-          recommended_next_step:
-            extractedHints.length > 0
-              ? metadataResult.recommended_next_step
-              : "OCR found readable text, but it still looks generic. Add a more item-specific image or supporting note if available.",
-          excerpt,
-        };
-      } finally {
-        await worker.terminate();
-      }
+      return {
+        adapter: "image_ocr_parse",
+        status: "parsed_ocr_text",
+        summary: `The OCR adapter read "${params.file.file_name || "image"}" and extracted text${extractedHints.length > 0 ? " with scope-related hints" : ""}.`,
+        content_hints: Array.from(
+          new Set([...metadataResult.content_hints, ...extractedHints, "ocr_text_extracted"])
+        ),
+        entities,
+        recommended_next_step:
+          extractedHints.length > 0
+            ? metadataResult.recommended_next_step
+            : "OCR found readable text, but it still looks generic. Add a more item-specific image or supporting note if available.",
+        excerpt,
+      };
     } catch {
       return {
         ...metadataResult,
@@ -339,40 +353,76 @@ export async function extractProjectAiFile(params: {
         const textResult = await parser.getText();
         const text = normalizeExtractedText(textResult.text || "");
 
-        if (text.length === 0) {
+        if (text.length > 0) {
+          const excerpt = text.slice(0, 320);
+          const extractedHints = buildExtractedTextHints(text).slice(0, 6);
+          const entities = buildExtractionEntities({
+            metadataEntities: metadataResult.entities,
+            extractedHints,
+          });
+
           return {
-            ...metadataResult,
             adapter: "pdf_text_parse",
-            status: "fetch_failed",
-            summary: `The PDF adapter opened "${params.file.file_name || "document"}" but did not find readable text content.`,
+            status: "parsed_pdf_text",
+            summary: `The PDF adapter read "${params.file.file_name || "document"}" and extracted ${textResult.total} page(s) of text${extractedHints.length > 0 ? " with scope-related hints" : ""}.`,
+            content_hints: Array.from(
+              new Set([...metadataResult.content_hints, ...extractedHints, "pdf_text_extracted"])
+            ),
+            entities,
             recommended_next_step:
-              "This PDF may be image-based. Add OCR support later or upload a text-based scope summary alongside it.",
+              extractedHints.length > 0
+                ? metadataResult.recommended_next_step
+                : "The PDF text was readable, but still generic. Add a more item-specific marked-up plan or supporting note if available.",
+            excerpt,
           };
         }
 
-        const excerpt = text.slice(0, 320);
-        const extractedHints = buildExtractedTextHints(text).slice(0, 6);
-        const entities: ProjectAiFileExtractionEntity[] = [
-          ...metadataResult.entities,
-          ...extractedHints.map((hint) => ({
-            label: hint,
-            kind: "scope_hint" as const,
-            confidence: "medium" as const,
-          })),
-        ];
+        const screenshotResult = await parser.getScreenshot({
+          first: 2,
+          imageBuffer: true,
+          imageDataUrl: false,
+          desiredWidth: 1600,
+        });
+
+        const ocrTexts: string[] = [];
+        for (const page of screenshotResult.pages) {
+          const pageText = await runOcrOnImageBuffer(Buffer.from(page.data));
+          if (pageText.length > 0) {
+            ocrTexts.push(pageText);
+          }
+        }
+
+        const combinedOcrText = normalizeExtractedText(ocrTexts.join("\n\n"));
+        if (combinedOcrText.length === 0) {
+          return {
+            ...metadataResult,
+            adapter: "pdf_ocr_parse",
+            status: "fetch_failed",
+            summary: `The scanned PDF OCR adapter opened "${params.file.file_name || "document"}" but did not recover readable OCR text from the first pages.`,
+            recommended_next_step:
+              "Upload a cleaner scan, higher-resolution PDF, or a text companion note if available.",
+          };
+        }
+
+        const excerpt = combinedOcrText.slice(0, 320);
+        const extractedHints = buildExtractedTextHints(combinedOcrText).slice(0, 6);
+        const entities = buildExtractionEntities({
+          metadataEntities: metadataResult.entities,
+          extractedHints,
+        });
 
         return {
-          adapter: "pdf_text_parse",
-          status: "parsed_pdf_text",
-          summary: `The PDF adapter read "${params.file.file_name || "document"}" and extracted ${textResult.total} page(s) of text${extractedHints.length > 0 ? " with scope-related hints" : ""}.`,
+          adapter: "pdf_ocr_parse",
+          status: "parsed_pdf_ocr_text",
+          summary: `The scanned PDF OCR adapter rendered and read up to ${screenshotResult.total} page(s) from "${params.file.file_name || "document"}"${extractedHints.length > 0 ? " with scope-related hints" : ""}.`,
           content_hints: Array.from(
-            new Set([...metadataResult.content_hints, ...extractedHints, "pdf_text_extracted"])
+            new Set([...metadataResult.content_hints, ...extractedHints, "pdf_ocr_text_extracted"])
           ),
           entities,
           recommended_next_step:
             extractedHints.length > 0
               ? metadataResult.recommended_next_step
-              : "The PDF text was readable, but still generic. Add a more item-specific marked-up plan or supporting note if available.",
+              : "OCR recovered some PDF text, but it still looks generic. Add a marked-up page or supporting text note if available.",
           excerpt,
         };
       } finally {
@@ -381,9 +431,9 @@ export async function extractProjectAiFile(params: {
     } catch {
       return {
         ...metadataResult,
-        adapter: "pdf_text_parse",
+        adapter: "pdf_ocr_parse",
         status: "fetch_failed",
-        summary: `The PDF adapter hit an error while trying to parse "${params.file.file_name || "document"}".`,
+        summary: `The PDF extraction pipeline hit an error while trying to parse "${params.file.file_name || "document"}".`,
         recommended_next_step:
           "Retry later or upload a simpler companion text document if you want extraction help on this file now.",
       };
@@ -431,14 +481,10 @@ export async function extractProjectAiFile(params: {
 
     const excerpt = text.slice(0, 320);
     const extractedHints = buildExtractedTextHints(text).slice(0, 6);
-    const entities: ProjectAiFileExtractionEntity[] = [
-      ...metadataResult.entities,
-      ...extractedHints.map((hint) => ({
-        label: hint,
-        kind: "scope_hint" as const,
-        confidence: "medium" as const,
-      })),
-    ];
+    const entities = buildExtractionEntities({
+      metadataEntities: metadataResult.entities,
+      extractedHints,
+    });
 
     return {
       adapter: "document_text_fetch",
