@@ -118,6 +118,13 @@ export async function enrichProjectAiFileSignal(
     matchedTags.add("document_evidence");
   }
 
+  const extractionResult = await extractProjectAiFile({
+    file,
+    fileKind,
+    derivedTags: Array.from(matchedTags),
+    likelyItemKeys: Array.from(likelyItemKeys),
+  });
+
   return {
     file_name: file.file_name || null,
     file_type: file.file_type || null,
@@ -125,18 +132,13 @@ export async function enrichProjectAiFileSignal(
     file_kind: fileKind,
     derived_tags: Array.from(matchedTags),
     likely_item_keys: Array.from(likelyItemKeys),
-    extraction_result: await extractProjectAiFile({
-      file,
-      fileKind,
-      derivedTags: Array.from(matchedTags),
-      likelyItemKeys: Array.from(likelyItemKeys),
-    }),
+    extraction_result: extractionResult,
     extraction_summary: buildExtractionSummary({
       fileKind,
       matchedTags: Array.from(matchedTags),
       likelyItemKeys: Array.from(likelyItemKeys),
     }),
-    extraction_method: "metadata_bootstrap",
+    extraction_method: extractionResult.adapter,
   };
 }
 

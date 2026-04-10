@@ -28,8 +28,13 @@ export interface ProjectAiFileExtractionEntity {
 }
 
 export interface ProjectAiFileExtractionResult {
-  adapter: "metadata_bootstrap" | "document_text_fetch";
-  status: "metadata_only" | "extracted_text" | "unsupported" | "fetch_failed";
+  adapter: "metadata_bootstrap" | "document_text_fetch" | "pdf_text_parse";
+  status:
+    | "metadata_only"
+    | "extracted_text"
+    | "unsupported"
+    | "fetch_failed"
+    | "parsed_pdf_text";
   summary: string;
   content_hints: string[];
   entities: ProjectAiFileExtractionEntity[];
@@ -45,7 +50,11 @@ export interface ProjectAiFileSignal {
   derived_tags?: string[];
   likely_item_keys?: string[];
   extraction_summary?: string | null;
-  extraction_method?: "filename_heuristics" | "metadata_bootstrap";
+  extraction_method?:
+    | "filename_heuristics"
+    | "metadata_bootstrap"
+    | "document_text_fetch"
+    | "pdf_text_parse";
   extraction_result?: ProjectAiFileExtractionResult | null;
 }
 

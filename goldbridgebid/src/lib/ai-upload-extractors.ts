@@ -4,6 +4,7 @@ import type {
   ProjectAiFileKind,
   ProjectAiFileSignal,
 } from "@/lib/ai-estimates";
+import { PDFParse } from "pdf-parse";
 
 const TEXT_DOCUMENT_EXTENSIONS = [
   ".txt",
@@ -18,6 +19,7 @@ const TEXT_DOCUMENT_EXTENSIONS = [
   ".xml",
   ".log",
 ];
+const PDF_DOCUMENT_EXTENSIONS = [".pdf"];
 
 const TEXT_HINT_RULES: Array<{ label: string; terms: string[] }> = [
   { label: "electrical scope", terms: ["panel", "meter", "service", "amp", "conduit", "electrical"] },
@@ -81,6 +83,20 @@ function looksTextExtractable(file: Pick<ProjectAiFileSignal, "file_name" | "fil
     fileType.includes("json") ||
     fileType.includes("xml") ||
     fileType.includes("yaml")
+  );
+}
+
+function looksPdfExtractable(file: Pick<ProjectAiFileSignal, "file_name" | "file_type" | "file_url">) {
+  if (!file.file_url) {
+    return false;
+  }
+
+  const fileName = (file.file_name || "").toLowerCase();
+  const fileType = (file.file_type || "").toLowerCase();
+
+  return (
+    PDF_DOCUMENT_EXTENSIONS.some((extension) => fileName.endsWith(extension)) ||
+    fileType.includes("pdf")
   );
 }
 
@@ -191,6 +207,83 @@ export async function extractProjectAiFile(params: {
 
   if (params.fileKind !== "document") {
     return metadataResult;
+  }
+
+  if (looksPdfExtractable(params.file)) {
+    try {
+      const response = await fetch(params.file.file_url!, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        return {
+          ...metadataResult,
+          adapter: "pdf_text_parse",
+          status: "fetch_failed",
+          summary: `The PDF adapter could not read "${params.file.file_name || "document"}" because the file fetch returned ${response.status}.`,
+          recommended_next_step:
+            "Verify the PDF URL is reachable and retry, or upload a text-based companion document.",
+        };
+      }
+
+      const buffer = await response.arrayBuffer();
+      const parser = new PDFParse({
+        data: new Uint8Array(buffer),
+      });
+
+      try {
+        const textResult = await parser.getText();
+        const text = normalizeExtractedText(textResult.text || "");
+
+        if (text.length === 0) {
+          return {
+            ...metadataResult,
+            adapter: "pdf_text_parse",
+            status: "fetch_failed",
+            summary: `The PDF adapter opened "${params.file.file_name || "document"}" but did not find readable text content.`,
+            recommended_next_step:
+              "This PDF may be image-based. Add OCR support later or upload a text-based scope summary alongside it.",
+          };
+        }
+
+        const excerpt = text.slice(0, 320);
+        const extractedHints = buildExtractedTextHints(text).slice(0, 6);
+        const entities: ProjectAiFileExtractionEntity[] = [
+          ...metadataResult.entities,
+          ...extractedHints.map((hint) => ({
+            label: hint,
+            kind: "scope_hint" as const,
+            confidence: "medium" as const,
+          })),
+        ];
+
+        return {
+          adapter: "pdf_text_parse",
+          status: "parsed_pdf_text",
+          summary: `The PDF adapter read "${params.file.file_name || "document"}" and extracted ${textResult.total} page(s) of text${extractedHints.length > 0 ? " with scope-related hints" : ""}.`,
+          content_hints: Array.from(
+            new Set([...metadataResult.content_hints, ...extractedHints, "pdf_text_extracted"])
+          ),
+          entities,
+          recommended_next_step:
+            extractedHints.length > 0
+              ? metadataResult.recommended_next_step
+              : "The PDF text was readable, but still generic. Add a more item-specific marked-up plan or supporting note if available.",
+          excerpt,
+        };
+      } finally {
+        await parser.destroy();
+      }
+    } catch {
+      return {
+        ...metadataResult,
+        adapter: "pdf_text_parse",
+        status: "fetch_failed",
+        summary: `The PDF adapter hit an error while trying to parse "${params.file.file_name || "document"}".`,
+        recommended_next_step:
+          "Retry later or upload a simpler companion text document if you want extraction help on this file now.",
+      };
+    }
   }
 
   if (!looksTextExtractable(params.file)) {
