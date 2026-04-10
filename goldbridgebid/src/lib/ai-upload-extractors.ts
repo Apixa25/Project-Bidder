@@ -5,6 +5,7 @@ import type {
   ProjectAiFileSignal,
 } from "@/lib/ai-estimates";
 import { PDFParse } from "pdf-parse";
+import { createWorker } from "tesseract.js";
 
 const TEXT_DOCUMENT_EXTENSIONS = [
   ".txt",
@@ -20,6 +21,16 @@ const TEXT_DOCUMENT_EXTENSIONS = [
   ".log",
 ];
 const PDF_DOCUMENT_EXTENSIONS = [".pdf"];
+const IMAGE_DOCUMENT_EXTENSIONS = [
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".bmp",
+  ".gif",
+  ".tif",
+  ".tiff",
+];
 
 const TEXT_HINT_RULES: Array<{ label: string; terms: string[] }> = [
   { label: "electrical scope", terms: ["panel", "meter", "service", "amp", "conduit", "electrical"] },
@@ -97,6 +108,22 @@ function looksPdfExtractable(file: Pick<ProjectAiFileSignal, "file_name" | "file
   return (
     PDF_DOCUMENT_EXTENSIONS.some((extension) => fileName.endsWith(extension)) ||
     fileType.includes("pdf")
+  );
+}
+
+function looksImageOcrExtractable(
+  file: Pick<ProjectAiFileSignal, "file_name" | "file_type" | "file_url">
+) {
+  if (!file.file_url) {
+    return false;
+  }
+
+  const fileName = (file.file_name || "").toLowerCase();
+  const fileType = (file.file_type || "").toLowerCase();
+
+  return (
+    IMAGE_DOCUMENT_EXTENSIONS.some((extension) => fileName.endsWith(extension)) ||
+    fileType.startsWith("image/")
   );
 }
 
@@ -204,6 +231,83 @@ export async function extractProjectAiFile(params: {
   likelyItemKeys: string[];
 }): Promise<ProjectAiFileExtractionResult> {
   const metadataResult = extractProjectAiFileMetadata(params);
+
+  if (params.fileKind === "image" && looksImageOcrExtractable(params.file)) {
+    try {
+      const response = await fetch(params.file.file_url!, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        return {
+          ...metadataResult,
+          adapter: "image_ocr_parse",
+          status: "fetch_failed",
+          summary: `The OCR adapter could not read "${params.file.file_name || "image"}" because the file fetch returned ${response.status}.`,
+          recommended_next_step:
+            "Verify the image URL is reachable and retry, or upload a clearer image if OCR is important here.",
+        };
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const worker = await createWorker("eng", 1, {
+        logger: () => {},
+      });
+
+      try {
+        const result = await worker.recognize(buffer);
+        const text = normalizeExtractedText(result.data.text || "");
+
+        if (text.length === 0) {
+          return {
+            ...metadataResult,
+            adapter: "image_ocr_parse",
+            status: "fetch_failed",
+            summary: `The OCR adapter opened "${params.file.file_name || "image"}" but did not find readable text.`,
+            recommended_next_step:
+              "Upload a sharper, higher-contrast image or a text/PDF version of the document if available.",
+          };
+        }
+
+        const excerpt = text.slice(0, 320);
+        const extractedHints = buildExtractedTextHints(text).slice(0, 6);
+        const entities: ProjectAiFileExtractionEntity[] = [
+          ...metadataResult.entities,
+          ...extractedHints.map((hint) => ({
+            label: hint,
+            kind: "scope_hint" as const,
+            confidence: "medium" as const,
+          })),
+        ];
+
+        return {
+          adapter: "image_ocr_parse",
+          status: "parsed_ocr_text",
+          summary: `The OCR adapter read "${params.file.file_name || "image"}" and extracted text${extractedHints.length > 0 ? " with scope-related hints" : ""}.`,
+          content_hints: Array.from(
+            new Set([...metadataResult.content_hints, ...extractedHints, "ocr_text_extracted"])
+          ),
+          entities,
+          recommended_next_step:
+            extractedHints.length > 0
+              ? metadataResult.recommended_next_step
+              : "OCR found readable text, but it still looks generic. Add a more item-specific image or supporting note if available.",
+          excerpt,
+        };
+      } finally {
+        await worker.terminate();
+      }
+    } catch {
+      return {
+        ...metadataResult,
+        adapter: "image_ocr_parse",
+        status: "fetch_failed",
+        summary: `The OCR adapter hit an error while trying to read "${params.file.file_name || "image"}".`,
+        recommended_next_step:
+          "Retry later or upload a cleaner image if you want OCR help on this file.",
+      };
+    }
+  }
 
   if (params.fileKind !== "document") {
     return metadataResult;
