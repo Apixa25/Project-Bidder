@@ -135,7 +135,7 @@ export async function getCostEstimates() {
   return estimates.sort((a, b) => b.count - a.count);
 }
 
-function buildProjectAiInput(params: {
+async function buildProjectAiInput(params: {
   project: {
     title: string;
     description: string;
@@ -150,13 +150,17 @@ function buildProjectAiInput(params: {
     desired_start_date: string | null;
     timeline: string | null;
   };
-  files: Array<{ file_name?: string | null; file_type?: string | null }>;
+  files: Array<{
+    file_name?: string | null;
+    file_type?: string | null;
+    file_url?: string | null;
+  }>;
   clarifications: Array<{
     question_key: string;
     answer_value_json: unknown;
     status: "pending" | "answered" | "dismissed";
   }>;
-}): ProjectAiAnalysisInput {
+}): Promise<ProjectAiAnalysisInput> {
   const { project, files, clarifications } = params;
 
   return {
@@ -172,7 +176,7 @@ function buildProjectAiInput(params: {
     budgetMax: project.budget_max,
     desiredStartDate: project.desired_start_date,
     timeline: project.timeline,
-    files: enrichProjectAiFileSignals(files),
+    files: await enrichProjectAiFileSignals(files),
     clarificationAnswers: clarifications.map((item) => ({
       question_key: item.question_key,
       answer_value_json: item.answer_value_json,
@@ -791,7 +795,11 @@ export async function analyzeProjectDraft(input: ProjectAiAnalysisInput) {
     };
   }
 
-  const analysis = await analyzeProjectAiHybrid(input, await getCostEstimates());
+  const enrichedInput = {
+    ...input,
+    files: input.files ? await enrichProjectAiFileSignals(input.files) : input.files,
+  };
+  const analysis = await analyzeProjectAiHybrid(enrichedInput, await getCostEstimates());
   return { error: null, analysis };
 }
 
@@ -819,7 +827,7 @@ export async function refreshProjectAiEstimate(projectId: string) {
         .single(),
       supabase
         .from("project_files")
-        .select("file_name, file_type")
+        .select("file_name, file_type, file_url")
         .eq("project_id", projectId),
       getProjectAiCombinedClarifications(supabase, projectId),
     ]);
@@ -833,7 +841,7 @@ export async function refreshProjectAiEstimate(projectId: string) {
     userId: user.id,
     projectId,
     projectTitle: project.title,
-    input: buildProjectAiInput({
+    input: await buildProjectAiInput({
       project,
       files: files || [],
       clarifications,
@@ -915,7 +923,7 @@ export async function answerProjectAiClarification(
   const [{ data: files }, clarifications] = await Promise.all([
     supabase
       .from("project_files")
-      .select("file_name, file_type")
+      .select("file_name, file_type, file_url")
       .eq("project_id", projectId),
     getProjectAiCombinedClarifications(supabase, projectId),
   ]);
@@ -925,7 +933,7 @@ export async function answerProjectAiClarification(
     userId: user.id,
     projectId,
     projectTitle: project.title,
-    input: buildProjectAiInput({
+    input: await buildProjectAiInput({
       project,
       files: files || [],
       clarifications,
@@ -1066,7 +1074,7 @@ export async function saveProjectAiClarificationsAndShare(
   const [{ data: files }, clarifications] = await Promise.all([
     supabase
       .from("project_files")
-      .select("file_name, file_type")
+      .select("file_name, file_type, file_url")
       .eq("project_id", projectId),
     getProjectAiCombinedClarifications(supabase, projectId),
   ]);
@@ -1076,7 +1084,7 @@ export async function saveProjectAiClarificationsAndShare(
     userId: user.id,
     projectId,
     projectTitle: project.title,
-    input: buildProjectAiInput({
+    input: await buildProjectAiInput({
       project,
       files: files || [],
       clarifications,
@@ -1148,7 +1156,7 @@ export async function setProjectAiEstimatePublication(
           .single(),
         supabase
           .from("project_files")
-          .select("file_name, file_type")
+          .select("file_name, file_type, file_url")
           .eq("project_id", projectId),
         getProjectAiCombinedClarifications(supabase, projectId),
       ]);
@@ -1162,7 +1170,7 @@ export async function setProjectAiEstimatePublication(
       userId: user.id,
       projectId,
       projectTitle: project.title,
-      input: buildProjectAiInput({
+      input: await buildProjectAiInput({
         project,
         files: files || [],
         clarifications,
@@ -1431,10 +1439,13 @@ export async function createProject(formData: FormData) {
       budgetMax: budgetMax ? parseFloat(budgetMax) : null,
       desiredStartDate: desiredStartDate || null,
       timeline: timeline || null,
-      files: validFiles.map((file) => ({
-        file_name: file.name,
-        file_type: file.type,
-      })),
+      files: await enrichProjectAiFileSignals(
+        validFiles.map((file) => ({
+          file_name: file.name,
+          file_type: file.type,
+          file_url: null,
+        }))
+      ),
       clarificationAnswers: draftAiClarifications.map((clarification) => ({
         question_key: clarification.question_key,
         answer_value_json:
@@ -2022,7 +2033,7 @@ export async function updateProject(projectId: string, formData: FormData) {
 
   const { data: existingProjectFiles } = await supabase
     .from("project_files")
-    .select("id, file_type, display_order, uploaded_at")
+    .select("id, file_name, file_type, file_url, display_order, uploaded_at")
     .eq("project_id", projectId);
 
   const files = formData.getAll("files") as File[];
@@ -2221,7 +2232,7 @@ export async function updateProject(projectId: string, formData: FormData) {
     userId: user.id,
     projectId,
     projectTitle: title,
-    input: buildProjectAiInput({
+    input: await buildProjectAiInput({
       project: {
         title,
         description,
@@ -2238,12 +2249,14 @@ export async function updateProject(projectId: string, formData: FormData) {
       },
       files: [
         ...(existingProjectFiles || []).map((file) => ({
-          file_name: null,
+          file_name: file.file_name,
           file_type: file.file_type,
+          file_url: file.file_url,
         })),
         ...validFiles.map((file) => ({
           file_name: file.name,
           file_type: file.type,
+          file_url: null,
         })),
       ],
       clarifications: latestClarifications,

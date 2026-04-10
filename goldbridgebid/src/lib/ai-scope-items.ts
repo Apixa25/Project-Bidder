@@ -121,6 +121,7 @@ export interface ProjectAiScopeItemEvidenceSignal {
     | "ai_inference";
   matched_files?: string[];
   matched_signals?: string[];
+  matched_excerpts?: string[];
   verification_gap?: string | null;
   recommended_uploads?: string[];
 }
@@ -198,6 +199,7 @@ function buildEvidenceSignal(
     source?: ProjectAiScopeItemEvidenceSignal["source"];
     matched_files?: string[];
     matched_signals?: string[];
+    matched_excerpts?: string[];
     verification_gap?: string | null;
     recommended_uploads?: string[];
   }
@@ -210,6 +212,7 @@ function buildEvidenceSignal(
     source: options?.source ?? "ai_inference",
     matched_files: options?.matched_files,
     matched_signals: options?.matched_signals,
+    matched_excerpts: options?.matched_excerpts,
     verification_gap: options?.verification_gap ?? null,
     recommended_uploads: options?.recommended_uploads,
   };
@@ -1070,6 +1073,10 @@ interface ProjectAiScopeItemFileMatch {
   matchedKeywords: string[];
   matchedTags: string[];
   extractionSummary: string | null;
+  extractionHints: string[];
+  extractionEntities: string[];
+  extractionNextStep: string | null;
+  extractionExcerpt: string | null;
 }
 
 interface ProjectAiScopeItemUploadCoverage {
@@ -1264,6 +1271,11 @@ function getScopeItemRelevantFiles(
         : matchedKeywords,
       matchedTags,
       extractionSummary: file.extraction_summary || null,
+      extractionHints: file.extraction_result?.content_hints || [],
+      extractionEntities:
+        file.extraction_result?.entities.map((entity) => entity.label) || [],
+      extractionNextStep: file.extraction_result?.recommended_next_step || null,
+      extractionExcerpt: file.extraction_result?.excerpt || null,
     });
   }
 
@@ -1441,10 +1453,20 @@ function buildItemEvidenceSignals(params: {
   const relevantPhotoFiles = coverage.relevantPhotoFiles;
   const relevantVideoFiles = coverage.relevantVideoFiles;
   const relevantDocumentFiles = coverage.relevantDocumentFiles;
+  const extractedExcerpts = Array.from(
+    new Set(
+      relevantDocumentFiles
+        .map((file) => file.extractionExcerpt)
+        .filter((value): value is string => typeof value === "string" && value.length > 0)
+    )
+  ).slice(0, 2);
   const derivedSignals = Array.from(
     new Set(
       relevantFiles.flatMap((file) => [
         ...file.matchedTags,
+        ...file.extractionHints,
+        ...file.extractionEntities,
+        ...(file.extractionNextStep ? [file.extractionNextStep] : []),
         ...(file.extractionSummary ? [file.extractionSummary] : []),
       ])
     )
@@ -1493,6 +1515,7 @@ function buildItemEvidenceSignals(params: {
           source: "uploaded_document",
           matched_files: relevantDocumentFiles.map((file) => file.fileName),
           matched_signals: derivedSignals,
+          matched_excerpts: extractedExcerpts,
         }
       )
     );

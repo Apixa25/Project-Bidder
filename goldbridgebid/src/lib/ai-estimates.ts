@@ -15,14 +15,38 @@ export type ProjectAiClarificationQuestionType =
   | "text"
   | "upload_request";
 
+export type ProjectAiFileKind = "image" | "video" | "document";
+
+export interface ProjectAiFileExtractionEntity {
+  label: string;
+  kind:
+    | "scope_hint"
+    | "document_type"
+    | "visual_subject"
+    | "system_signal";
+  confidence: "low" | "medium" | "high";
+}
+
+export interface ProjectAiFileExtractionResult {
+  adapter: "metadata_bootstrap" | "document_text_fetch";
+  status: "metadata_only" | "extracted_text" | "unsupported" | "fetch_failed";
+  summary: string;
+  content_hints: string[];
+  entities: ProjectAiFileExtractionEntity[];
+  recommended_next_step: string | null;
+  excerpt?: string | null;
+}
+
 export interface ProjectAiFileSignal {
   file_name?: string | null;
   file_type?: string | null;
-  file_kind?: "image" | "video" | "document";
+  file_url?: string | null;
+  file_kind?: ProjectAiFileKind;
   derived_tags?: string[];
   likely_item_keys?: string[];
   extraction_summary?: string | null;
-  extraction_method?: "filename_heuristics";
+  extraction_method?: "filename_heuristics" | "metadata_bootstrap";
+  extraction_result?: ProjectAiFileExtractionResult | null;
 }
 
 export interface ProjectAiClarificationAnswerInput {

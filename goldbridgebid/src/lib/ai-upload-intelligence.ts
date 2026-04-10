@@ -1,4 +1,5 @@
 import type { ProjectAiFileSignal } from "@/lib/ai-estimates";
+import { extractProjectAiFile } from "@/lib/ai-upload-extractors";
 
 type UploadKind = "image" | "video" | "document";
 
@@ -94,9 +95,9 @@ function buildExtractionSummary(params: {
   return `Derived ${kindLabel} intent is currently generic and not yet tied to a specific scope item.`;
 }
 
-export function enrichProjectAiFileSignal(
-  file: Pick<ProjectAiFileSignal, "file_name" | "file_type">
-): ProjectAiFileSignal {
+export async function enrichProjectAiFileSignal(
+  file: Pick<ProjectAiFileSignal, "file_name" | "file_type" | "file_url">
+): Promise<ProjectAiFileSignal> {
   const fileKind = inferUploadKind(file);
   const normalized = normalizeFileText(file);
   const matchedTags = new Set<string>();
@@ -120,20 +121,27 @@ export function enrichProjectAiFileSignal(
   return {
     file_name: file.file_name || null,
     file_type: file.file_type || null,
+    file_url: file.file_url || null,
     file_kind: fileKind,
     derived_tags: Array.from(matchedTags),
     likely_item_keys: Array.from(likelyItemKeys),
+    extraction_result: await extractProjectAiFile({
+      file,
+      fileKind,
+      derivedTags: Array.from(matchedTags),
+      likelyItemKeys: Array.from(likelyItemKeys),
+    }),
     extraction_summary: buildExtractionSummary({
       fileKind,
       matchedTags: Array.from(matchedTags),
       likelyItemKeys: Array.from(likelyItemKeys),
     }),
-    extraction_method: "filename_heuristics",
+    extraction_method: "metadata_bootstrap",
   };
 }
 
-export function enrichProjectAiFileSignals(
-  files: Array<Pick<ProjectAiFileSignal, "file_name" | "file_type">>
+export async function enrichProjectAiFileSignals(
+  files: Array<Pick<ProjectAiFileSignal, "file_name" | "file_type" | "file_url">>
 ) {
-  return files.map((file) => enrichProjectAiFileSignal(file));
+  return Promise.all(files.map((file) => enrichProjectAiFileSignal(file)));
 }

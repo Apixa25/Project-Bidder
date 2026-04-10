@@ -205,13 +205,30 @@ function renderEvidenceSignals(items: ProjectAiScopeItemEvidenceSignal[]) {
             {signal.matched_signals && signal.matched_signals.length > 0 && (
               <div className="mt-2">
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                  Derived signals
+                  Extraction signals
                 </div>
                 <ul className="mt-1 space-y-1 text-xs text-text-secondary">
                   {signal.matched_signals.map((entry) => (
                     <li key={`${signal.key}-${entry}`}>- {entry}</li>
                   ))}
                 </ul>
+              </div>
+            )}
+            {signal.matched_excerpts && signal.matched_excerpts.length > 0 && (
+              <div className="mt-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                  Extracted text preview
+                </div>
+                <div className="mt-1 space-y-2">
+                  {signal.matched_excerpts.map((excerpt) => (
+                    <div
+                      key={`${signal.key}-${excerpt}`}
+                      className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2 text-xs leading-relaxed text-text-secondary"
+                    >
+                      {excerpt}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {signal.verification_gap && (
