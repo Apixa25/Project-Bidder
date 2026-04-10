@@ -119,6 +119,10 @@ export interface ProjectAiScopeItemEvidenceSignal {
     | "uploaded_document"
     | "trade_history"
     | "ai_inference";
+  matched_files?: string[];
+  matched_signals?: string[];
+  verification_gap?: string | null;
+  recommended_uploads?: string[];
 }
 
 export interface ProjectAiItemClarificationDraft
@@ -192,6 +196,10 @@ function buildEvidenceSignal(
   options?: {
     strength?: ProjectAiScopeItemEvidenceSignal["strength"];
     source?: ProjectAiScopeItemEvidenceSignal["source"];
+    matched_files?: string[];
+    matched_signals?: string[];
+    verification_gap?: string | null;
+    recommended_uploads?: string[];
   }
 ): ProjectAiScopeItemEvidenceSignal {
   return {
@@ -200,6 +208,10 @@ function buildEvidenceSignal(
     summary,
     strength: options?.strength ?? "supporting",
     source: options?.source ?? "ai_inference",
+    matched_files: options?.matched_files,
+    matched_signals: options?.matched_signals,
+    verification_gap: options?.verification_gap ?? null,
+    recommended_uploads: options?.recommended_uploads,
   };
 }
 
@@ -523,7 +535,7 @@ function buildScopeItemUploadRequestBlueprints(
   item: ProjectAiScopeItemDraft,
   input: ProjectAiAnalysisInput
 ) {
-  const { imageCount, videoCount, documentCount } = getFileSignalCounts(input.files);
+  const coverage = getScopeItemUploadCoverage(item, input);
   const requests: Array<{
     question_key: string;
     question_text: string;
@@ -547,37 +559,46 @@ function buildScopeItemUploadRequestBlueprints(
     "permit_and_inspection_coordination",
   ].includes(item.item_key);
 
-  if (needsVisualCoverage && imageCount === 0 && videoCount === 0) {
+  if (needsVisualCoverage && !coverage.hasRelevantVisualEvidence) {
     requests.push({
       question_key: buildScopeItemQuestionKey(item.item_key, "upload_visual_evidence"),
       question_text: `Upload site photos or a short walkaround video for ${item.item_label.toLowerCase()}.`,
       question_type: "upload_request",
       help_text:
-        "The estimator can reason more confidently when it has visual context for access, grading, pad condition, utility locations, or delivery constraints.",
+        coverage.hasAnyVisualEvidence
+          ? "The project already has some visual uploads, but none of them appear clearly tied to this item yet. Add item-specific photos or video so the estimator can connect the evidence to this scope."
+          : "The estimator can reason more confidently when it has visual context for access, grading, pad condition, utility locations, or delivery constraints.",
       placeholder: null,
       options_json: [],
     });
   }
 
-  if (needsTechnicalDocumentation && documentCount === 0) {
+  if (needsTechnicalDocumentation && !coverage.hasRelevantDocumentEvidence) {
     requests.push({
       question_key: buildScopeItemQuestionKey(item.item_key, "upload_supporting_documents"),
       question_text: `Upload any plans, permits, sketches, or utility paperwork related to ${item.item_label.toLowerCase()}.`,
       question_type: "upload_request",
       help_text:
-        "Technical documents can tighten the AI planning range by reducing uncertainty around code, sizing, layout, or approval requirements.",
+        coverage.hasAnyDocumentEvidence
+          ? "The project already has document uploads, but none of the filenames clearly map to this item yet. Add a more item-specific plan, permit, sketch, or utility document if available."
+          : "Technical documents can tighten the AI planning range by reducing uncertainty around code, sizing, layout, or approval requirements.",
       placeholder: null,
       options_json: [],
     });
   }
 
-  if (item.item_key === "electrical_service_upgrade" && imageCount === 0) {
+  if (
+    item.item_key === "electrical_service_upgrade" &&
+    coverage.relevantPhotoFiles.length === 0
+  ) {
     requests.push({
       question_key: buildScopeItemQuestionKey(item.item_key, "upload_electrical_photos"),
       question_text: "Upload photos of the existing panel, meter area, and proposed hookup path if available.",
       question_type: "upload_request",
       help_text:
-        "Panel and path photos help the estimator judge access, routing complexity, and whether the current electrical setup appears simple or constrained.",
+        coverage.hasAnyVisualEvidence
+          ? "The estimator still does not see panel- or hookup-specific visual evidence for this item. Panel, meter, and path photos are especially useful here."
+          : "Panel and path photos help the estimator judge access, routing complexity, and whether the current electrical setup appears simple or constrained.",
       placeholder: null,
       options_json: [],
     });
@@ -1040,6 +1061,298 @@ function getFileSignalCounts(files: ProjectAiAnalysisInput["files"]) {
   return counts;
 }
 
+type ProjectAiScopeItemFileKind = "image" | "video" | "document";
+type ProjectAiUploadedFileSignal = NonNullable<ProjectAiAnalysisInput["files"]>[number];
+
+interface ProjectAiScopeItemFileMatch {
+  fileName: string;
+  fileKind: ProjectAiScopeItemFileKind;
+  matchedKeywords: string[];
+  matchedTags: string[];
+  extractionSummary: string | null;
+}
+
+interface ProjectAiScopeItemUploadCoverage {
+  hasRelevantVisualEvidence: boolean;
+  hasRelevantDocumentEvidence: boolean;
+  hasAnyVisualEvidence: boolean;
+  hasAnyDocumentEvidence: boolean;
+  relevantPhotoFiles: ProjectAiScopeItemFileMatch[];
+  relevantVideoFiles: ProjectAiScopeItemFileMatch[];
+  relevantDocumentFiles: ProjectAiScopeItemFileMatch[];
+  recommendedUploads: string[];
+}
+
+function inferProjectFileKind(file: ProjectAiUploadedFileSignal) {
+  if (file.file_kind) {
+    return file.file_kind;
+  }
+
+  const type = (file?.file_type || "").toLowerCase();
+  const name = (file?.file_name || "").toLowerCase();
+
+  if (
+    type.startsWith("image/") ||
+    /\.(png|jpe?g|gif|webp|bmp|heic)$/i.test(name)
+  ) {
+    return "image" as const;
+  }
+
+  if (
+    type.startsWith("video/") ||
+    /\.(mp4|mov|avi|mkv|webm|m4v)$/i.test(name)
+  ) {
+    return "video" as const;
+  }
+
+  return "document" as const;
+}
+
+function getScopeItemFileKeywords(item: ProjectAiScopeItemDraft) {
+  const baseKeywordsByItemKey: Record<string, string[]> = {
+    modular_site_prep: [
+      "site",
+      "pad",
+      "prep",
+      "gravel",
+      "grade",
+      "grading",
+      "base",
+      "footprint",
+      "layout",
+    ],
+    modular_foundation_support: [
+      "foundation",
+      "pier",
+      "anchor",
+      "anchoring",
+      "tie down",
+      "engineering",
+      "slab",
+    ],
+    modular_delivery_set_logistics: [
+      "delivery",
+      "set",
+      "access",
+      "route",
+      "turn",
+      "turning",
+      "crane",
+      "staging",
+    ],
+    electrical_service_upgrade: [
+      "electrical",
+      "panel",
+      "meter",
+      "service",
+      "amp",
+      "conduit",
+      "trench",
+      "hookup",
+      "power",
+    ],
+    utility_tie_in_verification: [
+      "utility",
+      "water",
+      "sewer",
+      "septic",
+      "plumbing",
+      "stub",
+      "tie in",
+      "hookup",
+      "connection",
+    ],
+    grading_and_drainage: [
+      "grading",
+      "grade",
+      "drainage",
+      "drain",
+      "erosion",
+      "gravel",
+      "base",
+      "slope",
+      "runoff",
+    ],
+    permit_and_inspection_coordination: [
+      "permit",
+      "inspection",
+      "approval",
+      "code",
+      "plan",
+      "drawing",
+      "site plan",
+      "application",
+    ],
+    site_access_logistics: [
+      "access",
+      "gate",
+      "driveway",
+      "road",
+      "staging",
+      "turnaround",
+      "entry",
+      "path",
+    ],
+  };
+
+  const categoryKeywords: Record<ProjectAiScopeItemCategory, string[]> = {
+    site_prep: ["site", "prep", "pad", "base"],
+    utility: ["utility", "hookup", "connection"],
+    electrical: ["electrical", "panel", "meter", "service"],
+    water: ["water", "plumbing", "utility"],
+    sewer: ["sewer", "septic", "utility"],
+    grading: ["grading", "drainage", "slope"],
+    drainage: ["drainage", "runoff", "erosion"],
+    foundation: ["foundation", "anchor", "pier"],
+    delivery: ["delivery", "access", "staging"],
+    permit: ["permit", "inspection", "plan"],
+    finish: ["finish"],
+    demolition: ["demo", "demolition"],
+    landscape: ["landscape", "grading"],
+    other: [],
+  };
+
+  const keywords = [
+    ...(baseKeywordsByItemKey[item.item_key] || []),
+    ...categoryKeywords[item.item_category],
+  ];
+
+  if (item.item_key.startsWith("trade_package_")) {
+    const tradeToken = item.item_key.replace("trade_package_", "").replaceAll("_", " ");
+    keywords.push(tradeToken);
+    keywords.push(...tradeToken.split(" ").filter(Boolean));
+  }
+
+  return Array.from(
+    new Set(
+      keywords
+        .map((keyword) => keyword.trim().toLowerCase())
+        .filter((keyword) => keyword.length >= 3)
+    )
+  );
+}
+
+function getScopeItemRelevantFiles(
+  item: ProjectAiScopeItemDraft,
+  input: ProjectAiAnalysisInput
+) {
+  const keywords = getScopeItemFileKeywords(item);
+  const matches: ProjectAiScopeItemFileMatch[] = [];
+
+  for (const file of input.files || []) {
+    const fileName = (file.file_name || "").trim();
+    if (!fileName) {
+      continue;
+    }
+
+    const loweredFileName = fileName.toLowerCase();
+    const matchedKeywords = keywords.filter((keyword) => loweredFileName.includes(keyword));
+    const matchedTags = (file.derived_tags || []).filter((tag) =>
+      keywords.some((keyword) => tag.includes(keyword) || keyword.includes(tag))
+    );
+    const itemKeyMatch = (file.likely_item_keys || []).includes(item.item_key);
+
+    if (matchedKeywords.length === 0 && matchedTags.length === 0 && !itemKeyMatch) {
+      continue;
+    }
+
+    matches.push({
+      fileName,
+      fileKind: inferProjectFileKind(file),
+      matchedKeywords: itemKeyMatch
+        ? Array.from(new Set([...matchedKeywords, item.item_key]))
+        : matchedKeywords,
+      matchedTags,
+      extractionSummary: file.extraction_summary || null,
+    });
+  }
+
+  return matches;
+}
+
+function getScopeItemRecommendedUploads(item: ProjectAiScopeItemDraft) {
+  const byItemKey: Record<string, string[]> = {
+    modular_site_prep: [
+      "Wide site overview photos",
+      "Close-up photos of the pad/base condition",
+      "A sketch or notes showing the intended footprint dimensions",
+    ],
+    modular_foundation_support: [
+      "Foundation detail sketch or plan",
+      "Photos of any existing slab, piers, or anchoring points",
+      "Manufacturer setup or engineering document if available",
+    ],
+    modular_delivery_set_logistics: [
+      "Drive access photos from street to set location",
+      "A short walkaround video of the delivery path",
+      "Photos of gates, overhead lines, and staging/turn areas",
+    ],
+    electrical_service_upgrade: [
+      "Photos of the electrical panel",
+      "Photos of the meter and service area",
+      "Photos or sketch of the proposed hookup path",
+      "Any utility or electrical plan document",
+    ],
+    utility_tie_in_verification: [
+      "Photos showing water, sewer, or utility stub locations",
+      "A simple site sketch marking existing hookups",
+      "Any utility layout document or prior service notes",
+    ],
+    grading_and_drainage: [
+      "Wide photos of grade and drainage conditions",
+      "Photos of low spots, runoff paths, or erosion areas",
+      "A short walkaround video after rain if available",
+    ],
+    permit_and_inspection_coordination: [
+      "Permit application or approval documents",
+      "Site plan or utility approval paperwork",
+      "Any jurisdiction or inspector notes already received",
+    ],
+    site_access_logistics: [
+      "Photos of gate width and driveway access",
+      "Photos of truck turnaround or staging areas",
+      "A short video showing the path from entry to work area",
+    ],
+  };
+
+  if (item.item_key.startsWith("trade_package_")) {
+    return [
+      "Photos of the area covered by this trade package",
+      "A scope sketch, markup, or measurement notes",
+      "Any documents that define quantities or finish expectations",
+    ];
+  }
+
+  return byItemKey[item.item_key] || [
+    "Photos or documents that directly show this scope item",
+  ];
+}
+
+function getScopeItemUploadCoverage(
+  item: ProjectAiScopeItemDraft,
+  input: ProjectAiAnalysisInput
+): ProjectAiScopeItemUploadCoverage {
+  const { imageCount, videoCount, documentCount } = getFileSignalCounts(input.files);
+  const relevantFiles = getScopeItemRelevantFiles(item, input);
+  const relevantPhotoFiles = relevantFiles.filter((file) => file.fileKind === "image");
+  const relevantVideoFiles = relevantFiles.filter((file) => file.fileKind === "video");
+  const relevantDocumentFiles = relevantFiles.filter(
+    (file) => file.fileKind === "document"
+  );
+
+  return {
+    hasRelevantVisualEvidence:
+      relevantPhotoFiles.length > 0 || relevantVideoFiles.length > 0,
+    hasRelevantDocumentEvidence: relevantDocumentFiles.length > 0,
+    hasAnyVisualEvidence: imageCount > 0 || videoCount > 0,
+    hasAnyDocumentEvidence: documentCount > 0,
+    relevantPhotoFiles,
+    relevantVideoFiles,
+    relevantDocumentFiles,
+    recommendedUploads: getScopeItemRecommendedUploads(item),
+  };
+}
+
 function buildItemEvidenceSignals(params: {
   item: ProjectAiScopeItemDraft;
   input: ProjectAiAnalysisInput;
@@ -1051,6 +1364,12 @@ function buildItemEvidenceSignals(params: {
     [input.title, input.description, input.completionCriteria].filter(Boolean).join(" ")
   );
   const { imageCount, videoCount, documentCount } = getFileSignalCounts(input.files);
+  const coverage = getScopeItemUploadCoverage(item, input);
+  const relevantFiles = [
+    ...coverage.relevantPhotoFiles,
+    ...coverage.relevantVideoFiles,
+    ...coverage.relevantDocumentFiles,
+  ];
   const signals: ProjectAiScopeItemEvidenceSignal[] = [];
 
   const answerStats = getScopeItemAnswerStats(item, input);
@@ -1119,6 +1438,93 @@ function buildItemEvidenceSignals(params: {
     );
   }
 
+  const relevantPhotoFiles = coverage.relevantPhotoFiles;
+  const relevantVideoFiles = coverage.relevantVideoFiles;
+  const relevantDocumentFiles = coverage.relevantDocumentFiles;
+  const derivedSignals = Array.from(
+    new Set(
+      relevantFiles.flatMap((file) => [
+        ...file.matchedTags,
+        ...(file.extractionSummary ? [file.extractionSummary] : []),
+      ])
+    )
+  );
+
+  if (relevantPhotoFiles.length > 0) {
+    signals.push(
+      buildEvidenceSignal(
+        "matched_uploaded_photos",
+        "Matched uploaded photos",
+        `${relevantPhotoFiles.length} uploaded photo file(s) appear relevant to this item based on derived upload tags and filename clues.`,
+        {
+          strength: relevantPhotoFiles.length >= 2 ? "direct" : "supporting",
+          source: "uploaded_photo",
+          matched_files: relevantPhotoFiles.map((file) => file.fileName),
+          matched_signals: derivedSignals,
+        }
+      )
+    );
+  }
+
+  if (relevantVideoFiles.length > 0) {
+    signals.push(
+      buildEvidenceSignal(
+        "matched_uploaded_videos",
+        "Matched uploaded video",
+        `${relevantVideoFiles.length} uploaded video file(s) appear relevant to this item based on derived upload tags and filename clues.`,
+        {
+          strength: "supporting",
+          source: "uploaded_video",
+          matched_files: relevantVideoFiles.map((file) => file.fileName),
+          matched_signals: derivedSignals,
+        }
+      )
+    );
+  }
+
+  if (relevantDocumentFiles.length > 0) {
+    signals.push(
+      buildEvidenceSignal(
+        "matched_uploaded_documents",
+        "Matched uploaded documents",
+        `${relevantDocumentFiles.length} uploaded document file(s) appear relevant to this item based on derived upload tags and filename clues.`,
+        {
+          strength: relevantDocumentFiles.length >= 1 ? "direct" : "supporting",
+          source: "uploaded_document",
+          matched_files: relevantDocumentFiles.map((file) => file.fileName),
+          matched_signals: derivedSignals,
+        }
+      )
+    );
+  }
+
+  if (
+    !coverage.hasRelevantVisualEvidence ||
+    (!coverage.hasRelevantDocumentEvidence &&
+      ["electrical", "foundation", "permit", "utility", "water", "sewer"].includes(
+        item.item_category
+      ))
+  ) {
+    signals.push(
+      buildEvidenceSignal(
+        "recommended_uploads",
+        "Recommended uploads",
+        "The estimator still has a coverage gap for this item. Adding more item-specific uploads would improve confidence and help tighten the planning range.",
+        {
+          strength: "limited",
+          source: "ai_inference",
+          verification_gap:
+            !coverage.hasRelevantVisualEvidence && coverage.hasAnyVisualEvidence
+              ? "Files are uploaded on the project, but none are clearly mapped to this item yet."
+              : !coverage.hasRelevantVisualEvidence
+                ? "This item still lacks clearly relevant visual evidence."
+                : "This item still lacks clearly relevant supporting documents.",
+          recommended_uploads: coverage.recommendedUploads,
+        }
+      )
+    );
+  }
+
   const siteVisibleCategories: ProjectAiScopeItemCategory[] = [
     "site_prep",
     "grading",
@@ -1130,7 +1536,11 @@ function buildItemEvidenceSignals(params: {
     "foundation",
   ];
 
-  if (imageCount > 0 && siteVisibleCategories.includes(item.item_category)) {
+  if (
+    imageCount > 0 &&
+    relevantPhotoFiles.length === 0 &&
+    siteVisibleCategories.includes(item.item_category)
+  ) {
     signals.push(
       buildEvidenceSignal(
         "uploaded_photos",
@@ -1139,12 +1549,18 @@ function buildItemEvidenceSignals(params: {
         {
           strength: "supporting",
           source: "uploaded_photo",
+          verification_gap:
+            "The uploaded photos may be useful, but their filenames do not clearly identify this item yet.",
         }
       )
     );
   }
 
-  if (videoCount > 0 && siteVisibleCategories.includes(item.item_category)) {
+  if (
+    videoCount > 0 &&
+    relevantVideoFiles.length === 0 &&
+    siteVisibleCategories.includes(item.item_category)
+  ) {
     signals.push(
       buildEvidenceSignal(
         "uploaded_videos",
@@ -1153,6 +1569,8 @@ function buildItemEvidenceSignals(params: {
         {
           strength: "supporting",
           source: "uploaded_video",
+          verification_gap:
+            "The uploaded videos may be useful, but their filenames do not clearly identify this item yet.",
         }
       )
     );
@@ -1160,6 +1578,7 @@ function buildItemEvidenceSignals(params: {
 
   if (
     documentCount > 0 &&
+    relevantDocumentFiles.length === 0 &&
     ["electrical", "foundation", "permit", "utility", "water", "sewer"].includes(
       item.item_category
     )
@@ -1172,6 +1591,8 @@ function buildItemEvidenceSignals(params: {
         {
           strength: "supporting",
           source: "uploaded_document",
+          verification_gap:
+            "The uploaded documents may matter here, but their filenames do not clearly map to this item yet.",
         }
       )
     );

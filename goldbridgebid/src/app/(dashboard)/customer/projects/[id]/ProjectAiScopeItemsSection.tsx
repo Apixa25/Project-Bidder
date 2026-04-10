@@ -190,6 +190,48 @@ function renderEvidenceSignals(items: ProjectAiScopeItemEvidenceSignal[]) {
               </div>
             </div>
             <div className="mt-1 text-sm leading-relaxed">{signal.summary}</div>
+            {signal.matched_files && signal.matched_files.length > 0 && (
+              <div className="mt-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                  Matched files
+                </div>
+                <ul className="mt-1 space-y-1 text-xs text-text-secondary">
+                  {signal.matched_files.map((fileName) => (
+                    <li key={`${signal.key}-${fileName}`}>- {fileName}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {signal.matched_signals && signal.matched_signals.length > 0 && (
+              <div className="mt-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                  Derived signals
+                </div>
+                <ul className="mt-1 space-y-1 text-xs text-text-secondary">
+                  {signal.matched_signals.map((entry) => (
+                    <li key={`${signal.key}-${entry}`}>- {entry}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {signal.verification_gap && (
+              <div className="mt-2 text-xs text-text-muted">
+                Verification gap: {signal.verification_gap}
+              </div>
+            )}
+            {signal.recommended_uploads &&
+              signal.recommended_uploads.length > 0 && (
+                <div className="mt-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    Next best uploads
+                  </div>
+                  <ul className="mt-1 space-y-1 text-xs text-text-secondary">
+                    {signal.recommended_uploads.map((item) => (
+                      <li key={`${signal.key}-${item}`}>- {item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             <div className="mt-1 text-[11px] text-text-muted">
               Source: {signal.source.replaceAll("_", " ")}
             </div>

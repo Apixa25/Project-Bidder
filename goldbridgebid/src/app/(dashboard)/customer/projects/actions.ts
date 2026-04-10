@@ -29,6 +29,7 @@ import {
   buildProjectAiScopeItems,
 } from "@/lib/ai-scope-items";
 import { analyzeProjectAiHybrid } from "@/lib/ai/project-ai-hybrid";
+import { enrichProjectAiFileSignals } from "@/lib/ai-upload-intelligence";
 
 interface CreateProjectResult {
   error: string | null;
@@ -171,7 +172,7 @@ function buildProjectAiInput(params: {
     budgetMax: project.budget_max,
     desiredStartDate: project.desired_start_date,
     timeline: project.timeline,
-    files,
+    files: enrichProjectAiFileSignals(files),
     clarificationAnswers: clarifications.map((item) => ({
       question_key: item.question_key,
       answer_value_json: item.answer_value_json,

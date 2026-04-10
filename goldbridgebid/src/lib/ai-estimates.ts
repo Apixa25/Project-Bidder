@@ -18,6 +18,11 @@ export type ProjectAiClarificationQuestionType =
 export interface ProjectAiFileSignal {
   file_name?: string | null;
   file_type?: string | null;
+  file_kind?: "image" | "video" | "document";
+  derived_tags?: string[];
+  likely_item_keys?: string[];
+  extraction_summary?: string | null;
+  extraction_method?: "filename_heuristics";
 }
 
 export interface ProjectAiClarificationAnswerInput {
