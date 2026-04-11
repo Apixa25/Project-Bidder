@@ -45,9 +45,16 @@ export default function ProjectStatusActions({ projectId, currentStatus }: Proje
     if (!doubleConfirm) return;
 
     setLoading("delete");
-    const result = await deleteProject(projectId);
-    if (result?.error) {
-      alert(result.error);
+    try {
+      const result = await deleteProject(projectId);
+      if (result?.error) {
+        alert(result.error);
+        setLoading(null);
+        return;
+      }
+      router.push("/customer/projects");
+    } catch {
+      alert("Something went wrong deleting the project. Please try again.");
       setLoading(null);
     }
   }

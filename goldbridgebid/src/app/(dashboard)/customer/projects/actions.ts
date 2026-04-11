@@ -1764,7 +1764,8 @@ export async function deleteProject(projectId: string) {
     return { error: "Failed to delete project. Please try again." };
   }
 
-  redirect("/customer/projects");
+  revalidatePath("/customer/projects");
+  return { success: true };
 }
 
 export async function markProjectCompleted(projectId: string) {
