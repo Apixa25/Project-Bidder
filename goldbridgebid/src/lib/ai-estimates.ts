@@ -715,28 +715,18 @@ export function analyzeProjectAiEstimate(
   }
 
   if (description.length >= 220) {
-    completenessScore += 20;
+    completenessScore += 35;
   } else if (description.length >= 100) {
-    completenessScore += 12;
+    completenessScore += 22;
     missingItems.push("A fuller project description");
   } else if (description.length > 0) {
-    completenessScore += 6;
+    completenessScore += 10;
     missingItems.push("A more detailed project description");
   } else {
     missingItems.push("Project description");
   }
 
-  if (completionCriteria.length >= 120) {
-    completenessScore += 18;
-  } else if (completionCriteria.length >= 60) {
-    completenessScore += 10;
-    missingItems.push("A more explicit completion definition");
-  } else if (completionCriteria.length > 0) {
-    completenessScore += 5;
-    missingItems.push("Clear completion criteria");
-  } else {
-    missingItems.push("Completion criteria");
-  }
+  // Completion criteria field disabled — points redistributed to description above
 
   if (trades.length > 0) {
     completenessScore += 10;
@@ -886,8 +876,7 @@ export function analyzeProjectAiEstimate(
   let status: ProjectAiEstimateStatus = "ready";
   if (
     trades.length === 0 ||
-    description.length < 60 ||
-    completionCriteria.length < 40
+    description.length < 60
   ) {
     status = "insufficient_data";
   } else if (candidateQuestions.length > 0 || completenessScore < 70) {

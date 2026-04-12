@@ -382,18 +382,7 @@ export default async function ProjectDetailPage({
             </p>
           </section>
 
-          {/* Completion Criteria */}
-          <section className="rounded-xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <ClipboardCheck className="h-5 w-5 text-amber-700" />
-              <h2 className="text-lg font-semibold text-amber-900">
-                Completion Criteria
-              </h2>
-            </div>
-            <p className="whitespace-pre-wrap text-amber-800 leading-relaxed">
-              {project.completion_criteria}
-            </p>
-          </section>
+          {/* Completion Criteria — disabled; description + AI questions cover this */}
 
           <ProjectAiEstimatePanel
             projectId={project.id}

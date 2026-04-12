@@ -148,14 +148,7 @@ export default function ProjectDetailTabs({
             </p>
           </div>
 
-          <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <h3 className="mb-3 text-lg font-semibold text-text-primary">
-              Completion Criteria
-            </h3>
-            <p className="whitespace-pre-wrap text-sm text-text-secondary leading-relaxed">
-              {project.completion_criteria}
-            </p>
-          </div>
+          {/* Completion Criteria — disabled; description + AI questions cover this */}
 
           {files.length > 0 && (
             <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">

@@ -1226,7 +1226,7 @@ export async function createProject(formData: FormData) {
 
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
-  const completionCriteria = formData.get("completionCriteria") as string;
+  const completionCriteria = (formData.get("completionCriteria") as string) || "";
   const tradesRaw = formData.getAll("trades") as string[];
   const locationAddress = formData.get("locationAddress") as string;
   const locationCity = formData.get("locationCity") as string;
@@ -1244,7 +1244,6 @@ export async function createProject(formData: FormData) {
     userId: user.id,
     hasTitle: Boolean(title),
     hasDescription: Boolean(description),
-    hasCompletionCriteria: Boolean(completionCriteria),
     tradeCount: tradesRaw.length,
     hasLocationAddress: Boolean(locationAddress),
     hasLocationCity: Boolean(locationCity),
@@ -1261,7 +1260,6 @@ export async function createProject(formData: FormData) {
   if (
     !title ||
     !description ||
-    !completionCriteria ||
     !locationAddress ||
     !locationCity ||
     !locationState ||
@@ -2011,7 +2009,7 @@ export async function updateProject(projectId: string, formData: FormData) {
 
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
-  const completionCriteria = formData.get("completionCriteria") as string;
+  const completionCriteria = (formData.get("completionCriteria") as string) || "";
   const tradesRaw = formData.getAll("trades") as string[];
   const locationAddress = formData.get("locationAddress") as string;
   const locationCity = formData.get("locationCity") as string;
@@ -2025,7 +2023,6 @@ export async function updateProject(projectId: string, formData: FormData) {
   if (
     !title ||
     !description ||
-    !completionCriteria ||
     !locationAddress ||
     !locationCity ||
     !locationState ||

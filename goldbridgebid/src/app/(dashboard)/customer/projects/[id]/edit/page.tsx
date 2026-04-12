@@ -8,7 +8,6 @@ import {
   Upload,
   X,
   Loader2,
-  Info,
   ImageIcon,
   Video,
   FileText as FileIcon,
@@ -277,29 +276,7 @@ export default function EditProjectPage() {
               />
             </div>
 
-            <div>
-              <label
-                htmlFor="completionCriteria"
-                className="block text-sm font-medium text-text-primary"
-              >
-                Completion Criteria <span className="text-red-500">*</span>
-              </label>
-              <div className="mt-1 flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
-                <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>
-                  This is mandatory. Define exactly what &ldquo;done&rdquo;
-                  means for this project so there&apos;s no ambiguity.
-                </span>
-              </div>
-              <textarea
-                id="completionCriteria"
-                name="completionCriteria"
-                required
-                rows={4}
-                defaultValue={project.completion_criteria}
-                className="mt-2 block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
-            </div>
+            {/* Completion Criteria — disabled; description + AI questions cover this */}
           </div>
         </section>
 
