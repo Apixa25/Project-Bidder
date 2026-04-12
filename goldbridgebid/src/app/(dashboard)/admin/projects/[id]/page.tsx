@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { TRADE_LABELS } from "@/types/database";
+import { TRADE_LABELS, EXPERTISE_LEVEL_LABELS } from "@/types/database";
+import type { ExpertiseLevel } from "@/types/database";
 import type {
   TradeCategory,
   BadgeLevel,
@@ -233,16 +234,22 @@ export default async function AdminProjectDetailPage({ params }: Props) {
         </div>
       </div>
 
-      {/* Trades */}
+      {/* Expertise Level / Trades */}
       <div className="mb-6 flex flex-wrap gap-2">
-        {(project.trades as TradeCategory[]).map((t) => (
-          <span
-            key={t}
-            className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
-          >
-            {TRADE_LABELS[t]}
+        {project.expertise_level ? (
+          <span className="rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+            {EXPERTISE_LEVEL_LABELS[project.expertise_level as ExpertiseLevel]}
           </span>
-        ))}
+        ) : (
+          (project.trades as TradeCategory[]).map((t) => (
+            <span
+              key={t}
+              className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
+            >
+              {TRADE_LABELS[t]}
+            </span>
+          ))
+        )}
       </div>
 
       {/* Tabs */}

@@ -16,6 +16,7 @@ const FIELD_DISPLAY_NAMES: Record<string, string> = {
   description: "Description",
   completion_criteria: "Completion Criteria",
   trades: "Trades Required",
+  expertise_level: "Expertise Level",
   location_address: "Street Address",
   location_city: "City",
   location_state: "State",

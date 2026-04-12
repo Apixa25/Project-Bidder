@@ -120,6 +120,7 @@ export interface ProjectAiAnalysisInput {
   description?: string | null;
   completionCriteria?: string | null;
   trades?: string[];
+  expertiseLevel?: string;
   locationAddress?: string | null;
   locationCity?: string | null;
   locationState?: string | null;
@@ -728,10 +729,11 @@ export function analyzeProjectAiEstimate(
 
   // Completion criteria field disabled — points redistributed to description above
 
-  if (trades.length > 0) {
+  const expertiseLevel = normalizeText(input.expertiseLevel);
+  if (expertiseLevel) {
     completenessScore += 10;
   } else {
-    missingItems.push("At least one required trade");
+    missingItems.push("Expertise level (Licensed Contractor / Handyman / General Labor)");
   }
 
   if (locationAddress && locationCity && locationState && locationZip) {
@@ -874,10 +876,7 @@ export function analyzeProjectAiEstimate(
   completenessScore = clampScore(completenessScore);
 
   let status: ProjectAiEstimateStatus = "ready";
-  if (
-    trades.length === 0 ||
-    description.length < 60
-  ) {
+  if (description.length < 60) {
     status = "insufficient_data";
   } else if (candidateQuestions.length > 0 || completenessScore < 70) {
     status = "needs_clarification";

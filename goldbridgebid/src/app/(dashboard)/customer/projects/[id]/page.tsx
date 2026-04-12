@@ -19,7 +19,8 @@ import {
   History,
   BriefcaseBusiness,
 } from "lucide-react";
-import { TRADE_LABELS } from "@/types/database";
+import { TRADE_LABELS, EXPERTISE_LEVEL_LABELS } from "@/types/database";
+import type { ExpertiseLevel } from "@/types/database";
 import { BADGE_CONFIG } from "@/lib/badges";
 import { hasCoreCredentials } from "@/lib/badges";
 import type {
@@ -57,6 +58,7 @@ const FIELD_DISPLAY_NAMES: Record<string, string> = {
   description: "Description",
   completion_criteria: "Completion Criteria",
   trades: "Trades Required",
+  expertise_level: "Expertise Level",
   location_address: "Street Address",
   location_city: "City",
   location_state: "State",
@@ -908,21 +910,29 @@ export default async function ProjectDetailPage({
             )}
           </div>
 
-          {/* Trades */}
+          {/* Expertise Level */}
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
             <h3 className="mb-3 text-sm font-semibold text-text-primary">
-              Trades Required
+              Level of Professional Needed
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {(project.trades as TradeCategory[]).map((trade) => (
-                <span
-                  key={trade}
-                  className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
-                >
-                  {TRADE_LABELS[trade]}
-                </span>
-              ))}
-            </div>
+            {project.expertise_level ? (
+              <span className="inline-block rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+                {EXPERTISE_LEVEL_LABELS[project.expertise_level as ExpertiseLevel]}
+              </span>
+            ) : (project.trades as TradeCategory[]).length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {(project.trades as TradeCategory[]).map((trade) => (
+                  <span
+                    key={trade}
+                    className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                  >
+                    {TRADE_LABELS[trade]}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="text-sm text-text-muted">Not specified</span>
+            )}
           </div>
 
           {/* Q&A */}

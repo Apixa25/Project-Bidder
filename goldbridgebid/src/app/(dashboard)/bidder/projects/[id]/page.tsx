@@ -19,7 +19,8 @@ import {
   BadgeDollarSign,
   ShieldCheck,
 } from "lucide-react";
-import { TRADE_LABELS, FORM_TRADES } from "@/types/database";
+import { TRADE_LABELS, FORM_TRADES, EXPERTISE_LEVEL_LABELS } from "@/types/database";
+import type { ExpertiseLevel } from "@/types/database";
 import type {
   TradeCategory,
   BidderCredentials,
@@ -464,14 +465,18 @@ export default async function BidderProjectDetailPage({
             )}
           </div>
 
-          {/* Trades Required */}
+          {/* Expertise Level */}
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
             <h3 className="mb-3 text-sm font-semibold text-text-primary">
-              Trades Required
+              Level of Professional Needed
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {projectTrades.length > 0 ? (
-                projectTrades.map((trade) => {
+            {project.expertise_level ? (
+              <span className="inline-block rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+                {EXPERTISE_LEVEL_LABELS[project.expertise_level as ExpertiseLevel]}
+              </span>
+            ) : projectTrades.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {projectTrades.map((trade) => {
                   const alreadyBid = alreadyBidTrades.includes(trade);
                   return (
                     <span
@@ -486,13 +491,13 @@ export default async function BidderProjectDetailPage({
                       {alreadyBid && " ✓"}
                     </span>
                   );
-                })
-              ) : (
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                  Open to all trades
-                </span>
-              )}
-            </div>
+                })}
+              </div>
+            ) : (
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                Open to all trades
+              </span>
+            )}
             {alreadyBidTrades.length > 0 && (
               <p className="mt-3 text-xs text-text-muted">
                 ✓ = You&apos;ve already bid on this trade

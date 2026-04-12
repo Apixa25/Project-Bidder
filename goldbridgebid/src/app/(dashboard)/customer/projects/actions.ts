@@ -141,6 +141,7 @@ async function buildProjectAiInput(params: {
     description: string;
     completion_criteria: string;
     trades: string[];
+    expertise_level?: string | null;
     location_address: string;
     location_city: string;
     location_state: string;
@@ -168,6 +169,7 @@ async function buildProjectAiInput(params: {
     description: project.description,
     completionCriteria: project.completion_criteria,
     trades: project.trades,
+    expertiseLevel: project.expertise_level || undefined,
     locationAddress: project.location_address,
     locationCity: project.location_city,
     locationState: project.location_state,
@@ -1227,7 +1229,7 @@ export async function createProject(formData: FormData) {
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   const completionCriteria = (formData.get("completionCriteria") as string) || "";
-  const tradesRaw = formData.getAll("trades") as string[];
+  const expertiseLevelRaw = (formData.get("expertiseLevel") as string) || "";
   const locationAddress = formData.get("locationAddress") as string;
   const locationCity = formData.get("locationCity") as string;
   const locationState = formData.get("locationState") as string;
@@ -1240,11 +1242,23 @@ export async function createProject(formData: FormData) {
     formData.get("draftAiClarifications")
   );
 
+  const expertiseLevel = (["licensed_contractor", "handyman", "general_labor"].includes(expertiseLevelRaw)
+    ? expertiseLevelRaw
+    : null) as string | null;
+
+  const trades = expertiseLevel === "licensed_contractor"
+    ? ["general_b" as TradeCategory]
+    : expertiseLevel === "handyman"
+    ? ["handyman" as TradeCategory]
+    : expertiseLevel === "general_labor"
+    ? ["general_work" as TradeCategory]
+    : ([] as TradeCategory[]);
+
   console.info("createProject: received submit", {
     userId: user.id,
     hasTitle: Boolean(title),
     hasDescription: Boolean(description),
-    tradeCount: tradesRaw.length,
+    expertiseLevel,
     hasLocationAddress: Boolean(locationAddress),
     hasLocationCity: Boolean(locationCity),
     hasLocationState: Boolean(locationState),
@@ -1281,8 +1295,6 @@ export async function createProject(formData: FormData) {
     } satisfies CreateProjectResult;
   }
 
-  const trades = tradesRaw as TradeCategory[];
-
   const { data: project, error: projectError } = await supabase
     .from("projects")
     .insert({
@@ -1291,6 +1303,7 @@ export async function createProject(formData: FormData) {
       description,
       completion_criteria: completionCriteria,
       trades,
+      expertise_level: expertiseLevel,
       location_address: locationAddress,
       location_city: locationCity,
       location_state: locationState,
@@ -1432,6 +1445,7 @@ export async function createProject(formData: FormData) {
       description,
       completionCriteria,
       trades,
+      expertiseLevel: expertiseLevel || undefined,
       locationAddress,
       locationCity,
       locationState,
@@ -2010,7 +2024,7 @@ export async function updateProject(projectId: string, formData: FormData) {
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   const completionCriteria = (formData.get("completionCriteria") as string) || "";
-  const tradesRaw = formData.getAll("trades") as string[];
+  const expertiseLevelRaw = (formData.get("expertiseLevel") as string) || "";
   const locationAddress = formData.get("locationAddress") as string;
   const locationCity = formData.get("locationCity") as string;
   const locationState = formData.get("locationState") as string;
@@ -2019,6 +2033,18 @@ export async function updateProject(projectId: string, formData: FormData) {
   const budgetMax = formData.get("budgetMax") as string;
   const desiredStartDate = formData.get("desiredStartDate") as string;
   const timeline = formData.get("timeline") as string;
+
+  const expertiseLevel = (["licensed_contractor", "handyman", "general_labor"].includes(expertiseLevelRaw)
+    ? expertiseLevelRaw
+    : null) as string | null;
+
+  const trades = expertiseLevel === "licensed_contractor"
+    ? ["general_b" as TradeCategory]
+    : expertiseLevel === "handyman"
+    ? ["handyman" as TradeCategory]
+    : expertiseLevel === "general_labor"
+    ? ["general_work" as TradeCategory]
+    : ([] as TradeCategory[]);
 
   if (
     !title ||
@@ -2049,16 +2075,13 @@ export async function updateProject(projectId: string, formData: FormData) {
     return { error: uploadValidationError };
   }
 
-  const trades = tradesRaw as TradeCategory[];
-
-  // Track all changes for the audit trail
   const edits: { field_name: string; old_value: string; new_value: string }[] = [];
 
   const fieldChecks: { field: string; oldVal: string; newVal: string }[] = [
     { field: "title", oldVal: current.title, newVal: title },
     { field: "description", oldVal: current.description, newVal: description },
     { field: "completion_criteria", oldVal: current.completion_criteria, newVal: completionCriteria },
-    { field: "trades", oldVal: JSON.stringify(current.trades), newVal: JSON.stringify(trades) },
+    { field: "expertise_level", oldVal: current.expertise_level || "", newVal: expertiseLevel || "" },
     { field: "location_address", oldVal: current.location_address, newVal: locationAddress },
     { field: "location_city", oldVal: current.location_city, newVal: locationCity },
     { field: "location_state", oldVal: current.location_state, newVal: locationState },
@@ -2091,6 +2114,7 @@ export async function updateProject(projectId: string, formData: FormData) {
       description,
       completion_criteria: completionCriteria,
       trades,
+      expertise_level: expertiseLevel,
       location_address: locationAddress,
       location_city: locationCity,
       location_state: locationState,
@@ -2238,6 +2262,7 @@ export async function updateProject(projectId: string, formData: FormData) {
         description,
         completion_criteria: completionCriteria,
         trades,
+        expertise_level: expertiseLevel,
         location_address: locationAddress,
         location_city: locationCity,
         location_state: locationState,

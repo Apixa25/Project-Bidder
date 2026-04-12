@@ -19,7 +19,8 @@ import {
   RefreshCcw,
   Trash2,
 } from "lucide-react";
-import { TRADE_LABELS } from "@/types/database";
+import { TRADE_LABELS, EXPERTISE_LEVEL_LABELS } from "@/types/database";
+import type { ExpertiseLevel } from "@/types/database";
 import type {
   TradeCategory,
   ProjectPaidEstimatePool,
@@ -432,14 +433,20 @@ export default async function BrowseProjectsPage() {
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-1.5">
-                    {(project.trades as TradeCategory[]).map((trade) => (
-                      <span
-                        key={trade}
-                        className="rounded-full bg-secondary/10 px-2.5 py-0.5 text-xs font-medium text-secondary"
-                      >
-                        {TRADE_LABELS[trade]}
+                    {project.expertise_level ? (
+                      <span className="rounded-full bg-secondary/10 px-2.5 py-0.5 text-xs font-medium text-secondary">
+                        {EXPERTISE_LEVEL_LABELS[project.expertise_level as ExpertiseLevel]}
                       </span>
-                    ))}
+                    ) : (
+                      (project.trades as TradeCategory[]).map((trade) => (
+                        <span
+                          key={trade}
+                          className="rounded-full bg-secondary/10 px-2.5 py-0.5 text-xs font-medium text-secondary"
+                        >
+                          {TRADE_LABELS[trade]}
+                        </span>
+                      ))
+                    )}
                   </div>
 
                   {mediaSummary.totalCount > 0 && (

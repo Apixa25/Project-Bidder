@@ -10,7 +10,8 @@ import {
   Video,
   FileText as FileIcon,
 } from "lucide-react";
-import { TRADE_LABELS } from "@/types/database";
+import { TRADE_LABELS, EXPERTISE_LEVEL_LABELS } from "@/types/database";
+import type { ExpertiseLevel } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import { userHasRole } from "@/lib/auth/roles";
 import { bidCountForDisplay } from "@/lib/projects/bidCountDisplay";
@@ -167,14 +168,20 @@ export default async function MyProjectsPage() {
                   )}
 
                   <div className="mt-3 flex flex-wrap gap-1.5">
-                    {(project.trades as TradeCategory[]).map((trade) => (
-                      <span
-                        key={trade}
-                        className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
-                      >
-                        {TRADE_LABELS[trade]}
+                    {project.expertise_level ? (
+                      <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                        {EXPERTISE_LEVEL_LABELS[project.expertise_level as ExpertiseLevel]}
                       </span>
-                    ))}
+                    ) : (
+                      (project.trades as TradeCategory[]).map((trade) => (
+                        <span
+                          key={trade}
+                          className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
+                        >
+                          {TRADE_LABELS[trade]}
+                        </span>
+                      ))
+                    )}
                   </div>
                 </div>
 

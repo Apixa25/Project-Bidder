@@ -198,6 +198,31 @@ export const FORM_TRADES: TradeCategory[] = [
   "c60_earthquake_retrofit",
 ];
 
+/* ── Expertise Level (customer-facing replacement for trades) ── */
+
+export type ExpertiseLevel = "licensed_contractor" | "handyman" | "general_labor";
+
+export const EXPERTISE_LEVEL_LABELS: Record<ExpertiseLevel, string> = {
+  licensed_contractor: "Licensed Contractor",
+  handyman: "Handyman",
+  general_labor: "General Labor",
+};
+
+export const EXPERTISE_LEVEL_DESCRIPTIONS: Record<ExpertiseLevel, string> = {
+  licensed_contractor:
+    "A licensed professional (General Contractor or specialty license)",
+  handyman:
+    "A skilled tradesperson for smaller jobs, no full contractor license required",
+  general_labor:
+    "Basic labor — no license or specialized skills needed",
+};
+
+export const EXPERTISE_LEVELS: ExpertiseLevel[] = [
+  "licensed_contractor",
+  "handyman",
+  "general_labor",
+];
+
 export interface Profile {
   id: string;
   user_id: string;

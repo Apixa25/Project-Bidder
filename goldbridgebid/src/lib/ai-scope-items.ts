@@ -5,7 +5,7 @@ import type {
   ProjectAiClarificationQuestionType,
   ProjectAiTradeBreakdownItem,
 } from "@/lib/ai-estimates";
-import { getMaxTradeWage, type TradeWageEntry } from "@/lib/trade-wages";
+import { getMaxTradeWage, getWageForExpertiseLevel, type TradeWageEntry } from "@/lib/trade-wages";
 import { TRADE_LABELS, type TradeCategory } from "@/types/database";
 
 export type ProjectAiScopeItemRequiredStatus =
@@ -2131,7 +2131,9 @@ export function buildProjectAiScopeItems(params: {
     .filter(Boolean);
   const tradeNames = tradeLabels.length > 0 ? tradeLabels : ["General"];
   const tradeKeys = analysis.trade_breakdown.map((t) => t.trade);
-  const wageEntry = getMaxTradeWage(tradeKeys);
+  const wageEntry = input.expertiseLevel
+    ? getWageForExpertiseLevel(input.expertiseLevel)
+    : getMaxTradeWage(tradeKeys);
 
   const hasAnyBenchmark = analysis.trade_breakdown.some(
     (t) => t.source === "historical_bids"

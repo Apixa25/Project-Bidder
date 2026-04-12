@@ -14,7 +14,7 @@
  * Determinations, Southern California residential/commercial).
  */
 
-import type { TradeCategory } from "@/types/database";
+import type { TradeCategory, ExpertiseLevel } from "@/types/database";
 
 export interface TradeWageEntry {
   /** Fully burdened hourly rate ($/hr) — base + fringes + taxes. */
@@ -125,4 +125,35 @@ export function getMaxTradeWage(
     }
   }
   return best;
+}
+
+const EXPERTISE_WAGE_MAP: Record<ExpertiseLevel, TradeWageEntry> = {
+  licensed_contractor: {
+    hourly_rate: 85,
+    role_label: "Licensed Contractor",
+    source: "ca_dir_prevailing",
+  },
+  handyman: {
+    hourly_rate: 45,
+    role_label: "Handyman",
+    source: "ca_dir_prevailing",
+  },
+  general_labor: {
+    hourly_rate: 28,
+    role_label: "General Labor",
+    source: "ca_dir_prevailing",
+  },
+};
+
+/**
+ * Returns the wage entry matching an expertise level.
+ * Falls back to the licensed contractor rate if unknown.
+ */
+export function getWageForExpertiseLevel(
+  level: ExpertiseLevel | string | undefined | null
+): TradeWageEntry {
+  if (level && level in EXPERTISE_WAGE_MAP) {
+    return EXPERTISE_WAGE_MAP[level as ExpertiseLevel];
+  }
+  return DEFAULT_PROFESSIONAL_RATE;
 }

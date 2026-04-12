@@ -2,8 +2,8 @@ import type {
   ProjectAiAnalysisInput,
   ProjectAiAnalysisResult,
 } from "@/lib/ai-estimates";
-import { getMaxTradeWage } from "@/lib/trade-wages";
-import { TRADE_LABELS, type TradeCategory } from "@/types/database";
+import { getMaxTradeWage, getWageForExpertiseLevel } from "@/lib/trade-wages";
+import { TRADE_LABELS, EXPERTISE_LEVEL_LABELS, type TradeCategory, type ExpertiseLevel } from "@/types/database";
 
 function truncateText(value: string | null | undefined, maxLength: number) {
   const normalized = (value || "").trim();
@@ -28,7 +28,13 @@ export function buildProjectAiLlmPrompt(params: {
     label: TRADE_LABELS[trade as TradeCategory] || trade,
   }));
 
-  const wageEntry = getMaxTradeWage(tradeKeys);
+  const wageEntry = input.expertiseLevel
+    ? getWageForExpertiseLevel(input.expertiseLevel)
+    : getMaxTradeWage(tradeKeys);
+
+  const expertiseLevelLabel = input.expertiseLevel
+    ? EXPERTISE_LEVEL_LABELS[input.expertiseLevel as ExpertiseLevel] || input.expertiseLevel
+    : null;
 
   const trimmedInput = {
     title: truncateText(input.title, 120),
@@ -56,7 +62,7 @@ export function buildProjectAiLlmPrompt(params: {
       "Return practical, contractor-useful clarification questions and concise scope analysis.",
       "Do not invent facts, quantities, permit requirements, site conditions, or material selections.",
       "If details are missing, state that they are missing instead of guessing.",
-      `This project uses a single unified estimate priced at licensed professional rates (${wageEntry.role_label}, $${wageEntry.hourly_rate}/hr). Do not split the estimate by trade.`,
+      `The customer requested ${expertiseLevelLabel || "professional"}-level work. This project uses a single unified estimate priced at ${wageEntry.role_label} rates ($${wageEntry.hourly_rate}/hr). Do not split the estimate by trade.`,
       "Materials and quantities are the same regardless of contractor. Only labor rates may vary.",
       "We use an internal prevailing wage sheet — never search the internet for wage data.",
       `Estimate total labor hours needed for this project at the ${wageEntry.role_label} rate ($${wageEntry.hourly_rate}/hr).`,

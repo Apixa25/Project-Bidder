@@ -15,8 +15,12 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { updateProject } from "../../actions";
-import { TRADE_LABELS, FORM_TRADES } from "@/types/database";
-import type { TradeCategory } from "@/types/database";
+import {
+  EXPERTISE_LEVELS,
+  EXPERTISE_LEVEL_LABELS,
+  EXPERTISE_LEVEL_DESCRIPTIONS,
+} from "@/types/database";
+import type { ExpertiseLevel } from "@/types/database";
 import { createBrowserClient } from "@supabase/ssr";
 import { compressFiles } from "@/lib/compress-image";
 import {
@@ -37,7 +41,8 @@ interface ProjectData {
   title: string;
   description: string;
   completion_criteria: string;
-  trades: TradeCategory[];
+  trades: string[];
+  expertise_level: string | null;
   location_address: string;
   location_city: string;
   location_state: string;
@@ -54,7 +59,7 @@ export default function EditProjectPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [project, setProject] = useState<ProjectData | null>(null);
-  const [selectedTrades, setSelectedTrades] = useState<TradeCategory[]>([]);
+  const [expertiseLevel, setExpertiseLevel] = useState<ExpertiseLevel | null>(null);
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<(string | null)[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +109,7 @@ export default function EditProjectPage() {
       }
 
       setProject(data as ProjectData);
-      setSelectedTrades(data.trades as TradeCategory[]);
+      setExpertiseLevel((data.expertise_level as ExpertiseLevel) || null);
       setPageLoading(false);
     }
 
@@ -121,13 +126,6 @@ export default function EditProjectPage() {
     };
   }, [newFiles]);
 
-  function toggleTrade(trade: TradeCategory) {
-    setSelectedTrades((prev) =>
-      prev.includes(trade)
-        ? prev.filter((t) => t !== trade)
-        : [...prev, trade]
-    );
-  }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
@@ -145,10 +143,9 @@ export default function EditProjectPage() {
     setLoading(true);
     setError(null);
 
-    // Trades are optional — customers may leave them empty and let any
-    // qualified contractor bid on the full project scope.
-
-    selectedTrades.forEach((trade) => formData.append("trades", trade));
+    if (expertiseLevel) {
+      formData.set("expertiseLevel", expertiseLevel);
+    }
 
     setCompressing(true);
     const { files: compressed } = await compressFiles(newFiles);
@@ -274,37 +271,36 @@ export default function EditProjectPage() {
           </div>
         </section>
 
-        {/* Trade Categories */}
+        {/* Expertise Level */}
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <h2 className="mb-2 text-lg font-semibold text-text-primary">
-            Trades Required
+            Level of Professional Needed
           </h2>
           <p className="mb-4 text-sm text-text-muted">
-            Optional — select trades to filter which contractors can bid, or
-            leave empty to accept bids from any qualified contractor.
+            What level of expertise does your project require? This helps us
+            estimate labor costs and match you with the right contractors.
           </p>
-          <div className="flex flex-wrap gap-2">
-            {FORM_TRADES.map((value) => (
+          <div className="grid gap-3 sm:grid-cols-3">
+            {EXPERTISE_LEVELS.map((level) => (
               <button
-                key={value}
+                key={level}
                 type="button"
-                onClick={() => toggleTrade(value)}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
-                  selectedTrades.includes(value)
-                    ? "border-primary bg-primary text-slate-950 shadow-sm"
-                    : "border-border bg-surface text-text-secondary hover:border-primary/40 hover:text-text-primary"
+                onClick={() => setExpertiseLevel(level)}
+                className={`rounded-xl border-2 p-4 text-left transition-all ${
+                  expertiseLevel === level
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-border bg-surface hover:border-primary/40"
                 }`}
               >
-                {TRADE_LABELS[value]}
+                <p className="text-sm font-semibold text-text-primary">
+                  {EXPERTISE_LEVEL_LABELS[level]}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                  {EXPERTISE_LEVEL_DESCRIPTIONS[level]}
+                </p>
               </button>
             ))}
           </div>
-          {selectedTrades.length > 0 && (
-            <p className="mt-3 text-sm text-secondary font-medium">
-              {selectedTrades.length} trade
-              {selectedTrades.length !== 1 ? "s" : ""} selected
-            </p>
-          )}
         </section>
 
         {/* Location */}
