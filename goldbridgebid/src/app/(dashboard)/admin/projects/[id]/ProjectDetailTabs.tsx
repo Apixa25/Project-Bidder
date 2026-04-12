@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import RichTextRenderer from "@/components/ui/RichTextRenderer";
 import type {
   TradeCategory,
   BadgeLevel,
@@ -143,9 +144,10 @@ export default function ProjectDetailTabs({
             <h3 className="mb-3 text-lg font-semibold text-text-primary">
               Description
             </h3>
-            <p className="whitespace-pre-wrap text-sm text-text-secondary leading-relaxed">
-              {project.description}
-            </p>
+            <RichTextRenderer
+              content={project.description}
+              className="text-sm text-text-secondary"
+            />
           </div>
 
           {/* Completion Criteria — disabled; description + AI questions cover this */}

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import RichTextRenderer from "@/components/ui/RichTextRenderer";
 import {
   ArrowLeft,
   MapPin,
@@ -377,9 +378,10 @@ export default async function ProjectDetailPage({
             <h2 className="mb-3 text-lg font-semibold text-text-primary">
               Description
             </h2>
-            <p className="whitespace-pre-wrap text-text-secondary leading-relaxed">
-              {project.description}
-            </p>
+            <RichTextRenderer
+              content={project.description}
+              className="text-text-secondary"
+            />
           </section>
 
           {/* Completion Criteria — disabled; description + AI questions cover this */}
@@ -719,9 +721,10 @@ export default async function ProjectDetailPage({
                       {bid.notes && (
                         <div className="mb-4 rounded-lg bg-bg-warm px-4 py-3">
                           <p className="text-xs text-text-muted mb-1">Notes</p>
-                          <p className="text-sm text-text-secondary whitespace-pre-wrap">
-                            {bid.notes}
-                          </p>
+                          <RichTextRenderer
+                            content={bid.notes}
+                            className="text-sm text-text-secondary"
+                          />
                         </div>
                       )}
 

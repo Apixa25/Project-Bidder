@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import RichTextEditor from "@/components/ui/RichTextEditor";
 import {
   ArrowLeft,
   Upload,
@@ -260,19 +261,12 @@ export default function EditProjectPage() {
             </div>
 
             <div>
-              <label
-                htmlFor="description"
-                className="block text-sm font-medium text-text-primary"
-              >
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
                 Project Description <span className="text-red-500">*</span>
               </label>
-              <textarea
-                id="description"
+              <RichTextEditor
                 name="description"
-                required
-                rows={6}
                 defaultValue={project.description}
-                className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
 

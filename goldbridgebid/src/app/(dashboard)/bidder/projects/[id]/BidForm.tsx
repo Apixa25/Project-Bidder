@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { submitBid } from "../actions";
 import { TRADE_LABELS } from "@/types/database";
+import RichTextEditor from "@/components/ui/RichTextEditor";
 import type { TradeCategory } from "@/types/database";
 import { Upload, X, FileText, Loader2 } from "lucide-react";
 import { compressFiles } from "@/lib/compress-image";
@@ -211,11 +212,10 @@ export default function BidForm({
           Bid Notes / Proposal Details{" "}
           <span className="font-normal text-text-muted">(optional)</span>
         </label>
-        <textarea
+        <RichTextEditor
           name="notes"
-          rows={5}
           placeholder="Describe your approach, experience with similar projects, scope of work, exclusions, or anything else the customer should know..."
-          className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          minHeight="8rem"
         />
       </div>
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
+import RichTextRenderer from "@/components/ui/RichTextRenderer";
 import {
   ClipboardList,
   FolderOpen,
@@ -260,9 +261,10 @@ export default async function MyBidsPage() {
                 {bid.notes && (
                   <div className="mt-3 rounded-lg bg-bg-warm px-4 py-3">
                     <p className="text-xs text-text-muted mb-1">Your Notes</p>
-                    <p className="text-sm text-text-secondary whitespace-pre-wrap line-clamp-3">
-                      {bid.notes}
-                    </p>
+                    <RichTextRenderer
+                      content={bid.notes}
+                      className="text-sm text-text-secondary line-clamp-3"
+                    />
                   </div>
                 )}
 

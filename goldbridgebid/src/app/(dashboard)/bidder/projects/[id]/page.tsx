@@ -1,4 +1,5 @@
 import ProjectEditHistory from "./ProjectEditHistory";
+import RichTextRenderer from "@/components/ui/RichTextRenderer";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect, notFound } from "next/navigation";
@@ -263,9 +264,10 @@ export default async function BidderProjectDetailPage({
             <h2 className="mb-3 text-lg font-semibold text-text-primary">
               Project Description
             </h2>
-            <p className="whitespace-pre-wrap text-text-secondary leading-relaxed">
-              {project.description}
-            </p>
+            <RichTextRenderer
+              content={project.description}
+              className="text-text-secondary"
+            />
           </section>
 
           {/* Completion Criteria — disabled; description + AI questions cover this */}
