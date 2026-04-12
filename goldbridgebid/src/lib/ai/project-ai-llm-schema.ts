@@ -26,6 +26,12 @@ export const projectAiLlmQuestionSchema = z.object({
   options: z.array(projectAiLlmQuestionOptionSchema).max(8),
 });
 
+export const projectAiLlmLaborEstimateSchema = z.object({
+  total_hours_low: z.number().int().min(1).max(10000),
+  total_hours_high: z.number().int().min(1).max(10000),
+  reasoning: z.string().trim().max(400),
+});
+
 export const projectAiLlmOutputSchema = z.object({
   suggested_status: z.enum([
     "insufficient_data",
@@ -40,6 +46,7 @@ export const projectAiLlmOutputSchema = z.object({
   recommended_questions: z.array(projectAiLlmQuestionSchema).max(8),
   confidence_reason: z.string().trim().max(300).nullable(),
   needs_human_review: z.boolean(),
+  labor_hour_estimate: projectAiLlmLaborEstimateSchema.nullable(),
 });
 
 export type ProjectAiLlmOutput = z.infer<typeof projectAiLlmOutputSchema>;
@@ -113,6 +120,16 @@ export const projectAiLlmResponseJsonSchema = {
       },
       confidence_reason: { type: ["string", "null"] },
       needs_human_review: { type: "boolean" },
+      labor_hour_estimate: {
+        type: ["object", "null"],
+        properties: {
+          total_hours_low: { type: "integer" },
+          total_hours_high: { type: "integer" },
+          reasoning: { type: "string" },
+        },
+        required: ["total_hours_low", "total_hours_high", "reasoning"],
+        additionalProperties: false,
+      },
     },
     required: [
       "suggested_status",
@@ -124,6 +141,7 @@ export const projectAiLlmResponseJsonSchema = {
       "recommended_questions",
       "confidence_reason",
       "needs_human_review",
+      "labor_hour_estimate",
     ],
   },
 } as const;

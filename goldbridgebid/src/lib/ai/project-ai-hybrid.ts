@@ -11,11 +11,18 @@ import { getProjectAiLlmSettings } from "./openai-client";
 import { analyzeProjectWithLlm } from "./project-ai-llm";
 import type { ProjectAiLlmOutput } from "./project-ai-llm-schema";
 
+export interface LlmLaborHourEstimate {
+  total_hours_low: number;
+  total_hours_high: number;
+  reasoning: string;
+}
+
 export type ProjectAiHybridAnalysisResult = ProjectAiAnalysisResult & {
   model_name: string;
   provider_name: string | null;
   fallback_used: boolean;
   prompt_version: string | null;
+  llm_labor_hour_estimate: LlmLaborHourEstimate | null;
 };
 
 function uniqStrings(values: string[], maxItems: number) {
@@ -133,6 +140,7 @@ function buildRulesResult(
     provider_name: params.modelName?.startsWith("openai:") ? "openai" : null,
     fallback_used: params.fallbackUsed ?? false,
     prompt_version: params.promptVersion ?? null,
+    llm_labor_hour_estimate: null,
   };
 }
 
@@ -153,6 +161,14 @@ export async function analyzeProjectAiHybrid(
       rulesAnalysis,
     });
 
+    const merged = mergeQuestions({
+      llmQuestions: llmResult.analysis.recommended_questions,
+      rulesQuestions: rulesAnalysis.recommended_questions,
+      maxQuestions: settings.maxQuestions,
+    });
+
+    const laborEstimate = llmResult.analysis.labor_hour_estimate ?? null;
+
     return {
       ...rulesAnalysis,
       confidence_level: llmResult.analysis.confidence_level,
@@ -169,19 +185,16 @@ export async function analyzeProjectAiHybrid(
         [...rulesAnalysis.exclusions, ...llmResult.analysis.exclusions],
         10
       ),
-      recommended_questions: mergeQuestions({
-        llmQuestions: llmResult.analysis.recommended_questions,
-        rulesQuestions: rulesAnalysis.recommended_questions,
-        maxQuestions: settings.maxQuestions,
-      }),
+      recommended_questions: merged,
       analysis_version: "v2-openai-hybrid",
       model_name: llmResult.modelName,
       provider_name: "openai",
       fallback_used: false,
       prompt_version: llmResult.promptVersion,
+      llm_labor_hour_estimate: laborEstimate,
     };
   } catch (error) {
-    console.error("Project AI LLM analysis failed; falling back to rules.", error);
+    console.error("[hybrid] LLM FAILED — falling back to rules.", error);
     return buildRulesResult(rulesAnalysis, {
       modelName: `fallback:${rulesAnalysis.analysis_version}`,
       fallbackUsed: true,

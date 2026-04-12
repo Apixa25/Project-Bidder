@@ -650,7 +650,11 @@ async function runAndPersistProjectAiEstimate(params: {
 
   const previousEstimate = previousEstimateResult.data;
   const analysis = await analyzeProjectAiHybrid(input, benchmarks);
-  const draftScopeItems = buildProjectAiScopeItems({ input, analysis });
+  const draftScopeItems = buildProjectAiScopeItems({
+    input,
+    analysis,
+    llmLaborHourEstimate: analysis.llm_labor_hour_estimate,
+  });
   const itemClarifications = buildProjectAiItemClarifications({
     items: draftScopeItems,
     input,
@@ -1258,7 +1262,6 @@ export async function createProject(formData: FormData) {
     !title ||
     !description ||
     !completionCriteria ||
-    tradesRaw.length === 0 ||
     !locationAddress ||
     !locationCity ||
     !locationState ||
@@ -2023,7 +2026,6 @@ export async function updateProject(projectId: string, formData: FormData) {
     !title ||
     !description ||
     !completionCriteria ||
-    tradesRaw.length === 0 ||
     !locationAddress ||
     !locationCity ||
     !locationState ||

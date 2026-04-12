@@ -628,23 +628,15 @@ function buildTradeBreakdown(
       continue;
     }
 
-    const fallbackLow =
-      trades.length > 0 && budgetMin
-        ? roundCurrency(budgetMin / trades.length)
-        : null;
-    const fallbackHigh =
-      trades.length > 0
-        ? roundCurrency((budgetMax || budgetMin || 0) / trades.length)
-        : null;
-
+    // Per DESIGN_PRINCIPLES.md: false confidence is worse than no confidence.
+    // Do not fabricate per-trade pricing by splitting the customer's budget evenly.
     tradeBreakdown.push({
       trade,
       label: TRADE_LABELS[trade as TradeCategory] || trade,
       benchmark_count: 0,
-      estimated_low: fallbackLow,
-      estimated_high: fallbackHigh,
-      source:
-        fallbackLow || fallbackHigh ? "budget_signal" : "insufficient_signal",
+      estimated_low: null,
+      estimated_high: null,
+      source: "insufficient_signal",
     });
   }
 
@@ -864,7 +856,7 @@ export function analyzeProjectAiEstimate(
     );
   } else if (baselineLow || baselineHigh) {
     assumptions.push(
-      "Baseline range leans more heavily on the customer's stated budget because internal trade benchmarks were limited."
+      "Baseline range reflects the customer's own stated budget — no independent price verification has been performed yet."
     );
   } else {
     assumptions.push(

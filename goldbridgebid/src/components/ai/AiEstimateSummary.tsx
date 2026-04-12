@@ -107,8 +107,8 @@ function getEstimateMethod(tradeBreakdown: ProjectAiTradeBreakdownItem[]) {
 
   if (sources.size === 1 && sources.has("budget_signal")) {
     return {
-      label: "Budget split fallback",
-      detail: "The current budget was split across the selected trades because internal bid data was limited.",
+      label: "Budget-anchored estimate",
+      detail: "The baseline range is anchored to the customer's stated budget. No independent bid history is available yet.",
     };
   }
 
@@ -121,8 +121,8 @@ function getEstimateMethod(tradeBreakdown: ProjectAiTradeBreakdownItem[]) {
 
   if (sources.has("historical_bids") && sources.has("budget_signal")) {
     return {
-      label: "Mixed benchmark + budget fallback",
-      detail: "Some selected trades used internal bid history while others fell back to the stated budget.",
+      label: "Mixed benchmark + budget anchor",
+      detail: "Some trades have internal bid history while others rely on the stated budget.",
     };
   }
 
@@ -230,31 +230,24 @@ export default function AiEstimateSummary({
       )}
 
       {!compact && tradeBreakdown.length > 0 && (
-        <div className="grid gap-3 md:grid-cols-2">
-          {tradeBreakdown.map((item) => (
-            <div
-              key={item.trade}
-              className="rounded-lg border border-border bg-bg-warm px-4 py-3"
-            >
-              <p className="text-sm font-semibold text-text-primary">
+        <div className="rounded-xl border border-border bg-surface px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+            Accepting bids from
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {tradeBreakdown.map((item) => (
+              <span
+                key={item.trade}
+                className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+              >
                 {item.label}
-              </p>
-              <p className="mt-1 text-sm text-money font-semibold">
-                {item.estimated_low !== null && item.estimated_high !== null
-                  ? `${formatCurrency(item.estimated_low)} - ${formatCurrency(
-                      item.estimated_high
-                    )}`
-                  : "Need more signal"}
-              </p>
-              <p className="mt-1 text-xs text-text-muted">
-                {item.source === "historical_bids"
-                  ? `${item.benchmark_count} internal bids informed this trade range.`
-                  : item.source === "budget_signal"
-                    ? "Budget signal used because internal bid data was limited."
-                    : "Not enough historical signal for a trade-level range yet."}
-              </p>
-            </div>
-          ))}
+              </span>
+            ))}
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-text-muted">
+            The unified estimate uses licensed professional labor rates.
+            Actual bids may come in lower depending on the contractor.
+          </p>
         </div>
       )}
 

@@ -72,6 +72,7 @@ interface ProjectAiEstimatePanelProps {
     Pick<
       ProjectAiScopeItem,
       | "id"
+      | "item_key"
       | "item_label"
       | "item_category"
       | "required_status"
@@ -143,6 +144,29 @@ export default function ProjectAiEstimatePanel({
   const [answers, setAnswers] = useState<Record<string, string[]>>(() =>
     getInitialAnswers([...clarifications, ...itemClarifications])
   );
+  const [excludedItemIds, setExcludedItemIds] = useState<Set<string>>(new Set());
+  const [confirmedItemIds, setConfirmedItemIds] = useState<Set<string>>(new Set());
+
+  function handleToggleRequired(itemId: string, newStatus: "required" | "not_required") {
+    if (newStatus === "not_required") {
+      setExcludedItemIds((prev) => new Set(prev).add(itemId));
+      setConfirmedItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+    } else {
+      setExcludedItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+    }
+  }
+
+  function handleConfirmItem(itemId: string) {
+    setConfirmedItemIds((prev) => new Set(prev).add(itemId));
+  }
 
   const actionableClarifications = useMemo(
     () => clarifications.filter((item) => item.status !== "dismissed"),
@@ -375,6 +399,10 @@ export default function ProjectAiEstimatePanel({
             answers={answers}
             setSingleValue={setSingleValue}
             toggleMultiValue={toggleMultiValue}
+            onToggleRequired={handleToggleRequired}
+            excludedItemIds={excludedItemIds}
+            confirmedItemIds={confirmedItemIds}
+            onConfirmItem={handleConfirmItem}
           />
 
           {estimate.published_to_bidders && (

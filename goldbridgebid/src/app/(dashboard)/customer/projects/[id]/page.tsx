@@ -440,6 +440,7 @@ export default async function ProjectDetailPage({
             scopeItems={
               (aiScopeItems || []).map((item) => ({
                 id: item.id,
+                item_key: item.item_key,
                 item_label: item.item_label,
                 item_category: item.item_category,
                 required_status: item.required_status,

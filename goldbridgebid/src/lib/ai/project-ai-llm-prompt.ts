@@ -2,6 +2,7 @@ import type {
   ProjectAiAnalysisInput,
   ProjectAiAnalysisResult,
 } from "@/lib/ai-estimates";
+import { getMaxTradeWage } from "@/lib/trade-wages";
 import { TRADE_LABELS, type TradeCategory } from "@/types/database";
 
 function truncateText(value: string | null | undefined, maxLength: number) {
@@ -21,10 +22,13 @@ export function buildProjectAiLlmPrompt(params: {
 }) {
   const { input, rulesAnalysis, promptVersion, maxInputChars } = params;
 
-  const trades = (input.trades || []).map((trade) => ({
+  const tradeKeys = input.trades || [];
+  const trades = tradeKeys.map((trade) => ({
     id: trade,
     label: TRADE_LABELS[trade as TradeCategory] || trade,
   }));
+
+  const wageEntry = getMaxTradeWage(tradeKeys);
 
   const trimmedInput = {
     title: truncateText(input.title, 120),
@@ -52,14 +56,26 @@ export function buildProjectAiLlmPrompt(params: {
       "Return practical, contractor-useful clarification questions and concise scope analysis.",
       "Do not invent facts, quantities, permit requirements, site conditions, or material selections.",
       "If details are missing, state that they are missing instead of guessing.",
+      `This project uses a single unified estimate priced at licensed professional rates (${wageEntry.role_label}, $${wageEntry.hourly_rate}/hr). Do not split the estimate by trade.`,
+      "Materials and quantities are the same regardless of contractor. Only labor rates may vary.",
+      "We use an internal prevailing wage sheet — never search the internet for wage data.",
+      `Estimate total labor hours needed for this project at the ${wageEntry.role_label} rate ($${wageEntry.hourly_rate}/hr).`,
+      "Provide a low and high range for labor hours in the labor_hour_estimate field. If you cannot estimate hours with reasonable confidence, return null for labor_hour_estimate.",
       "Keep all output professional, concrete, and suitable for a customer-facing UI.",
-      "Recommended questions should focus on scope, access, quantities, materials, schedule, and trade-specific pricing drivers.",
+      "Generate clarification questions that are SPECIFIC to this project — reference actual details from the description, location, and scope.",
+      "Do NOT produce generic template questions like 'Do you expect permits?' or 'What materials do you want?' unless those are genuinely ambiguous for THIS project.",
+      "Each question should help a contractor price this exact job more accurately.",
       "Return JSON only that matches the provided schema.",
     ].join(" "),
     user: JSON.stringify({
       promptVersion,
-      goal: "Improve the existing deterministic project estimate analysis without changing baseline pricing math.",
+      goal: "Analyze this project, generate project-specific clarification questions, and estimate total labor hours at the given rate.",
       project: trimmedInput,
+      laborRate: {
+        hourly_rate: wageEntry.hourly_rate,
+        role_label: wageEntry.role_label,
+        note: "All estimates use this single licensed professional rate. Estimate how many hours at this rate the project requires. Return null for labor_hour_estimate only if you truly cannot estimate.",
+      },
       existingAnalysis: {
         status: rulesAnalysis.status,
         scopeCompletenessScore: rulesAnalysis.scope_completeness_score,
@@ -68,7 +84,6 @@ export function buildProjectAiLlmPrompt(params: {
         missingItems: rulesAnalysis.missing_items,
         assumptions: rulesAnalysis.assumptions,
         exclusions: rulesAnalysis.exclusions,
-        recommendedQuestions: rulesAnalysis.recommended_questions,
       },
     }),
   };

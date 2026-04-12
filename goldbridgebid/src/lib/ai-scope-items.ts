@@ -5,6 +5,7 @@ import type {
   ProjectAiClarificationQuestionType,
   ProjectAiTradeBreakdownItem,
 } from "@/lib/ai-estimates";
+import { getMaxTradeWage, type TradeWageEntry } from "@/lib/trade-wages";
 import { TRADE_LABELS, type TradeCategory } from "@/types/database";
 
 export type ProjectAiScopeItemRequiredStatus =
@@ -447,6 +448,91 @@ function textSuggestsComplexity(text: string) {
   );
 }
 
+interface ExtractedQuantity {
+  value: number;
+  unit: string;
+  label: string;
+  raw: string;
+}
+
+/**
+ * Extracts explicit quantities from project description text.
+ * Matches patterns like "250 ft of trench", "3 loads of gravel",
+ * "40 x 60 pad", "200 linear feet", etc.
+ */
+function extractDescriptionQuantities(text: string): ExtractedQuantity[] {
+  const quantities: ExtractedQuantity[] = [];
+  const normalized = text.toLowerCase();
+
+  const patterns: Array<{
+    regex: RegExp;
+    buildResult: (match: RegExpMatchArray) => ExtractedQuantity | null;
+  }> = [
+    {
+      regex: /(\d{1,6})\s*(?:linear\s+)?(?:ft|feet|foot)\s+(?:of\s+)?(\w[\w\s]{1,30})/gi,
+      buildResult: (m) => ({
+        value: Number(m[1]),
+        unit: "ft",
+        label: (m[2] || "").trim(),
+        raw: m[0].trim(),
+      }),
+    },
+    {
+      regex: /(\d{1,6})\s*(?:sq\.?\s*ft|square\s+feet)\s+(?:of\s+)?(\w[\w\s]{1,30})?/gi,
+      buildResult: (m) => ({
+        value: Number(m[1]),
+        unit: "sq ft",
+        label: (m[2] || "area").trim(),
+        raw: m[0].trim(),
+      }),
+    },
+    {
+      regex: /(\d{1,6})\s*(?:cubic\s+)?(?:yards?|yds?)\s+(?:of\s+)?(\w[\w\s]{1,30})?/gi,
+      buildResult: (m) => ({
+        value: Number(m[1]),
+        unit: "cu yd",
+        label: (m[2] || "material").trim(),
+        raw: m[0].trim(),
+      }),
+    },
+    {
+      regex: /(\d{1,4})\s*(?:loads?)\s+(?:of\s+)?(\w[\w\s]{1,30})?/gi,
+      buildResult: (m) => ({
+        value: Number(m[1]),
+        unit: "loads",
+        label: (m[2] || "material").trim(),
+        raw: m[0].trim(),
+      }),
+    },
+    {
+      regex: /(\d{1,4})\s*(?:ft|feet|foot)\s*[xX×]\s*(\d{1,4})\s*(?:ft|feet|foot)?/gi,
+      buildResult: (m) => ({
+        value: Number(m[1]) * Number(m[2]),
+        unit: "sq ft",
+        label: `${m[1]} × ${m[2]} ft area`,
+        raw: m[0].trim(),
+      }),
+    },
+  ];
+
+  for (const { regex, buildResult } of patterns) {
+    for (const match of normalized.matchAll(regex)) {
+      const result = buildResult(match);
+      if (result && Number.isFinite(result.value) && result.value > 0) {
+        quantities.push(result);
+      }
+    }
+  }
+
+  const seen = new Set<string>();
+  return quantities.filter((q) => {
+    const key = `${q.value}-${q.unit}-${q.label}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function textSuggestsSimpleAccess(text: string) {
   return /(open|clear|flat|easy|no issues|no known issues|good access)/i.test(text);
 }
@@ -475,7 +561,8 @@ function getItemCostSplitRatios(item: ProjectAiScopeItemDraft) {
 
 function applyCostSplits(
   item: ProjectAiScopeItemDraft,
-  range: PricingRange | null
+  range: PricingRange | null,
+  wageEntry: TradeWageEntry | null
 ): ProjectAiScopeItemDraft {
   if (!range) {
     return {
@@ -490,6 +577,26 @@ function applyCostSplits(
   }
 
   const ratios = getItemCostSplitRatios(item);
+
+  if (wageEntry && wageEntry.hourly_rate > 0) {
+    // Derive labor hours from the total range and category ratio, then
+    // recalculate labor cost as hours × hourly_rate. This makes the
+    // wage sheet the explicit input rather than an opaque ratio.
+    const laborShareLow = range.low * ratios.labor;
+    const laborShareHigh = range.high * ratios.labor;
+    const hoursLow = Math.round(laborShareLow / wageEntry.hourly_rate);
+    const hoursHigh = Math.round(laborShareHigh / wageEntry.hourly_rate);
+
+    return {
+      ...item,
+      labor_low: roundCurrency(hoursLow * wageEntry.hourly_rate),
+      labor_high: roundCurrency(hoursHigh * wageEntry.hourly_rate),
+      material_low: roundCurrency(range.low * ratios.material),
+      material_high: roundCurrency(range.high * ratios.material),
+      equipment_low: roundCurrency(range.low * ratios.equipment),
+      equipment_high: roundCurrency(range.high * ratios.equipment),
+    };
+  }
 
   return {
     ...item,
@@ -767,14 +874,14 @@ function buildItemAssumptionsAndExclusions(params: {
     }
   }
 
-  if (item.item_key.startsWith("trade_package_")) {
+  if (item.item_key === "unified_project_package" || item.item_key.startsWith("trade_package_")) {
     const scopeDetail = getAnswerText(
       getScopeItemAnswer(clarificationAnswers, item.item_key, "scope_detail")
     );
 
     if (scopeDetail) {
       assumptions.push(
-        "Assumes the added trade-package scope notes are materially accurate and complete enough for a tighter planning range."
+        "Assumes the added scope notes are materially accurate and complete enough for a tighter planning range."
       );
     }
   }
@@ -790,8 +897,10 @@ function buildItemQuantityDrivers(params: {
   input: ProjectAiAnalysisInput;
   analysis: ProjectAiAnalysisResult;
   range: PricingRange | null;
+  wageEntry: TradeWageEntry | null;
+  llmLaborHourEstimate?: { total_hours_low: number; total_hours_high: number; reasoning: string } | null;
 }): ProjectAiScopeItemQuantityDriver[] {
-  const { item, input, analysis, range } = params;
+  const { item, input, analysis, range, wageEntry, llmLaborHourEstimate } = params;
   const clarificationAnswers = input.clarificationAnswers || [];
   const drivers: ProjectAiScopeItemQuantityDriver[] = [];
 
@@ -812,6 +921,82 @@ function buildItemQuantityDrivers(params: {
         }
       )
     );
+  }
+
+  if (wageEntry && wageEntry.hourly_rate > 0) {
+    drivers.push(
+      buildQuantityDriver(
+        "labor_hourly_rate",
+        "Labor rate",
+        `$${wageEntry.hourly_rate}/hr (${wageEntry.role_label})`,
+        { unit: "$/hr", confidence: "high", source: "trade_history" }
+      )
+    );
+
+    if (llmLaborHourEstimate) {
+      const hoursLow = llmLaborHourEstimate.total_hours_low;
+      const hoursHigh = llmLaborHourEstimate.total_hours_high;
+
+      drivers.push(
+        buildQuantityDriver(
+          "estimated_labor_hours",
+          "Estimated labor hours (AI)",
+          hoursLow === hoursHigh ? String(hoursLow) : `${hoursLow} – ${hoursHigh}`,
+          { unit: "hrs", confidence: "medium", source: "ai_inference" }
+        )
+      );
+
+      drivers.push(
+        buildQuantityDriver(
+          "labor_cost_calculation",
+          "Labor cost (hrs × rate)",
+          `${hoursLow === hoursHigh ? hoursLow : `${hoursLow}–${hoursHigh}`} hrs × $${wageEntry.hourly_rate}/hr = ${formatCurrencyValue(hoursLow * wageEntry.hourly_rate)} – ${formatCurrencyValue(hoursHigh * wageEntry.hourly_rate)}`,
+          { confidence: "medium", source: "ai_inference" }
+        )
+      );
+    } else if (range) {
+      const ratios = getItemCostSplitRatios(item);
+      const hoursLow = Math.round((range.low * ratios.labor) / wageEntry.hourly_rate);
+      const hoursHigh = Math.round((range.high * ratios.labor) / wageEntry.hourly_rate);
+
+      drivers.push(
+        buildQuantityDriver(
+          "estimated_labor_hours",
+          "Estimated labor hours (derived)",
+          hoursLow === hoursHigh ? String(hoursLow) : `${hoursLow} – ${hoursHigh}`,
+          { unit: "hrs", confidence: item.confidence_level, source: "ai_inference" }
+        )
+      );
+
+      drivers.push(
+        buildQuantityDriver(
+          "labor_cost_calculation",
+          "Labor cost (hrs × rate)",
+          `${hoursLow === hoursHigh ? hoursLow : `${hoursLow}–${hoursHigh}`} hrs × $${wageEntry.hourly_rate}/hr`,
+          { confidence: item.confidence_level, source: "ai_inference" }
+        )
+      );
+    }
+  }
+
+  if (item.item_key === "unified_project_package") {
+    const descriptionText = [
+      input.title,
+      input.description,
+      input.completionCriteria,
+    ].filter(Boolean).join(" ");
+
+    const extractedQuantities = extractDescriptionQuantities(descriptionText);
+    for (const eq of extractedQuantities.slice(0, 6)) {
+      drivers.push(
+        buildQuantityDriver(
+          `desc_qty_${eq.label.replace(/\s+/g, "_").slice(0, 30)}`,
+          eq.label.charAt(0).toUpperCase() + eq.label.slice(1),
+          `${eq.value.toLocaleString()}`,
+          { unit: eq.unit, confidence: "high", source: "project_text" }
+        )
+      );
+    }
   }
 
   if (item.item_key === "modular_site_prep") {
@@ -986,24 +1171,22 @@ function buildItemQuantityDrivers(params: {
     }
   }
 
-  if (item.item_key.startsWith("trade_package_")) {
-    const matchingTrade = analysis.trade_breakdown.find(
-      (tradeItem) => `trade_package_${tradeItem.trade}` === item.item_key
+  if (item.item_key === "unified_project_package" || item.item_key.startsWith("trade_package_")) {
+    const totalBenchmarks = analysis.trade_breakdown.reduce(
+      (sum, t) => sum + t.benchmark_count, 0
     );
 
-    if (matchingTrade) {
-      drivers.push(
-        buildQuantityDriver(
-          "benchmark_count",
-          "Benchmark count",
-          String(matchingTrade.benchmark_count),
-          {
-            confidence: matchingTrade.benchmark_count >= 3 ? "high" : "medium",
-            source: "trade_history",
-          }
-        )
-      );
-    }
+    drivers.push(
+      buildQuantityDriver(
+        "benchmark_count",
+        "Benchmark count",
+        String(totalBenchmarks),
+        {
+          confidence: totalBenchmarks >= 3 ? "high" : "medium",
+          source: "trade_history",
+        }
+      )
+    );
   }
 
   const budgetMidpoint = getBudgetMidpoint(input);
@@ -1224,7 +1407,9 @@ function getScopeItemFileKeywords(item: ProjectAiScopeItemDraft) {
     ...categoryKeywords[item.item_category],
   ];
 
-  if (item.item_key.startsWith("trade_package_")) {
+  if (item.item_key === "unified_project_package") {
+    keywords.push("project", "scope", "work", "estimate");
+  } else if (item.item_key.startsWith("trade_package_")) {
     const tradeToken = item.item_key.replace("trade_package_", "").replaceAll("_", " ");
     keywords.push(tradeToken);
     keywords.push(...tradeToken.split(" ").filter(Boolean));
@@ -1327,9 +1512,9 @@ function getScopeItemRecommendedUploads(item: ProjectAiScopeItemDraft) {
     ],
   };
 
-  if (item.item_key.startsWith("trade_package_")) {
+  if (item.item_key === "unified_project_package" || item.item_key.startsWith("trade_package_")) {
     return [
-      "Photos of the area covered by this trade package",
+      "Photos of the work area and current conditions",
       "A scope sketch, markup, or measurement notes",
       "Any documents that define quantities or finish expectations",
     ];
@@ -1401,19 +1586,19 @@ function buildItemEvidenceSignals(params: {
     );
   }
 
-  if (item.item_key.startsWith("trade_package_")) {
-    const matchingTrade = analysis.trade_breakdown.find(
-      (tradeItem) => `trade_package_${tradeItem.trade}` === item.item_key
+  if (item.item_key === "unified_project_package" || item.item_key.startsWith("trade_package_")) {
+    const totalBenchmarks = analysis.trade_breakdown.reduce(
+      (sum, t) => sum + t.benchmark_count, 0
     );
 
-    if (matchingTrade?.benchmark_count) {
+    if (totalBenchmarks > 0) {
       signals.push(
         buildEvidenceSignal(
           "trade_history",
           "Historical bid signal",
-          `${matchingTrade.benchmark_count} internal benchmark bid(s) exist for this trade package.`,
+          `${totalBenchmarks} internal benchmark bid(s) exist across related trades.`,
           {
-            strength: matchingTrade.benchmark_count >= 3 ? "direct" : "supporting",
+            strength: totalBenchmarks >= 3 ? "direct" : "supporting",
             source: "trade_history",
           }
         )
@@ -1677,7 +1862,7 @@ function applyConfidenceUpgrades(params: {
   };
 }
 
-function resolveTradePackageFallbackRange(
+function resolveUnifiedPackageFallbackRange(
   item: ProjectAiScopeItemDraft,
   input: ProjectAiAnalysisInput
 ) {
@@ -1686,9 +1871,7 @@ function resolveTradePackageFallbackRange(
     return createRange(2500, 8500);
   }
 
-  const tradeCount = Math.max(input.trades?.length || 1, 1);
-  const perTradeMidpoint = budgetMidpoint / tradeCount;
-  const range = createRange(perTradeMidpoint * 0.75, perTradeMidpoint * 1.15);
+  const range = createRange(budgetMidpoint * 0.75, budgetMidpoint * 1.15);
 
   if (item.confidence_level === "low") {
     return scaleRange(range, 0.95);
@@ -1709,11 +1892,11 @@ function resolveItemRange(params: {
       ? createRange(item.estimated_low, item.estimated_high)
       : null;
 
-  if (item.item_key.startsWith("trade_package_")) {
+  if (item.item_key === "unified_project_package" || item.item_key.startsWith("trade_package_")) {
     const scopeDetail = getAnswerText(
       getScopeItemAnswer(clarificationAnswers, item.item_key, "scope_detail")
     );
-    const range = currentRange || resolveTradePackageFallbackRange(item, input);
+    const range = currentRange || resolveUnifiedPackageFallbackRange(item, input);
 
     if (!scopeDetail) {
       return range;
@@ -1861,23 +2044,49 @@ function applyAnswerDrivenPricing(params: {
   item: ProjectAiScopeItemDraft;
   input: ProjectAiAnalysisInput;
   analysis: ProjectAiAnalysisResult;
+  wageEntry: TradeWageEntry | null;
+  llmLaborHourEstimate?: { total_hours_low: number; total_hours_high: number; reasoning: string } | null;
 }) {
   const range = resolveItemRange(params);
+  const { wageEntry, llmLaborHourEstimate } = params;
+
+  // When the LLM provided labor-hour estimates AND we have a wage entry,
+  // build the range from hours × rate instead of from budget anchoring.
+  // This only applies to the unified project package.
+  let effectiveRange = range;
+  if (
+    llmLaborHourEstimate &&
+    wageEntry &&
+    params.item.item_key === "unified_project_package" &&
+    range
+  ) {
+    const ratios = getItemCostSplitRatios(params.item);
+    const laborLow = llmLaborHourEstimate.total_hours_low * wageEntry.hourly_rate;
+    const laborHigh = llmLaborHourEstimate.total_hours_high * wageEntry.hourly_rate;
+    // Reconstruct total from LLM-driven labor + ratio-derived material & equipment
+    const totalLow = ratios.labor > 0 ? laborLow / ratios.labor : range.low;
+    const totalHigh = ratios.labor > 0 ? laborHigh / ratios.labor : range.high;
+    effectiveRange = normalizeRange({
+      low: Math.min(totalLow, totalHigh),
+      high: Math.max(totalLow, totalHigh),
+    });
+  }
+
   const withRange = {
     ...params.item,
-    estimated_low: range?.low ?? null,
-    estimated_high: range?.high ?? null,
+    estimated_low: effectiveRange?.low ?? null,
+    estimated_high: effectiveRange?.high ?? null,
   };
-  const withSplits = applyCostSplits(withRange, range);
+  const withSplits = applyCostSplits(withRange, effectiveRange, wageEntry);
   const withConfidence = applyConfidenceUpgrades({
     item: withSplits,
     input: params.input,
-    range,
+    range: effectiveRange,
   });
   const { assumptions, exclusions } = buildItemAssumptionsAndExclusions({
     item: withConfidence,
     input: params.input,
-    range,
+    range: effectiveRange,
   });
 
   return {
@@ -1886,7 +2095,10 @@ function applyAnswerDrivenPricing(params: {
       item: withConfidence,
       input: params.input,
       analysis: params.analysis,
-      range,
+      range: effectiveRange,
+      wageEntry,
+      llmLaborHourEstimate:
+        params.item.item_key === "unified_project_package" ? llmLaborHourEstimate : null,
     }),
     evidence_signals_json: buildItemEvidenceSignals({
       item: withConfidence,
@@ -1901,6 +2113,7 @@ function applyAnswerDrivenPricing(params: {
 export function buildProjectAiScopeItems(params: {
   input: ProjectAiAnalysisInput;
   analysis: ProjectAiAnalysisResult;
+  llmLaborHourEstimate?: { total_hours_low: number; total_hours_high: number; reasoning: string } | null;
 }): ProjectAiScopeItemDraft[] {
   const { input, analysis } = params;
   const items: ProjectAiScopeItemDraft[] = [];
@@ -1909,136 +2122,173 @@ export function buildProjectAiScopeItems(params: {
   );
   const clarificationAnswers = input.clarificationAnswers || [];
 
-  for (const tradeItem of analysis.trade_breakdown) {
-    pushUniqueItem(items, {
-      item_key: `trade_package_${tradeItem.trade}`,
-      item_label: `${tradeItem.label} work package`,
-      item_category: mapTradeToCategory(tradeItem.trade),
-      required_status: "required",
-      confidence_level:
-        tradeItem.source === "historical_bids"
-          ? "high"
-          : analysis.confidence_level === "high"
-            ? "medium"
-            : "low",
-      description: `High-level work package aligned to the selected ${tradeItem.label.toLowerCase()} scope.`,
-      why_it_may_apply: `This project is tagged for ${TRADE_LABELS[tradeItem.trade as TradeCategory] || tradeItem.label}.`,
-      confidence_reason:
-        tradeItem.source === "historical_bids"
-          ? "This package has internal bid history to support a directional range."
-          : tradeItem.source === "budget_signal"
-            ? "This package currently leans on the customer budget because internal benchmark data is limited."
-            : "This package is likely relevant, but there is not enough pricing signal for a reliable range yet.",
-      estimated_low: tradeItem.estimated_low,
-      estimated_high: tradeItem.estimated_high,
-      labor_low: null,
-      labor_high: null,
-      material_low: null,
-      material_high: null,
-      equipment_low: null,
-      equipment_high: null,
-      quantity_drivers_json: [],
-      evidence_signals_json: [],
-      assumptions_json: [],
-      exclusions_json: [],
-      source_method: mapTradeBreakdownSource(tradeItem.source),
-      needs_clarification:
-        analysis.status !== "ready" || tradeItem.source !== "historical_bids",
-      display_order: items.length,
-    });
-  }
+  // Build ONE unified work package for the entire project instead of
+  // one per trade. Materials and quantities are constant regardless of
+  // who performs the work; only the labor rate varies. We default to
+  // the highest licensed professional rate across selected trades.
+  const tradeLabels = analysis.trade_breakdown
+    .map((t) => TRADE_LABELS[t.trade as TradeCategory] || t.label)
+    .filter(Boolean);
+  const tradeNames = tradeLabels.length > 0 ? tradeLabels : ["General"];
+  const tradeKeys = analysis.trade_breakdown.map((t) => t.trade);
+  const wageEntry = getMaxTradeWage(tradeKeys);
 
+  const hasAnyBenchmark = analysis.trade_breakdown.some(
+    (t) => t.source === "historical_bids"
+  );
+  const bestSource: ProjectAiTradeBreakdownItem["source"] = hasAnyBenchmark
+    ? "historical_bids"
+    : analysis.trade_breakdown.some((t) => t.source === "budget_signal")
+      ? "budget_signal"
+      : "insufficient_signal";
+
+  pushUniqueItem(items, {
+    item_key: "unified_project_package",
+    item_label: "Project work package",
+    item_category: "other",
+    required_status: "required",
+    confidence_level:
+      hasAnyBenchmark
+        ? "high"
+        : analysis.confidence_level === "high"
+          ? "medium"
+          : "low",
+    description:
+      `Unified estimate for the full project scope. Labor priced at ${wageEntry.role_label} rate ($${wageEntry.hourly_rate}/hr).`,
+    why_it_may_apply:
+      tradeNames.length > 1
+        ? `This project is open to bids from: ${tradeNames.join(", ")}.`
+        : `This project targets ${tradeNames[0]} contractors.`,
+    confidence_reason:
+      hasAnyBenchmark
+        ? "This package has internal bid history to support a directional range."
+        : bestSource === "budget_signal"
+          ? "This package currently leans on the customer budget because internal benchmark data is limited."
+          : "There is not enough pricing signal for a reliable range yet.",
+    estimated_low: analysis.baseline_low,
+    estimated_high: analysis.baseline_high,
+    labor_low: null,
+    labor_high: null,
+    material_low: null,
+    material_high: null,
+    equipment_low: null,
+    equipment_high: null,
+    quantity_drivers_json: [],
+    evidence_signals_json: [],
+    assumptions_json: [
+      `Labor costed at ${wageEntry.role_label} prevailing wage ($${wageEntry.hourly_rate}/hr). Actual bids may be lower.`,
+    ],
+    exclusions_json: [],
+    source_method: mapTradeBreakdownSource(bestSource),
+    needs_clarification:
+      analysis.status !== "ready" || !hasAnyBenchmark,
+    display_order: items.length,
+  });
+
+  // Per DESIGN_PRINCIPLES.md: only add heuristic items that match what the
+  // user ACTUALLY described. Don't assume crane, piers, delivery, etc. just
+  // because the title mentions "modular." Only add what the text supports.
   const isModularHomeScope =
     /(modular|manufactured|mobile home|trailer home)/.test(textBlob) &&
     /(site|pad|hookup|utility|set|setup|home site|rv)/.test(textBlob);
 
   if (isModularHomeScope) {
-    pushUniqueItem(items, {
-      item_key: "modular_site_prep",
-      item_label: "Site preparation and pad readiness",
-      item_category: "site_prep",
-      required_status: "likely",
-      confidence_level: "medium",
-      description:
-        "Prepare the home site so the modular unit can be delivered, set, and supported safely.",
-      why_it_may_apply:
-        "Modular home projects often require base preparation, compaction, and verification that the final site is ready for delivery and installation.",
-      confidence_reason:
-        "The project description references a modular home site conversion, but the exact pad and support requirements are still unclear.",
-      estimated_low: null,
-      estimated_high: null,
-      labor_low: null,
-      labor_high: null,
-      material_low: null,
-      material_high: null,
-      equipment_low: null,
-      equipment_high: null,
-      quantity_drivers_json: [],
-      evidence_signals_json: [],
-      assumptions_json: [],
-      exclusions_json: [],
-      source_method: "ai_assembly",
-      needs_clarification: true,
-      display_order: items.length,
-    });
+    const mentionsSitePrep = /(site prep|pad|grade|grading|compact|level|clear|dirt|gravel|fill)/.test(textBlob);
+    const mentionsFoundation = /(pier|anchor|foundation|block|footing|tie.?down)/.test(textBlob);
+    const mentionsDelivery = /(deliver|crane|set day|set.?up|transport|haul|move.?in|placement)/.test(textBlob);
 
-    pushUniqueItem(items, {
-      item_key: "modular_foundation_support",
-      item_label: "Foundation, piers, or anchoring system",
-      item_category: "foundation",
-      required_status: "possible",
-      confidence_level: "medium",
-      description:
-        "Determine whether the home requires piers, blocking, tie-downs, or a more formal foundation/anchoring system.",
-      why_it_may_apply:
-        "Modular and manufactured homes typically need a verified support and anchoring approach before utilities and final setup can be completed.",
-      confidence_reason:
-        "The current project details do not yet confirm the manufacturer requirements or jurisdictional setup rules.",
-      estimated_low: null,
-      estimated_high: null,
-      labor_low: null,
-      labor_high: null,
-      material_low: null,
-      material_high: null,
-      equipment_low: null,
-      equipment_high: null,
-      quantity_drivers_json: [],
-      evidence_signals_json: [],
-      assumptions_json: [],
-      exclusions_json: [],
-      source_method: "ai_assembly",
-      needs_clarification: true,
-      display_order: items.length,
-    });
+    if (mentionsSitePrep) {
+      pushUniqueItem(items, {
+        item_key: "modular_site_prep",
+        item_label: "Site preparation and pad readiness",
+        item_category: "site_prep",
+        required_status: "possible",
+        confidence_level: "medium",
+        description:
+          "Prepare the home site — grading, compaction, and base preparation as described in the project scope.",
+        why_it_may_apply:
+          "The project description explicitly references site or pad preparation work.",
+        confidence_reason:
+          "Site prep is referenced in the description, but exact dimensions and soil conditions may still be unclear.",
+        estimated_low: null,
+        estimated_high: null,
+        labor_low: null,
+        labor_high: null,
+        material_low: null,
+        material_high: null,
+        equipment_low: null,
+        equipment_high: null,
+        quantity_drivers_json: [],
+        evidence_signals_json: [],
+        assumptions_json: [],
+        exclusions_json: [],
+        source_method: "ai_assembly",
+        needs_clarification: true,
+        display_order: items.length,
+      });
+    }
 
-    pushUniqueItem(items, {
-      item_key: "modular_delivery_set_logistics",
-      item_label: "Delivery and set-day logistics",
-      item_category: "delivery",
-      required_status: "likely",
-      confidence_level: "medium",
-      description:
-        "Review transport access, crane or set-day needs, and the path required to place the modular home on site.",
-      why_it_may_apply:
-        "Even when the site appears level, delivery access and placement logistics can create real setup requirements and costs.",
-      confidence_reason:
-        "The current description does not confirm delivery path constraints or whether special set equipment is needed.",
-      estimated_low: null,
-      estimated_high: null,
-      labor_low: null,
-      labor_high: null,
-      material_low: null,
-      material_high: null,
-      equipment_low: null,
-      equipment_high: null,
-      quantity_drivers_json: [],
-      evidence_signals_json: [],
-      assumptions_json: [],
-      exclusions_json: [],
-      source_method: "ai_assembly",
-      needs_clarification: true,
-      display_order: items.length,
-    });
+    if (mentionsFoundation) {
+      pushUniqueItem(items, {
+        item_key: "modular_foundation_support",
+        item_label: "Foundation, piers, or anchoring system",
+        item_category: "foundation",
+        required_status: "possible",
+        confidence_level: "low",
+        description:
+          "Determine whether the home requires piers, blocking, tie-downs, or a more formal foundation/anchoring system.",
+        why_it_may_apply:
+          "The project description references foundation or anchoring work.",
+        confidence_reason:
+          "The current project details do not yet confirm the manufacturer requirements or jurisdictional setup rules.",
+        estimated_low: null,
+        estimated_high: null,
+        labor_low: null,
+        labor_high: null,
+        material_low: null,
+        material_high: null,
+        equipment_low: null,
+        equipment_high: null,
+        quantity_drivers_json: [],
+        evidence_signals_json: [],
+        assumptions_json: [],
+        exclusions_json: [],
+        source_method: "ai_assembly",
+        needs_clarification: true,
+        display_order: items.length,
+      });
+    }
+
+    if (mentionsDelivery) {
+      pushUniqueItem(items, {
+        item_key: "modular_delivery_set_logistics",
+        item_label: "Delivery and set-day logistics",
+        item_category: "delivery",
+        required_status: "possible",
+        confidence_level: "low",
+        description:
+          "Review transport access, crane or set-day needs, and the path required to place the modular home on site.",
+        why_it_may_apply:
+          "The project description mentions delivery, transport, or set-day logistics.",
+        confidence_reason:
+          "The current description references delivery but specific constraints are not yet confirmed.",
+        estimated_low: null,
+        estimated_high: null,
+        labor_low: null,
+        labor_high: null,
+        material_low: null,
+        material_high: null,
+        equipment_low: null,
+        equipment_high: null,
+        quantity_drivers_json: [],
+        evidence_signals_json: [],
+        assumptions_json: [],
+        exclusions_json: [],
+        source_method: "ai_assembly",
+        needs_clarification: true,
+        display_order: items.length,
+      });
+    }
   }
 
   if (
@@ -2049,7 +2299,7 @@ export function buildProjectAiScopeItems(params: {
       item_key: "electrical_service_upgrade",
       item_label: "Electrical service and hookup upgrades",
       item_category: "electrical",
-      required_status: "likely",
+      required_status: "possible",
       confidence_level: "medium",
       description:
         "Review service size, feeder runs, hookup changes, and any panel or meter work needed for the final installation.",
@@ -2080,7 +2330,7 @@ export function buildProjectAiScopeItems(params: {
       item_key: "utility_tie_in_verification",
       item_label: "Utility tie-in verification",
       item_category: "utility",
-      required_status: "likely",
+      required_status: "possible",
       confidence_level: "medium",
       description:
         "Confirm whether existing sewer, water, and utility stubs align with the final home placement or need adjustment.",
@@ -2207,11 +2457,15 @@ export function buildProjectAiScopeItems(params: {
     });
   }
 
+  const llmLaborHourEstimate = params.llmLaborHourEstimate ?? null;
+
   return items.map((item) =>
     applyAnswerDrivenPricing({
       item,
       input,
       analysis,
+      wageEntry,
+      llmLaborHourEstimate,
     })
   );
 }
@@ -2379,7 +2633,7 @@ function getScopeItemClarificationBlueprints(
       ];
     default:
       if (
-        item.item_key.startsWith("trade_package_") &&
+        (item.item_key === "unified_project_package" || item.item_key.startsWith("trade_package_")) &&
         (item.needs_clarification ||
           item.estimated_low === null ||
           item.estimated_high === null)
@@ -2387,7 +2641,7 @@ function getScopeItemClarificationBlueprints(
         return [
           {
             question_key: buildScopeItemQuestionKey(item.item_key, "scope_detail"),
-            question_text: `What extra detail should estimators know about the ${item.item_label.toLowerCase()}?`,
+            question_text: `What extra detail should estimators know about this project scope?`,
             question_type: "text" as const,
             help_text:
               "Scope notes such as quantities, access, finish level, or code constraints help tighten the directional range.",

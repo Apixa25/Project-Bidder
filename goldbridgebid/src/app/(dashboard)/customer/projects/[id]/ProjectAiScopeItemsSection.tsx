@@ -28,6 +28,7 @@ interface ProjectAiScopeItemsSectionProps {
     Pick<
       ProjectAiScopeItem,
       | "id"
+      | "item_key"
       | "item_label"
       | "item_category"
       | "required_status"
@@ -55,6 +56,10 @@ interface ProjectAiScopeItemsSectionProps {
   answers: Record<string, string[]>;
   setSingleValue: (id: string, value: string) => void;
   toggleMultiValue: (id: string, optionId: string) => void;
+  onToggleRequired?: (itemId: string, newStatus: "required" | "not_required") => void;
+  excludedItemIds?: Set<string>;
+  confirmedItemIds?: Set<string>;
+  onConfirmItem?: (itemId: string) => void;
 }
 
 function formatCurrency(value: number | null) {
@@ -315,40 +320,63 @@ function getCategoryLabel(value: ProjectAiScopeItem["item_category"]) {
   return value.replaceAll("_", " ");
 }
 
+function isProposedItem(
+  item: { item_key: string; required_status: string },
+  confirmedIds: Set<string>,
+  itemId: string
+) {
+  if (item.item_key === "unified_project_package") return false;
+  if (item.required_status === "required") return false;
+  if (confirmedIds.has(itemId)) return false;
+  return true;
+}
+
+function getProposalQuestion(item: { item_label: string; item_category: string; why_it_may_apply: string | null }) {
+  return `Based on your project, you may need: ${item.item_label.toLowerCase()}. Would you like to include this in the estimate?`;
+}
+
 export default function ProjectAiScopeItemsSection({
   items,
   itemClarifications,
   answers,
   setSingleValue,
   toggleMultiValue,
+  onToggleRequired,
+  excludedItemIds = new Set(),
+  confirmedItemIds = new Set(),
+  onConfirmItem,
 }: ProjectAiScopeItemsSectionProps) {
   if (items.length === 0) {
     return null;
   }
 
-  const clarificationCount = items.filter((item) => item.needs_clarification).length;
+  const excludedItems = items.filter((item) => excludedItemIds.has(item.id));
+  const nonExcluded = items.filter((item) => !excludedItemIds.has(item.id));
+  const confirmedItems = nonExcluded.filter(
+    (item) => !isProposedItem(item, confirmedItemIds, item.id)
+  );
+  const proposedItems = nonExcluded.filter(
+    (item) => isProposedItem(item, confirmedItemIds, item.id)
+  );
 
   return (
     <section className="rounded-xl border border-border bg-bg-warm/60 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-text-primary">
-            Potential Scope Items
+            Scope Estimate
           </h3>
           <p className="mt-1 max-w-3xl text-sm leading-relaxed text-text-secondary">
-            This is the first Phase 2 itemized draft. It turns the current AI read
-            into probable work packages so the customer can see what may still need
-            pricing, clarification, or estimator review.
+            The items below are confirmed in your estimate. Review the
+            suggested additions below them — include what applies, skip
+            what doesn&apos;t.
           </p>
-        </div>
-        <div className="rounded-full border border-border bg-white px-3 py-1 text-xs font-medium text-text-secondary">
-          {clarificationCount} item{clarificationCount === 1 ? "" : "s"} still need
-          clarification
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        {items.map((item) => (
+      {/* ── Confirmed items: full pricing cards ── */}
+      <div className="mt-4 space-y-4">
+        {confirmedItems.map((item) => (
           <article
             key={item.id}
             className="rounded-xl border border-border bg-surface p-4 shadow-sm"
@@ -362,7 +390,7 @@ export default function ProjectAiScopeItemsSection({
                   {getCategoryLabel(item.item_category)}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span
                   className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getRequiredStatusClassName(item.required_status)}`}
                 >
@@ -373,6 +401,15 @@ export default function ProjectAiScopeItemsSection({
                 >
                   {item.confidence_level} confidence
                 </span>
+                {onToggleRequired && item.item_key !== "unified_project_package" && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleRequired(item.id, "not_required")}
+                    className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
             </div>
 
@@ -602,6 +639,99 @@ export default function ProjectAiScopeItemsSection({
           </article>
         ))}
       </div>
+
+      {/* ── Proposed items: question cards (no pricing until confirmed) ── */}
+      {proposedItems.length > 0 && (
+        <div className="mt-6">
+          <div className="mb-3">
+            <h4 className="text-sm font-semibold text-text-primary">
+              Does your project need any of these?
+            </h4>
+            <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+              The AI identified items that are commonly needed for projects like
+              yours. Include what applies — pricing will be calculated only for
+              items you confirm.
+            </p>
+          </div>
+          <div className="space-y-2">
+            {proposedItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-start justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-text-primary">
+                    {getProposalQuestion(item)}
+                  </p>
+                  {item.why_it_may_apply && (
+                    <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                      {item.why_it_may_apply}
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {onConfirmItem && (
+                    <button
+                      type="button"
+                      onClick={() => onConfirmItem(item.id)}
+                      className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                    >
+                      Yes, include
+                    </button>
+                  )}
+                  {onToggleRequired && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleRequired(item.id, "not_required")}
+                      className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                    >
+                      No, skip
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {excludedItems.length > 0 && (
+        <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+            Excluded items ({excludedItems.length})
+          </h4>
+          <p className="mt-1 text-xs text-text-secondary">
+            These items were marked as not needed. Click &quot;Restore&quot; to
+            add them back, then refresh the estimate.
+          </p>
+          <div className="mt-3 space-y-2">
+            {excludedItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2"
+              >
+                <div>
+                  <span className="text-sm font-medium text-text-secondary line-through">
+                    {item.item_label}
+                  </span>
+                  <span className="ml-2 text-xs text-text-muted">
+                    {getCategoryLabel(item.item_category)}
+                  </span>
+                </div>
+                {onToggleRequired && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleRequired(item.id, "required")}
+                    className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                  >
+                    Restore
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

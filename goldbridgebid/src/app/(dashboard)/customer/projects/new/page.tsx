@@ -295,11 +295,8 @@ export default function NewProjectPage() {
     setLoading(true);
     setError(null);
 
-    if (selectedTrades.length === 0) {
-      setError("Please select at least one trade category.");
-      setLoading(false);
-      return;
-    }
+    // Trades are optional — customers may leave them empty and let any
+    // qualified contractor bid on the full project scope.
 
     selectedTrades.forEach((trade) => formData.append("trades", trade));
 
@@ -508,10 +505,11 @@ export default function NewProjectPage() {
         {/* Trade Categories */}
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <h2 className="mb-2 text-lg font-semibold text-text-primary">
-            Trades Required <span className="text-red-500">*</span>
+            Trades Required
           </h2>
           <p className="mb-4 text-sm text-text-muted">
-            Select all trades needed for this project. Contractors will bid on
+            Optional — select trades to filter which contractors can bid, or
+            leave empty to accept bids from any qualified contractor. Contractors will bid on
             their specific trade.
           </p>
           <div className="flex flex-wrap gap-2">

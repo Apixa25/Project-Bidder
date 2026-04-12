@@ -5,7 +5,24 @@ import type {
   ProjectAiFileSignal,
 } from "@/lib/ai-estimates";
 import { PDFParse } from "pdf-parse";
+import { existsSync } from "node:fs";
 import { createWorker } from "tesseract.js";
+
+let ocrAvailable: boolean | null = null;
+
+function isOcrAvailable() {
+  if (ocrAvailable !== null) return ocrAvailable;
+  try {
+    const workerPath = require.resolve("tesseract.js/src/worker-script/node/index.js");
+    ocrAvailable = existsSync(workerPath);
+  } catch {
+    ocrAvailable = false;
+  }
+  if (!ocrAvailable) {
+    console.warn("tesseract.js worker script not found — OCR extraction disabled");
+  }
+  return ocrAvailable;
+}
 
 const TEXT_DOCUMENT_EXTENSIONS = [
   ".txt",
@@ -145,6 +162,8 @@ function buildExtractedTextHints(text: string) {
 }
 
 async function runOcrOnImageBuffer(buffer: Buffer) {
+  if (!isOcrAvailable()) return "";
+
   const worker = await createWorker("eng", 1, {
     logger: () => {},
   });

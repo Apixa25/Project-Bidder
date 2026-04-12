@@ -18,7 +18,7 @@ import {
   BadgeDollarSign,
   ShieldCheck,
 } from "lucide-react";
-import { TRADE_LABELS } from "@/types/database";
+import { TRADE_LABELS, FORM_TRADES } from "@/types/database";
 import type {
   TradeCategory,
   BidderCredentials,
@@ -181,7 +181,9 @@ export default async function BidderProjectDetailPage({
     .eq("bidder_id", user.id);
 
   const alreadyBidTrades = (existingBids || []).map((b) => b.trade);
-  const availableTrades = (project.trades as TradeCategory[]).filter(
+  const projectTrades = (project.trades as TradeCategory[]);
+  const biddableTrades = projectTrades.length > 0 ? projectTrades : FORM_TRADES;
+  const availableTrades = biddableTrades.filter(
     (t) => !alreadyBidTrades.includes(t)
   );
 
@@ -587,22 +589,28 @@ export default async function BidderProjectDetailPage({
               Trades Required
             </h3>
             <div className="flex flex-wrap gap-2">
-              {(project.trades as TradeCategory[]).map((trade) => {
-                const alreadyBid = alreadyBidTrades.includes(trade);
-                return (
-                  <span
-                    key={trade}
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      alreadyBid
-                        ? "bg-green-100 text-green-700"
-                        : "bg-primary/10 text-primary"
-                    }`}
-                  >
-                    {TRADE_LABELS[trade]}
-                    {alreadyBid && " ✓"}
-                  </span>
-                );
-              })}
+              {projectTrades.length > 0 ? (
+                projectTrades.map((trade) => {
+                  const alreadyBid = alreadyBidTrades.includes(trade);
+                  return (
+                    <span
+                      key={trade}
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        alreadyBid
+                          ? "bg-green-100 text-green-700"
+                          : "bg-primary/10 text-primary"
+                      }`}
+                    >
+                      {TRADE_LABELS[trade]}
+                      {alreadyBid && " ✓"}
+                    </span>
+                  );
+                })
+              ) : (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                  Open to all trades
+                </span>
+              )}
             </div>
             {alreadyBidTrades.length > 0 && (
               <p className="mt-3 text-xs text-text-muted">

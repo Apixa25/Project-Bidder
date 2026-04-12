@@ -3,7 +3,7 @@ import "server-only";
 import OpenAI from "openai";
 
 const DEFAULT_MODEL = "gpt-4o-mini";
-const DEFAULT_TIMEOUT_MS = 12_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_INPUT_CHARS = 12_000;
 const DEFAULT_MAX_QUESTIONS = 6;
 
