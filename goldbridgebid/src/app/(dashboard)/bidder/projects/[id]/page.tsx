@@ -35,17 +35,12 @@ import {
   PAID_ESTIMATE_FILTER_LABELS,
 } from "@/lib/paid-estimates/eligibility";
 import { reconcilePaidEstimatePoolFunding } from "@/lib/paid-estimates/funding";
-import AiEstimateSummary from "@/components/ai/AiEstimateSummary";
 import {
   getRemainingPaidSlots,
   isPaidEstimatePoolFull,
   isPaidEstimatePoolVisibleAsPaid,
 } from "@/lib/paid-estimates/pools";
 import { getStripeServerClient } from "@/lib/stripe/server";
-import type {
-  ProjectAiRecommendedQuestion,
-  ProjectAiTradeBreakdownItem,
-} from "@/lib/ai-estimates";
 
 const FIELD_DISPLAY_NAMES: Record<string, string> = {
   title: "Title",
@@ -94,13 +89,6 @@ export default async function BidderProjectDetailPage({
     .eq("project_id", id)
     .order("display_order", { ascending: true })
     .order("uploaded_at", { ascending: false });
-
-  const { data: aiEstimate } = await supabase
-    .from("project_ai_estimates")
-    .select("*")
-    .eq("project_id", id)
-    .eq("published_to_bidders", true)
-    .maybeSingle();
 
   const { data: projectQuestions } = await supabase
     .from("project_questions")
@@ -360,37 +348,6 @@ export default async function BidderProjectDetailPage({
             </p>
           </section>
 
-          {aiEstimate && (
-            <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-              <div className="mb-4">
-                <h2 className="text-lg font-semibold text-text-primary">
-                  Customer AI Baseline Estimate
-                </h2>
-                <p className="mt-1 text-sm text-text-secondary">
-                  The customer chose to share this planning baseline to improve bidder context. It is not a binding quote or required pricing anchor.
-                </p>
-              </div>
-
-              <AiEstimateSummary
-                status={aiEstimate.status}
-                score={aiEstimate.scope_completeness_score}
-                confidence={aiEstimate.confidence_level}
-                summary={aiEstimate.summary || ""}
-                baselineLow={aiEstimate.baseline_low}
-                baselineHigh={aiEstimate.baseline_high}
-                assumptions={aiEstimate.assumptions_json}
-                exclusions={aiEstimate.exclusions_json}
-                missingItems={aiEstimate.missing_items_json}
-                questions={
-                  aiEstimate.recommended_questions_json as ProjectAiRecommendedQuestion[]
-                }
-                tradeBreakdown={
-                  aiEstimate.trade_breakdown_json as ProjectAiTradeBreakdownItem[]
-                }
-                compact
-              />
-            </section>
-          )}
 
           {paidEstimateLive && paidPool && paidEligibility && (
             <section className="rounded-xl border border-border bg-surface p-6 shadow-sm ring-1 ring-amber-200">
