@@ -431,6 +431,9 @@ export interface ProjectAiEstimate {
   analysis_version: string;
   stale_after_edit: boolean;
   published_to_bidders: boolean;
+  project_type_key: string | null;
+  project_type_label: string | null;
+  classification_json: Record<string, unknown>;
   last_analyzed_at: string;
   created_at: string;
   updated_at: string;
@@ -479,18 +482,41 @@ export interface ProjectAiScopeItem {
   item_label: string;
   item_category:
     | "site_prep"
-    | "utility"
+    | "demolition"
+    | "excavation"
+    | "foundation"
+    | "concrete"
+    | "masonry"
+    | "structural"
+    | "framing"
+    | "roofing"
     | "electrical"
+    | "plumbing"
+    | "hvac"
+    | "insulation"
+    | "drywall"
+    | "painting"
+    | "flooring"
+    | "tile"
+    | "cabinetry"
+    | "windows_doors"
+    | "siding_exterior"
+    | "waterproofing"
+    | "landscaping"
+    | "permits_inspections"
+    | "cleanup"
+    | "materials_delivery"
+    | "general_labor"
+    | "safety"
+    | "finish"
+    | "utility"
     | "water"
     | "sewer"
     | "grading"
     | "drainage"
-    | "foundation"
-    | "delivery"
-    | "permit"
-    | "finish"
-    | "demolition"
     | "landscape"
+    | "permit"
+    | "delivery"
     | "other";
   required_status: "required" | "likely" | "possible" | "unknown";
   confidence_level: "low" | "medium" | "high";
@@ -514,8 +540,10 @@ export interface ProjectAiScopeItem {
     | "ai_assembly"
     | "budget_signal"
     | "insufficient_signal"
-    | "manual_review";
+    | "manual_review"
+    | "llm_generated";
   needs_clarification: boolean;
+  customer_inclusion: "yes" | "no" | "not_sure" | null;
   display_order: number;
   created_at: string;
   updated_at: string;
@@ -868,6 +896,9 @@ type ProjectAiEstimateInsert = {
   analysis_version?: string;
   stale_after_edit?: boolean;
   published_to_bidders?: boolean;
+  project_type_key?: string | null;
+  project_type_label?: string | null;
+  classification_json?: Record<string, unknown>;
   last_analyzed_at?: string;
 };
 
@@ -908,18 +939,41 @@ type ProjectAiScopeItemInsert = {
   item_label: string;
   item_category?:
     | "site_prep"
-    | "utility"
+    | "demolition"
+    | "excavation"
+    | "foundation"
+    | "concrete"
+    | "masonry"
+    | "structural"
+    | "framing"
+    | "roofing"
     | "electrical"
+    | "plumbing"
+    | "hvac"
+    | "insulation"
+    | "drywall"
+    | "painting"
+    | "flooring"
+    | "tile"
+    | "cabinetry"
+    | "windows_doors"
+    | "siding_exterior"
+    | "waterproofing"
+    | "landscaping"
+    | "permits_inspections"
+    | "cleanup"
+    | "materials_delivery"
+    | "general_labor"
+    | "safety"
+    | "finish"
+    | "utility"
     | "water"
     | "sewer"
     | "grading"
     | "drainage"
-    | "foundation"
-    | "delivery"
-    | "permit"
-    | "finish"
-    | "demolition"
     | "landscape"
+    | "permit"
+    | "delivery"
     | "other";
   required_status?: "required" | "likely" | "possible" | "unknown";
   confidence_level?: "low" | "medium" | "high";
@@ -943,8 +997,10 @@ type ProjectAiScopeItemInsert = {
     | "ai_assembly"
     | "budget_signal"
     | "insufficient_signal"
-    | "manual_review";
+    | "manual_review"
+    | "llm_generated";
   needs_clarification?: boolean;
+  customer_inclusion?: "yes" | "no" | "not_sure" | null;
   display_order?: number;
 };
 

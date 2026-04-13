@@ -3,50 +3,80 @@ import { extractProjectAiFile } from "@/lib/ai-upload-extractors";
 
 type UploadKind = "image" | "video" | "document";
 
-const ITEM_KEYWORD_RULES: Array<{
-  itemKey: string;
+/**
+ * General construction keyword rules for tagging uploaded files.
+ * These are category-level (not project-type-specific) so they work
+ * for any construction project, not just modular homes.
+ */
+const CATEGORY_KEYWORD_RULES: Array<{
+  category: string;
   tags: string[];
   terms: string[];
 }> = [
   {
-    itemKey: "modular_site_prep",
-    tags: ["site_prep", "pad", "grading", "layout"],
-    terms: ["site", "pad", "prep", "grading", "grade", "gravel", "base", "layout", "footprint"],
+    category: "site_prep",
+    tags: ["site_prep", "grading", "layout"],
+    terms: ["site", "prep", "grading", "grade", "gravel", "base", "layout", "footprint", "clearing"],
   },
   {
-    itemKey: "modular_foundation_support",
-    tags: ["foundation", "anchoring", "engineering"],
-    terms: ["foundation", "pier", "anchor", "anchoring", "slab", "engineering", "tie down"],
+    category: "foundation",
+    tags: ["foundation", "footing", "slab"],
+    terms: ["foundation", "footing", "slab", "pier", "anchor", "block", "rebar", "reinforcement"],
   },
   {
-    itemKey: "modular_delivery_set_logistics",
-    tags: ["delivery", "access", "staging"],
-    terms: ["delivery", "set", "crane", "access", "route", "staging", "turn", "turnaround"],
+    category: "demolition",
+    tags: ["demolition", "removal"],
+    terms: ["demo", "demolition", "removal", "tear", "strip", "haul", "dispose"],
   },
   {
-    itemKey: "electrical_service_upgrade",
-    tags: ["electrical", "service", "panel", "meter"],
-    terms: ["electrical", "panel", "meter", "service", "amp", "conduit", "trench", "hookup", "power"],
+    category: "electrical",
+    tags: ["electrical", "panel", "wiring"],
+    terms: ["electrical", "panel", "meter", "service", "amp", "conduit", "wire", "hookup", "power", "circuit", "outlet"],
   },
   {
-    itemKey: "utility_tie_in_verification",
-    tags: ["utility", "water", "sewer", "hookup"],
-    terms: ["utility", "water", "sewer", "septic", "plumbing", "stub", "hookup", "connection", "tie in"],
+    category: "plumbing",
+    tags: ["plumbing", "pipe", "fixture"],
+    terms: ["plumbing", "water", "sewer", "septic", "pipe", "drain", "fixture", "faucet", "toilet", "hookup"],
   },
   {
-    itemKey: "grading_and_drainage",
-    tags: ["grading", "drainage", "erosion"],
-    terms: ["grading", "grade", "drainage", "drain", "erosion", "runoff", "slope", "gravel"],
+    category: "hvac",
+    tags: ["hvac", "heating", "cooling"],
+    terms: ["hvac", "heat", "cool", "furnace", "duct", "vent", "air", "conditioning", "thermostat"],
   },
   {
-    itemKey: "permit_and_inspection_coordination",
-    tags: ["permit", "inspection", "plan", "code"],
-    terms: ["permit", "inspection", "approval", "code", "plan", "drawing", "application", "site plan"],
+    category: "roofing",
+    tags: ["roofing", "shingle"],
+    terms: ["roof", "shingle", "gutter", "flashing", "soffit", "fascia", "ridge", "eave"],
   },
   {
-    itemKey: "site_access_logistics",
-    tags: ["access", "driveway", "gate", "staging"],
-    terms: ["access", "gate", "driveway", "road", "entry", "path", "staging", "turnaround"],
+    category: "framing",
+    tags: ["framing", "structural"],
+    terms: ["framing", "stud", "joist", "beam", "header", "truss", "rafter", "structural"],
+  },
+  {
+    category: "concrete",
+    tags: ["concrete", "flatwork"],
+    terms: ["concrete", "flatwork", "driveway", "sidewalk", "curb", "pour", "slab", "form"],
+  },
+  {
+    category: "finish",
+    tags: ["finish", "interior"],
+    terms: ["paint", "drywall", "tile", "flooring", "cabinet", "countertop", "trim", "molding", "finish"],
+  },
+  {
+    category: "permits",
+    tags: ["permit", "inspection"],
+    terms: ["permit", "inspection", "approval", "code", "plan", "drawing", "application"],
+  },
+  {
+    category: "landscaping",
+    tags: ["landscape", "exterior"],
+    terms: ["landscape", "fence", "irrigation", "lawn", "tree", "patio", "deck", "retaining"],
+  },
+  {
+    category: "access",
+    tags: ["access", "staging"],
+    terms: ["access", "gate", "driveway", "staging", "delivery", "crane", "route"],
   },
 ];
 
@@ -103,9 +133,9 @@ export async function enrichProjectAiFileSignal(
   const matchedTags = new Set<string>();
   const likelyItemKeys = new Set<string>();
 
-  for (const rule of ITEM_KEYWORD_RULES) {
+  for (const rule of CATEGORY_KEYWORD_RULES) {
     if (rule.terms.some((term) => normalized.includes(term))) {
-      likelyItemKeys.add(rule.itemKey);
+      likelyItemKeys.add(rule.category);
       for (const tag of rule.tags) {
         matchedTags.add(tag);
       }

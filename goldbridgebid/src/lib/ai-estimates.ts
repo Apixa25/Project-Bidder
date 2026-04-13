@@ -205,208 +205,9 @@ function clampScore(value: number) {
   return Math.min(100, Math.max(0, Math.round(value)));
 }
 
-function inferTradeFamily(trade: string) {
-  const normalized = trade.toLowerCase();
-
-  if (
-    normalized.includes("electrical") ||
-    normalized.includes("low_voltage") ||
-    normalized.includes("fire_alarm")
-  ) {
-    return "electrical";
-  }
-
-  if (
-    normalized.includes("plumbing") ||
-    normalized.includes("sewer") ||
-    normalized.includes("sprinkler")
-  ) {
-    return "plumbing";
-  }
-
-  if (normalized.includes("roof")) {
-    return "roofing";
-  }
-
-  if (
-    normalized.includes("hvac") ||
-    normalized.includes("mechanical") ||
-    normalized.includes("sheet_metal")
-  ) {
-    return "hvac";
-  }
-
-  if (
-    normalized.includes("concrete") ||
-    normalized.includes("masonry") ||
-    normalized.includes("excavation") ||
-    normalized.includes("grading")
-  ) {
-    return "sitework";
-  }
-
-  if (
-    normalized.includes("painting") ||
-    normalized.includes("wallcovering") ||
-    normalized.includes("drywall")
-  ) {
-    return "finishes";
-  }
-
-  if (
-    normalized.includes("tile") ||
-    normalized.includes("flooring") ||
-    normalized.includes("finish_carpentry") ||
-    normalized.includes("cabinet")
-  ) {
-    return "interiors";
-  }
-
-  if (
-    normalized.includes("landscape") ||
-    normalized.includes("tree") ||
-    normalized.includes("fence")
-  ) {
-    return "exterior";
-  }
-
-  if (
-    normalized.includes("demolition") ||
-    normalized.includes("hazmat") ||
-    normalized.includes("cleanup")
-  ) {
-    return "demolition";
-  }
-
-  return "general";
-}
-
-function getTradeFamilyQuestion(
-  family: string
-): Omit<CandidateQuestion, "priority"> {
-  switch (family) {
-    case "electrical":
-      return {
-        question_key: "electrical_scope_details",
-        question_text:
-          "What electrical fixtures, circuits, panel work, or service upgrades are included?",
-        question_type: "text",
-        help_text:
-          "Fixture counts, amperage, panel changes, and whether walls are open make electrical estimates much tighter.",
-        placeholder:
-          "Example: replace 18 recessed lights, add 3 new circuits, and upgrade panel from 100A to 200A.",
-        options: [],
-      };
-    case "plumbing":
-      return {
-        question_key: "plumbing_scope_details",
-        question_text:
-          "How many fixtures, runs, or plumbing connections are part of this scope?",
-        question_type: "text",
-        help_text:
-          "Fixture counts, access limits, and whether this is repair vs replacement are important pricing drivers.",
-        placeholder:
-          "Example: replace 2 toilets, 3 faucets, and rework drain lines for a kitchen sink move.",
-        options: [],
-      };
-    case "roofing":
-      return {
-        question_key: "roofing_dimensions",
-        question_text:
-          "What are the approximate roof size, pitch, number of stories, and current roofing material?",
-        question_type: "text",
-        help_text:
-          "Roof area, access, tear-off requirements, and material type can dramatically change the estimate range.",
-        placeholder:
-          "Example: 24 square asphalt shingle roof, 2 stories, tear-off and disposal included.",
-        options: [],
-      };
-    case "hvac":
-      return {
-        question_key: "hvac_system_details",
-        question_text:
-          "What HVAC equipment or ductwork is being installed, repaired, or replaced?",
-        question_type: "text",
-        help_text:
-          "System type, tonnage, duct changes, and equipment access are key for HVAC pricing.",
-        placeholder:
-          "Example: replace 3-ton heat pump and reuse existing ducts with minor sealing.",
-        options: [],
-      };
-    case "sitework":
-      return {
-        question_key: "sitework_dimensions",
-        question_text:
-          "What are the approximate dimensions, depth/thickness, and finish requirements for this work?",
-        question_type: "text",
-        help_text:
-          "Concrete, excavation, and masonry scopes need dimensions and finish expectations to estimate correctly.",
-        placeholder:
-          "Example: pour a 20x30 driveway, 4-inch slab, broom finish, with rebar.",
-        options: [],
-      };
-    case "finishes":
-      return {
-        question_key: "finish_area_details",
-        question_text:
-          "What surfaces or rooms are included, and what prep level or finish quality is expected?",
-        question_type: "text",
-        help_text:
-          "Room count, wall condition, and finish quality can widen or narrow the estimate significantly.",
-        placeholder:
-          "Example: paint 3 bedrooms and hallway, patch nail holes, premium washable eggshell finish.",
-        options: [],
-      };
-    case "interiors":
-      return {
-        question_key: "interior_material_details",
-        question_text:
-          "What materials and approximate room dimensions are included in this interior scope?",
-        question_type: "text",
-        help_text:
-          "Material grade, demolition needs, and room sizes are major estimate inputs for flooring, tile, and finish work.",
-        placeholder:
-          "Example: install 450 sq ft of LVP in living room and kitchen with new baseboards.",
-        options: [],
-      };
-    case "exterior":
-      return {
-        question_key: "exterior_site_details",
-        question_text:
-          "What is the approximate site size and what site conditions or drainage/access issues should contractors expect?",
-        question_type: "text",
-        help_text:
-          "Exterior work often depends on site access, slope, irrigation, and underground conflicts.",
-        placeholder:
-          "Example: 1,200 sq ft backyard, minor slope, irrigation stays in place, no heavy equipment access.",
-        options: [],
-      };
-    case "demolition":
-      return {
-        question_key: "demolition_scope_details",
-        question_text:
-          "What exactly is being removed, and does the scope include haul-away, disposal, or hazardous materials?",
-        question_type: "text",
-        help_text:
-          "Demolition pricing changes quickly based on debris volume, disposal, and potential hazardous material handling.",
-        placeholder:
-          "Example: remove old kitchen cabinets, countertops, and tile backsplash with haul-away included.",
-        options: [],
-      };
-    default:
-      return {
-        question_key: "project_dimensions",
-        question_text:
-          "What are the approximate dimensions, quantities, or room counts involved in this project?",
-        question_type: "text",
-        help_text:
-          "Measurements and counts are one of the biggest drivers of a trustworthy estimate range.",
-        placeholder:
-          "Example: one 8x10 bathroom, 2 vanities, 1 shower, and 140 sq ft of tile.",
-        options: [],
-      };
-  }
-}
+// Trade-family question generation has been replaced by LLM-driven
+// project-specific questions via the classification pipeline.
+// See project-ai-classify.ts for the new approach.
 
 function buildCandidateQuestions(
   input: ProjectAiAnalysisInput,
@@ -508,17 +309,8 @@ function buildCandidateQuestions(
     });
   }
 
-  const seenFamilies = new Set<string>();
-  for (const trade of input.trades || []) {
-    const family = inferTradeFamily(trade);
-    if (seenFamilies.has(family)) {
-      continue;
-    }
-
-    seenFamilies.add(family);
-    const tradeQuestion = getTradeFamilyQuestion(family);
-    addQuestion(70 + seenFamilies.size, tradeQuestion);
-  }
+  // Project-specific trade questions are now generated by the LLM
+  // classification pipeline instead of hardcoded templates.
 
   return candidates.sort((left, right) => left.priority - right.priority);
 }
@@ -537,26 +329,6 @@ function getQuestionMissingLabel(questionKey: string) {
       return "Permit and inspection expectations";
     case "upload_more_media":
       return "Photos or videos of current conditions";
-    case "electrical_scope_details":
-      return "Electrical fixture and panel details";
-    case "plumbing_scope_details":
-      return "Plumbing fixture counts and scope detail";
-    case "roofing_dimensions":
-      return "Roof size, pitch, and material details";
-    case "hvac_system_details":
-      return "HVAC equipment and ductwork details";
-    case "sitework_dimensions":
-      return "Concrete/sitework dimensions and finish requirements";
-    case "finish_area_details":
-      return "Surface area and finish quality details";
-    case "interior_material_details":
-      return "Interior material and room-size details";
-    case "exterior_site_details":
-      return "Exterior site size and access details";
-    case "demolition_scope_details":
-      return "Demolition scope and disposal details";
-    case "project_dimensions":
-      return "Project dimensions or quantity counts";
     default:
       return "Additional project clarification";
   }

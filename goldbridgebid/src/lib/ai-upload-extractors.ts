@@ -50,12 +50,18 @@ const IMAGE_DOCUMENT_EXTENSIONS = [
 ];
 
 const TEXT_HINT_RULES: Array<{ label: string; terms: string[] }> = [
-  { label: "electrical scope", terms: ["panel", "meter", "service", "amp", "conduit", "electrical"] },
-  { label: "utility scope", terms: ["water", "sewer", "septic", "stub", "utility", "hookup"] },
-  { label: "grading/drainage scope", terms: ["grading", "drainage", "runoff", "erosion", "slope"] },
+  { label: "electrical scope", terms: ["panel", "meter", "service", "amp", "conduit", "electrical", "circuit", "wire"] },
+  { label: "plumbing scope", terms: ["water", "sewer", "septic", "stub", "plumbing", "hookup", "pipe", "drain", "fixture"] },
+  { label: "site prep scope", terms: ["grading", "drainage", "runoff", "erosion", "slope", "excavation", "clearing"] },
   { label: "permit/approval scope", terms: ["permit", "inspection", "approval", "code", "jurisdiction"] },
-  { label: "delivery/access scope", terms: ["delivery", "access", "gate", "staging", "route", "crane"] },
-  { label: "foundation scope", terms: ["foundation", "pier", "anchor", "slab", "engineering"] },
+  { label: "access/delivery scope", terms: ["delivery", "access", "gate", "staging", "route", "crane"] },
+  { label: "foundation scope", terms: ["foundation", "footing", "slab", "rebar", "reinforcement", "form"] },
+  { label: "roofing scope", terms: ["roof", "shingle", "gutter", "flashing", "soffit"] },
+  { label: "framing scope", terms: ["framing", "stud", "joist", "beam", "header", "truss"] },
+  { label: "hvac scope", terms: ["hvac", "furnace", "duct", "vent", "air conditioning", "heat"] },
+  { label: "finish scope", terms: ["paint", "drywall", "tile", "flooring", "cabinet", "countertop", "trim"] },
+  { label: "concrete scope", terms: ["concrete", "flatwork", "driveway", "sidewalk", "curb", "pour"] },
+  { label: "demolition scope", terms: ["demo", "demolition", "removal", "tear", "haul"] },
 ];
 
 function getKindLabel(kind: ProjectAiFileKind) {
@@ -76,18 +82,18 @@ function getRecommendedNextStep(params: {
 }) {
   const { kind, likelyItemKeys } = params;
 
-  if (likelyItemKeys.includes("electrical_service_upgrade")) {
+  if (likelyItemKeys.includes("electrical")) {
     return kind === "document"
       ? "Add any panel schedule, service notes, or utility paperwork that confirms electrical requirements."
-      : "Add clearer panel, meter, or hookup-path coverage if available.";
+      : "Add clearer photos of panels, meters, or wiring if available.";
   }
 
-  if (likelyItemKeys.includes("modular_delivery_set_logistics")) {
-    return "Add route, gate, and staging coverage that shows how the unit would reach the final set location.";
+  if (likelyItemKeys.includes("access")) {
+    return "Add photos showing site access, staging areas, and delivery routes.";
   }
 
-  if (likelyItemKeys.includes("grading_and_drainage")) {
-    return "Add wider before/after-rain views or supporting site notes to clarify slope and runoff conditions.";
+  if (likelyItemKeys.includes("site_prep")) {
+    return "Add wider views or site notes to clarify grading, slope, and drainage conditions.";
   }
 
   if (kind === "document") {

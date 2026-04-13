@@ -30,6 +30,7 @@ import {
 } from "@/lib/ai-scope-items";
 import { analyzeProjectAiHybrid } from "@/lib/ai/project-ai-hybrid";
 import { enrichProjectAiFileSignals } from "@/lib/ai-upload-intelligence";
+import type { ProjectAiClassifyOutput } from "@/lib/ai/project-ai-classify-schema";
 
 interface CreateProjectResult {
   error: string | null;
@@ -389,6 +390,7 @@ async function syncProjectAiScopeItems(params: {
           exclusions_json: item.exclusions_json,
           source_method: item.source_method,
           needs_clarification: item.needs_clarification,
+          customer_inclusion: item.customer_inclusion,
           display_order: index,
         })),
         { onConflict: "project_id,item_key" }
@@ -655,6 +657,7 @@ async function runAndPersistProjectAiEstimate(params: {
   const draftScopeItems = buildProjectAiScopeItems({
     input,
     analysis,
+    classification: analysis.classification,
     llmLaborHourEstimate: analysis.llm_labor_hour_estimate,
   });
   const itemClarifications = buildProjectAiItemClarifications({
@@ -669,6 +672,8 @@ async function runAndPersistProjectAiEstimate(params: {
   const publishedToBidders = isEditRefresh
     ? false
     : (previousEstimate?.published_to_bidders ?? false);
+
+  const classificationData = analysis.classification;
 
   const estimatePayload = {
     project_id: projectId,
@@ -688,6 +693,13 @@ async function runAndPersistProjectAiEstimate(params: {
     stale_after_edit: isEditRefresh,
     published_to_bidders: publishedToBidders,
     last_analyzed_at: new Date().toISOString(),
+    project_type_key:
+      classificationData?.project_classification.project_type_key ?? null,
+    project_type_label:
+      classificationData?.project_classification.project_type_label ?? null,
+    classification_json: classificationData
+      ? (classificationData as unknown as Record<string, unknown>)
+      : {},
   };
 
   const { error: estimateError } = await supabase
@@ -806,7 +818,7 @@ export async function analyzeProjectDraft(input: ProjectAiAnalysisInput) {
     files: input.files ? await enrichProjectAiFileSignals(input.files) : input.files,
   };
   const analysis = await analyzeProjectAiHybrid(enrichedInput, await getCostEstimates());
-  return { error: null, analysis };
+  return { error: null, analysis, classification: analysis.classification };
 }
 
 export async function refreshProjectAiEstimate(projectId: string) {
