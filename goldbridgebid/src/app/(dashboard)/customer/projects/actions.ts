@@ -838,7 +838,7 @@ export async function refreshProjectAiEstimate(projectId: string) {
       supabase
         .from("projects")
         .select(
-          "id, title, description, completion_criteria, trades, location_address, location_city, location_state, location_zip, budget_min, budget_max, desired_start_date, timeline"
+          "id, title, description, completion_criteria, trades, expertise_level, location_address, location_city, location_state, location_zip, budget_min, budget_max, desired_start_date, timeline"
         )
         .eq("id", projectId)
         .eq("customer_id", user.id)
@@ -890,7 +890,7 @@ export async function answerProjectAiClarification(
     supabase
       .from("projects")
       .select(
-        "id, title, description, completion_criteria, trades, location_address, location_city, location_state, location_zip, budget_min, budget_max, desired_start_date, timeline"
+        "id, title, description, completion_criteria, trades, expertise_level, location_address, location_city, location_state, location_zip, budget_min, budget_max, desired_start_date, timeline"
       )
       .eq("id", projectId)
       .eq("customer_id", user.id)
@@ -989,7 +989,7 @@ export async function saveProjectAiClarificationsAndShare(
   const { data: project } = await supabase
     .from("projects")
     .select(
-      "id, title, description, completion_criteria, trades, location_address, location_city, location_state, location_zip, budget_min, budget_max, desired_start_date, timeline, customer_id"
+      "id, title, description, completion_criteria, trades, expertise_level, location_address, location_city, location_state, location_zip, budget_min, budget_max, desired_start_date, timeline, customer_id"
     )
     .eq("id", projectId)
     .eq("customer_id", user.id)
@@ -1167,7 +1167,7 @@ export async function setProjectAiEstimatePublication(
         supabase
           .from("projects")
           .select(
-            "id, title, description, completion_criteria, trades, location_address, location_city, location_state, location_zip, budget_min, budget_max, desired_start_date, timeline"
+            "id, title, description, completion_criteria, trades, expertise_level, location_address, location_city, location_state, location_zip, budget_min, budget_max, desired_start_date, timeline"
           )
           .eq("id", projectId)
           .eq("customer_id", user.id)
