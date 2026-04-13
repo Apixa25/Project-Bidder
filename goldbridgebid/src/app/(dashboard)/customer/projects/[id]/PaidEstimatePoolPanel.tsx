@@ -60,13 +60,17 @@ export default function PaidEstimatePoolPanel({
           <div className="flex items-center gap-2">
             <BadgeDollarSign className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold text-text-primary">
-              Paid Estimate Pool
+              Offer to Pay for Some Estimates
             </h2>
           </div>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-text-secondary">
-            Offer money for serious estimates on this project. This supports the
-            Phase 3 monetization direction in `project-vision.md` while keeping
-            the normal sealed-bid marketplace open for unpaid bids too.
+            If you want bidders to take your project seriously, offer them some
+            money to estimate your project. Remember, it&apos;s not free for them
+            to give you a price. Statistically, paid estimates save approximately
+            20% on the final price because the estimator looks closely at the
+            project and tries to be more competitive. And you can offer the money
+            for a paid estimate only to the bidder type you want — i.e., Licensed
+            Contractors vs. Unlicensed Workers.
           </p>
         </div>
         {fundedAndVisible && (
