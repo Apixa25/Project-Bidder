@@ -11,7 +11,6 @@ import {
   Loader2,
 } from "lucide-react";
 import AiEstimateSummary from "@/components/ai/AiEstimateSummary";
-import ActionPendingOverlay from "@/components/loading/ActionPendingOverlay";
 import type {
   ProjectAiRecommendedQuestion,
   ProjectAiTradeBreakdownItem,
@@ -204,7 +203,7 @@ export default function ProjectAiEstimatePanel({
       requestAnimationFrame(() => {
         loadingBannerRef.current?.scrollIntoView({
           behavior: "smooth",
-          block: "center",
+          block: "start",
         });
       });
 
@@ -215,7 +214,6 @@ export default function ProjectAiEstimatePanel({
         return;
       }
 
-      setPendingLabel(null);
       setFeedback("AI estimate refreshed.");
       router.refresh();
     });
@@ -301,10 +299,11 @@ export default function ProjectAiEstimatePanel({
     });
   }
 
+  const showLoadingState = isPending && pendingLabel;
+
   return (
     <section className="relative rounded-xl border border-border bg-surface p-6 shadow-sm">
-      {isPending && pendingLabel && <ActionPendingOverlay label={pendingLabel} />}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div ref={loadingBannerRef} className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -361,42 +360,45 @@ export default function ProjectAiEstimatePanel({
         </div>
       </div>
 
-      {isPending && pendingLabel && (
-        <div
-          ref={loadingBannerRef}
-          className="mt-4 flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-5 py-4 shadow-sm"
-        >
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          <div>
-            <p className="text-sm font-semibold text-text-primary">
-              {pendingLabel}
-            </p>
-            <p className="mt-0.5 text-xs text-text-secondary">
-              Please be patient — the AI is hard at work. This could take a couple minutes!
-            </p>
+      {showLoadingState && (
+        <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-primary/20 bg-gradient-to-b from-primary/5 to-primary/10 px-8 py-16 text-center">
+          <div className="relative">
+            <div className="h-14 w-14 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+            <Sparkles className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 text-primary" />
+          </div>
+          <p className="mt-6 text-base font-semibold text-text-primary">
+            {pendingLabel}
+          </p>
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-text-secondary">
+            Please be patient — the AI is hard at work analyzing your project
+            scope. This could take a couple minutes!
+          </p>
+          <div className="mt-4 flex items-center gap-2 text-xs text-text-muted">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+            Processing
           </div>
         </div>
       )}
 
-      {error && (
+      {!showLoadingState && error && (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
 
-      {feedback && (
+      {!showLoadingState && feedback && (
         <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
           {feedback}
         </div>
       )}
 
-      {advisory && (
+      {!showLoadingState && advisory && (
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {advisory}
         </div>
       )}
 
-      {estimate ? (
+      {!showLoadingState && estimate ? (
         <div className="mt-5 space-y-5">
           {!estimate.published_to_bidders && (
             <div className="rounded-lg border border-border bg-bg-warm px-4 py-3 text-sm text-text-secondary">
@@ -590,11 +592,11 @@ export default function ProjectAiEstimatePanel({
             </div>
           )}
         </div>
-      ) : (
+      ) : !showLoadingState ? (
         <div className="mt-5 rounded-xl border border-border bg-bg-warm px-5 py-4 text-sm text-text-secondary">
           No AI analysis yet. Click <span className="font-semibold text-text-primary">Refresh AI Estimate</span> to generate the first scope check and baseline.
         </div>
-      )}
+      ) : null}
     </section>
   );
 }
