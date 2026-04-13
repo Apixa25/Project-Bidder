@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   RefreshCw,
@@ -8,6 +8,7 @@ import {
   Eye,
   EyeOff,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import AiEstimateSummary from "@/components/ai/AiEstimateSummary";
 import ActionPendingOverlay from "@/components/loading/ActionPendingOverlay";
@@ -141,6 +142,7 @@ export default function ProjectAiEstimatePanel({
   const [error, setError] = useState<string | null>(null);
   const [advisory, setAdvisory] = useState<string | null>(null);
   const [pendingLabel, setPendingLabel] = useState<string | null>(null);
+  const loadingBannerRef = useRef<HTMLDivElement>(null);
   const [answers, setAnswers] = useState<Record<string, string[]>>(() =>
     getInitialAnswers([...clarifications, ...itemClarifications])
   );
@@ -199,6 +201,13 @@ export default function ProjectAiEstimatePanel({
     setAdvisory(null);
     setPendingLabel("Refreshing AI estimate...");
     startTransition(async () => {
+      requestAnimationFrame(() => {
+        loadingBannerRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+
       const result = await refreshProjectAiEstimate(projectId);
       if (result.error) {
         setError(result.error);
@@ -206,6 +215,7 @@ export default function ProjectAiEstimatePanel({
         return;
       }
 
+      setPendingLabel(null);
       setFeedback("AI estimate refreshed.");
       router.refresh();
     });
@@ -350,6 +360,23 @@ export default function ProjectAiEstimatePanel({
           )}
         </div>
       </div>
+
+      {isPending && pendingLabel && (
+        <div
+          ref={loadingBannerRef}
+          className="mt-4 flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-5 py-4 shadow-sm"
+        >
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <div>
+            <p className="text-sm font-semibold text-text-primary">
+              {pendingLabel}
+            </p>
+            <p className="mt-0.5 text-xs text-text-secondary">
+              Please be patient — the AI is hard at work. This could take a couple minutes!
+            </p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
