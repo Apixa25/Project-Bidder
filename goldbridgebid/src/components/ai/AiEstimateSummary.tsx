@@ -2,6 +2,7 @@ import {
   AlertCircle,
   CheckCircle2,
   CircleHelp,
+  ClipboardList,
   FileSearch,
   Lightbulb,
 } from "lucide-react";
@@ -29,19 +30,11 @@ interface AiEstimateSummaryProps {
   compact?: boolean;
 }
 
-function formatCurrency(value: number | null) {
-  if (value === null || !Number.isFinite(value)) {
-    return "Not ready yet";
-  }
-
-  return `$${value.toLocaleString()}`;
-}
-
 function getStatusConfig(status: ProjectAiEstimateStatus) {
   switch (status) {
     case "ready":
       return {
-        label: "Estimate-ready",
+        label: "Scope ready",
         className: "bg-green-100 text-green-800",
         Icon: CheckCircle2,
       };
@@ -72,93 +65,20 @@ function getConfidenceClass(confidence: ProjectAiConfidenceLevel) {
   return "text-amber-700";
 }
 
-function getAiSourceLabel(modelName?: string | null, analysisVersion?: string | null) {
-  if (modelName?.startsWith("openai:")) {
-    return `OpenAI ${modelName.replace("openai:", "")} + rules engine`;
-  }
-
-  if (modelName?.startsWith("fallback:")) {
-    return "Rules fallback (LLM unavailable)";
-  }
-
-  if (analysisVersion === "v2-openai-hybrid") {
-    return "OpenAI hybrid + rules engine";
-  }
-
-  return "Rules engine";
-}
-
-function getEstimateMethod(tradeBreakdown: ProjectAiTradeBreakdownItem[]) {
-  if (tradeBreakdown.length === 0) {
-    return {
-      label: "Scope readiness only",
-      detail: "No pricing method was available yet because the scope still needs more signal.",
-    };
-  }
-
-  const sources = new Set(tradeBreakdown.map((item) => item.source));
-
-  if (sources.size === 1 && sources.has("historical_bids")) {
-    return {
-      label: "Historical bid benchmark",
-      detail: "Trade ranges come from internal bid history and are widened or tightened by scope completeness.",
-    };
-  }
-
-  if (sources.size === 1 && sources.has("budget_signal")) {
-    return {
-      label: "Budget-anchored estimate",
-      detail: "The baseline range is anchored to the customer's stated budget. No independent bid history is available yet.",
-    };
-  }
-
-  if (sources.size === 1 && sources.has("insufficient_signal")) {
-    return {
-      label: "Insufficient pricing signal",
-      detail: "The scope is being analyzed, but there is not enough budget or historical bid data for trade-level pricing yet.",
-    };
-  }
-
-  if (sources.has("historical_bids") && sources.has("budget_signal")) {
-    return {
-      label: "Mixed benchmark + budget anchor",
-      detail: "Some trades have internal bid history while others rely on the stated budget.",
-    };
-  }
-
-  if (sources.has("historical_bids") && sources.has("insufficient_signal")) {
-    return {
-      label: "Partial benchmark with gaps",
-      detail: "Some trades used internal bid history, but others still lacked enough signal for pricing.",
-    };
-  }
-
-  return {
-    label: "Mixed heuristic estimate",
-    detail: "This estimate combines multiple fallback methods based on the pricing signal available for each selected trade.",
-  };
-}
-
 export default function AiEstimateSummary({
   status,
   score,
   confidence,
   summary,
-  baselineLow,
-  baselineHigh,
   assumptions,
   exclusions = [],
   missingItems = [],
   questions = [],
   tradeBreakdown = [],
-  modelName = null,
-  analysisVersion = null,
   compact = false,
 }: AiEstimateSummaryProps) {
   const statusConfig = getStatusConfig(status);
   const StatusIcon = statusConfig.Icon;
-  const aiSourceLabel = getAiSourceLabel(modelName, analysisVersion);
-  const estimateMethod = getEstimateMethod(tradeBreakdown);
 
   return (
     <div className="space-y-4">
@@ -188,46 +108,20 @@ export default function AiEstimateSummary({
         </div>
 
         <div className="min-w-[220px] rounded-xl border border-primary/15 bg-primary/5 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-            Baseline range
-          </p>
-          <p className="mt-1 text-lg font-bold text-money">
-            {baselineLow !== null && baselineHigh !== null
-              ? `${formatCurrency(baselineLow)} - ${formatCurrency(baselineHigh)}`
-              : "Not ready yet"}
+          <div className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4 text-primary" />
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Scope checklist
+            </p>
+          </div>
+          <p className="mt-1 text-sm font-medium text-text-primary">
+            Review items below and confirm what your project needs.
           </p>
           <p className="mt-1 text-xs text-text-muted">
-            Planning baseline only, not a contractor quote.
+            Contractors will bid against your finalized scope.
           </p>
         </div>
       </div>
-
-      {!compact && (
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="rounded-xl border border-border bg-surface px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-              AI source
-            </p>
-            <p className="mt-1 text-sm font-semibold text-text-primary">
-              {aiSourceLabel}
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-text-muted">
-              The LLM can improve wording, missing items, and clarification questions, while the current pricing math still uses the rules engine.
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-surface px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-              Estimate method
-            </p>
-            <p className="mt-1 text-sm font-semibold text-text-primary">
-              {estimateMethod.label}
-            </p>
-            <p className="mt-1 text-xs leading-relaxed text-text-muted">
-              {estimateMethod.detail}
-            </p>
-          </div>
-        </div>
-      )}
 
       {!compact && tradeBreakdown.length > 0 && (
         <div className="rounded-xl border border-border bg-surface px-4 py-3">
@@ -244,10 +138,6 @@ export default function AiEstimateSummary({
               </span>
             ))}
           </div>
-          <p className="mt-2 text-xs leading-relaxed text-text-muted">
-            The unified estimate uses licensed professional labor rates.
-            Actual bids may come in lower depending on the contractor.
-          </p>
         </div>
       )}
 

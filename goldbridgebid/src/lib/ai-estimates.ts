@@ -587,6 +587,8 @@ export function analyzeProjectAiEstimate(
     completenessScore
   );
 
+  // Baseline pricing is only populated when real historical bid data exists.
+  // The customer's stated budget is NOT used as a price estimate.
   let baselineLow: number | null = null;
   let baselineHigh: number | null = null;
 
@@ -607,24 +609,12 @@ export function analyzeProjectAiEstimate(
         0
       )
     );
-  } else if (input.budgetMin || input.budgetMax) {
-    const low = input.budgetMin || (input.budgetMax ? input.budgetMax * 0.8 : null);
-    const high = input.budgetMax || (input.budgetMin ? input.budgetMin * 1.2 : null);
-    baselineLow = low ? roundCurrency(low) : null;
-    baselineHigh = high ? roundCurrency(high) : null;
-  }
-
-  if (matchedBenchmarks.length > 0) {
     assumptions.push(
       `Baseline range uses historical internal bid data for ${matchedBenchmarks.length} selected ${matchedBenchmarks.length === 1 ? "trade" : "trades"}.`
     );
-  } else if (baselineLow || baselineHigh) {
-    assumptions.push(
-      "Baseline range reflects the customer's own stated budget — no independent price verification has been performed yet."
-    );
   } else {
     assumptions.push(
-      "No reliable historical benchmark was available yet, so the assistant focused on scope readiness instead of pricing precision."
+      "The AI is focused on building a complete scope checklist. Actual pricing will come from contractor bids."
     );
   }
 

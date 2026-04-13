@@ -173,90 +173,8 @@ function getClarificationAnswer(
   )?.answer_value_json;
 }
 
-function roundCurrency(value: number) {
-  return Math.round(value / 50) * 50;
-}
-
-function normalizeRange(low: number, high: number) {
-  const clamped = {
-    low: Math.max(0, Math.min(low, high)),
-    high: Math.max(Math.max(low, high), 0),
-  };
-  return {
-    low: roundCurrency(clamped.low),
-    high: roundCurrency(clamped.high),
-  };
-}
-
-function formatCurrencyValue(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-// ---------------------------------------------------------------------------
-// Cost split ratios by category (labor / material / equipment)
-// ---------------------------------------------------------------------------
-
-function getItemCostSplitRatios(category: ProjectAiScopeItemCategory) {
-  switch (category) {
-    case "electrical":
-      return { labor: 0.55, material: 0.35, equipment: 0.1 };
-    case "plumbing":
-      return { labor: 0.5, material: 0.4, equipment: 0.1 };
-    case "foundation":
-    case "concrete":
-    case "masonry":
-      return { labor: 0.35, material: 0.5, equipment: 0.15 };
-    case "excavation":
-    case "site_prep":
-    case "grading":
-    case "demolition":
-      return { labor: 0.4, material: 0.2, equipment: 0.4 };
-    case "framing":
-    case "structural":
-      return { labor: 0.45, material: 0.45, equipment: 0.1 };
-    case "roofing":
-      return { labor: 0.45, material: 0.45, equipment: 0.1 };
-    case "hvac":
-      return { labor: 0.4, material: 0.45, equipment: 0.15 };
-    case "insulation":
-    case "drywall":
-      return { labor: 0.5, material: 0.4, equipment: 0.1 };
-    case "painting":
-      return { labor: 0.6, material: 0.35, equipment: 0.05 };
-    case "flooring":
-    case "tile":
-      return { labor: 0.45, material: 0.5, equipment: 0.05 };
-    case "cabinetry":
-      return { labor: 0.35, material: 0.6, equipment: 0.05 };
-    case "windows_doors":
-      return { labor: 0.35, material: 0.6, equipment: 0.05 };
-    case "siding_exterior":
-      return { labor: 0.45, material: 0.45, equipment: 0.1 };
-    case "waterproofing":
-      return { labor: 0.5, material: 0.4, equipment: 0.1 };
-    case "landscaping":
-    case "landscape":
-      return { labor: 0.5, material: 0.3, equipment: 0.2 };
-    case "permits_inspections":
-    case "permit":
-      return { labor: 0.9, material: 0.05, equipment: 0.05 };
-    case "materials_delivery":
-    case "delivery":
-      return { labor: 0.3, material: 0.1, equipment: 0.6 };
-    case "cleanup":
-      return { labor: 0.7, material: 0.1, equipment: 0.2 };
-    case "safety":
-      return { labor: 0.6, material: 0.3, equipment: 0.1 };
-    case "general_labor":
-      return { labor: 0.75, material: 0.15, equipment: 0.1 };
-    default:
-      return { labor: 0.5, material: 0.35, equipment: 0.15 };
-  }
-}
+// Cost split ratios and budget-anchored pricing have been removed.
+// Scope items are a checklist — pricing comes from contractor bids.
 
 // ---------------------------------------------------------------------------
 // Map LLM classification requirements → scope item drafts
@@ -409,92 +327,6 @@ function buildScopeItemFromRequirement(params: {
   };
 }
 
-/**
- * Applies budget-anchored pricing to a scope item when we have a customer
- * budget and the item's typical cost significance. This gives a rough
- * directional range until the detailed estimate (Call 2) runs.
- */
-function applyInitialPricing(params: {
-  item: ProjectAiScopeItemDraft;
-  input: ProjectAiAnalysisInput;
-  totalItems: number;
-  highCostCount: number;
-  wageEntry: TradeWageEntry;
-}): ProjectAiScopeItemDraft {
-  const { item, input, totalItems, highCostCount, wageEntry } = params;
-
-  const budgetMid =
-    input.budgetMin && input.budgetMax
-      ? (input.budgetMin + input.budgetMax) / 2
-      : input.budgetMin || input.budgetMax || null;
-
-  if (!budgetMid || totalItems === 0) {
-    return item;
-  }
-
-  // Distribute budget proportionally based on item category ratios.
-  // High-significance items get more share than low ones.
-  const itemWeight =
-    item.required_status === "required"
-      ? 1.5
-      : item.required_status === "likely"
-        ? 1.0
-        : 0.5;
-
-  const totalWeight = totalItems * 1.0;
-  const share = (itemWeight / totalWeight) * budgetMid;
-
-  const range = normalizeRange(share * 0.7, share * 1.4);
-  const ratios = getItemCostSplitRatios(item.item_category);
-
-  const drivers: ProjectAiScopeItemQuantityDriver[] = [
-    {
-      key: "budget_share",
-      label: "Budget-derived share",
-      value: formatCurrencyValue(Math.round((range.low + range.high) / 2)),
-      unit: null,
-      confidence: "low",
-      source: "budget_signal",
-    },
-  ];
-
-  if (wageEntry.hourly_rate > 0) {
-    const laborLow = range.low * ratios.labor;
-    const laborHigh = range.high * ratios.labor;
-    const hoursLow = Math.round(laborLow / wageEntry.hourly_rate);
-    const hoursHigh = Math.round(laborHigh / wageEntry.hourly_rate);
-
-    drivers.push({
-      key: "estimated_labor_hours",
-      label: "Estimated labor hours",
-      value:
-        hoursLow === hoursHigh
-          ? String(hoursLow)
-          : `${hoursLow} – ${hoursHigh}`,
-      unit: "hrs",
-      confidence: "low",
-      source: "budget_signal",
-    });
-  }
-
-  return {
-    ...item,
-    estimated_low: range.low,
-    estimated_high: range.high,
-    labor_low: roundCurrency(range.low * ratios.labor),
-    labor_high: roundCurrency(range.high * ratios.labor),
-    material_low: roundCurrency(range.low * ratios.material),
-    material_high: roundCurrency(range.high * ratios.material),
-    equipment_low: roundCurrency(range.low * ratios.equipment),
-    equipment_high: roundCurrency(range.high * ratios.equipment),
-    quantity_drivers_json: [...item.quantity_drivers_json, ...drivers],
-    assumptions_json: [
-      ...item.assumptions_json,
-      "Initial pricing is derived from the customer's stated budget and will be refined after detailed scope confirmation.",
-    ],
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Main entry points
 // ---------------------------------------------------------------------------
@@ -559,30 +391,17 @@ export function buildProjectAiScopeItems(params: {
     ];
   }
 
-  // Build scope items from LLM classification requirements
+  // Build scope items from LLM classification requirements.
+  // No pricing is applied at this stage — scope items are a checklist
+  // for the customer to confirm. Pricing comes from contractor bids.
   const requirements = classification.standard_requirements;
 
-  const highCostCount = requirements.filter(
-    (r) => r.typical_cost_significance === "high"
-  ).length;
-
-  const items = requirements.map((requirement, index) =>
+  return requirements.map((requirement, index) =>
     buildScopeItemFromRequirement({
       requirement,
       index,
       input,
       analysis,
-      wageEntry,
-    })
-  );
-
-  // Apply initial budget-anchored pricing
-  return items.map((item) =>
-    applyInitialPricing({
-      item,
-      input,
-      totalItems: items.length,
-      highCostCount,
       wageEntry,
     })
   );
@@ -734,39 +553,3 @@ export function applyItemClarificationStateToScopeItems(params: {
   });
 }
 
-export function getProjectAiScopeItemPricingReasoning(
-  item: Pick<
-    ProjectAiScopeItem,
-    | "item_label"
-    | "source_method"
-    | "estimated_low"
-    | "estimated_high"
-    | "confidence_level"
-    | "needs_clarification"
-    | "confidence_reason"
-  >
-) {
-  const hasRange =
-    item.estimated_low !== null && item.estimated_high !== null;
-
-  if (item.source_method === "llm_generated" && hasRange) {
-    return `This is a standard requirement identified by the AI for this project type. The initial range is directional and will tighten as you confirm scope details.`;
-  }
-
-  if (item.source_method === "historical_bids" && hasRange) {
-    return `This range uses internal bid history for similar ${item.item_label.toLowerCase()} scopes.`;
-  }
-
-  if (item.source_method === "budget_signal" && hasRange) {
-    return `This range is anchored by the customer's stated budget because direct pricing data is limited.`;
-  }
-
-  if (!hasRange && item.needs_clarification) {
-    return "There is not enough pricing signal yet. Confirming this item and adding detail will help generate a range.";
-  }
-
-  return (
-    item.confidence_reason ||
-    "This line item is a directional signal and should be treated as preconstruction guidance."
-  );
-}

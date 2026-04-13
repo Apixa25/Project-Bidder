@@ -5,7 +5,6 @@ import type {
   ProjectAiScopeItemEvidenceSignal,
   ProjectAiScopeItemQuantityDriver,
 } from "@/lib/ai-scope-items";
-import { getProjectAiScopeItemPricingReasoning } from "@/lib/ai-scope-items";
 
 interface ItemClarificationRow
   extends Pick<
@@ -60,46 +59,6 @@ interface ProjectAiScopeItemsSectionProps {
   excludedItemIds?: Set<string>;
   confirmedItemIds?: Set<string>;
   onConfirmItem?: (itemId: string) => void;
-}
-
-function formatCurrency(value: number | null) {
-  if (value === null) {
-    return null;
-  }
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatRange(low: number | null, high: number | null) {
-  const lowLabel = formatCurrency(low);
-  const highLabel = formatCurrency(high);
-
-  if (!lowLabel || !highLabel) {
-    return "Needs a stronger pricing signal";
-  }
-
-  return `${lowLabel} - ${highLabel}`;
-}
-
-function renderCostSplitLabel(
-  label: string,
-  low: number | null,
-  high: number | null
-) {
-  return (
-    <div className="rounded-lg border border-border bg-surface px-3 py-2">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-        {label}
-      </div>
-      <div className="mt-1 text-sm font-medium text-text-primary">
-        {formatRange(low, high)}
-      </div>
-    </div>
-  );
 }
 
 function renderSimpleList(title: string, items: string[], tone: "amber" | "slate") {
@@ -301,34 +260,8 @@ function getConfidenceClassName(value: ProjectAiScopeItem["confidence_level"]) {
   }
 }
 
-function getSourceMethodLabel(value: ProjectAiScopeItem["source_method"]) {
-  switch (value) {
-    case "historical_bids":
-      return "Historical bids";
-    case "ai_assembly":
-      return "AI assembly";
-    case "budget_signal":
-      return "Budget signal";
-    case "manual_review":
-      return "Manual review";
-    default:
-      return "Insufficient signal";
-  }
-}
-
 function getCategoryLabel(value: ProjectAiScopeItem["item_category"]) {
   return value.replaceAll("_", " ");
-}
-
-function isProposedItem(
-  item: { item_key: string; required_status: string },
-  confirmedIds: Set<string>,
-  itemId: string
-) {
-  if (item.item_key === "unified_project_package") return false;
-  if (item.required_status === "required") return false;
-  if (confirmedIds.has(itemId)) return false;
-  return true;
 }
 
 function getProposalQuestion(item: { item_label: string; item_category: string; why_it_may_apply: string | null }) {
@@ -353,16 +286,12 @@ export default function ProjectAiScopeItemsSection({
   const excludedItems = items.filter((item) => excludedItemIds.has(item.id));
   const nonExcluded = items.filter((item) => !excludedItemIds.has(item.id));
 
-  // Items that are inherently confirmed (required status, or unified package)
-  // go into the full pricing card section at the top.
   const confirmedItems = nonExcluded.filter(
     (item) =>
       item.item_key === "unified_project_package" ||
       item.required_status === "required"
   );
 
-  // All other items stay in the proposed section. Items the user clicked
-  // "Yes, include" on are shown inline with a confirmed state (no page jump).
   const proposedItems = nonExcluded.filter(
     (item) =>
       item.item_key !== "unified_project_package" &&
@@ -374,17 +303,17 @@ export default function ProjectAiScopeItemsSection({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-text-primary">
-            Scope Estimate
+            Project Scope Checklist
           </h3>
           <p className="mt-1 max-w-3xl text-sm leading-relaxed text-text-secondary">
-            The items below are confirmed in your estimate. Review the
-            suggested additions below them — include what applies, skip
-            what doesn&apos;t.
+            This is the list of work items that contractors will see and bid
+            against. Review everything below — include what applies to your
+            project and skip what doesn&apos;t.
           </p>
         </div>
       </div>
 
-      {/* ── Confirmed items: full pricing cards ── */}
+      {/* ── Confirmed scope items ── */}
       <div className="mt-4 space-y-4">
         {confirmedItems.map((item) => (
           <article
@@ -429,56 +358,12 @@ export default function ProjectAiScopeItemsSection({
               </p>
             )}
 
-            <div className="mt-4 rounded-lg border border-border bg-bg-warm px-3 py-3">
-              <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                Directional range
-              </div>
-              <div className="mt-1 text-sm font-semibold text-text-primary">
-                {formatRange(item.estimated_low, item.estimated_high)}
-              </div>
-              <div className="mt-2 text-xs text-text-secondary">
-                Source: {getSourceMethodLabel(item.source_method)}
-              </div>
-            </div>
-
-            {(item.labor_low !== null ||
-              item.material_low !== null ||
-              item.equipment_low !== null) && (
-              <div className="mt-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                  Cost component split
-                </div>
-                <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                  {renderCostSplitLabel("Labor", item.labor_low, item.labor_high)}
-                  {renderCostSplitLabel(
-                    "Material",
-                    item.material_low,
-                    item.material_high
-                  )}
-                  {renderCostSplitLabel(
-                    "Equipment",
-                    item.equipment_low,
-                    item.equipment_high
-                  )}
-                </div>
-              </div>
-            )}
-
             {renderQuantityDrivers(
               item.quantity_drivers_json as ProjectAiScopeItemQuantityDriver[]
             )}
             {renderEvidenceSignals(
               item.evidence_signals_json as ProjectAiScopeItemEvidenceSignal[]
             )}
-
-            <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-3">
-              <div className="text-xs font-semibold uppercase tracking-wide text-sky-700">
-                Pricing reasoning
-              </div>
-              <p className="mt-1 text-sm leading-relaxed text-sky-900">
-                {getProjectAiScopeItemPricingReasoning(item)}
-              </p>
-            </div>
 
             {item.why_it_may_apply && (
               <div className="mt-4">
@@ -642,15 +527,15 @@ export default function ProjectAiScopeItemsSection({
 
             {item.needs_clarification && (
               <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                This item still needs clarification before it can behave like a
-                reliable line-item estimate.
+                This item still needs clarification before it can be fully
+                scoped for contractors.
               </div>
             )}
           </article>
         ))}
       </div>
 
-      {/* ── Proposed items: question cards (no pricing until confirmed) ── */}
+      {/* ── Proposed items: question cards ── */}
       {proposedItems.length > 0 && (
         <div className="mt-6">
           <div className="mb-3">
@@ -659,7 +544,7 @@ export default function ProjectAiScopeItemsSection({
             </h4>
             <p className="mt-1 text-xs leading-relaxed text-text-secondary">
               The AI identified items that are commonly needed for projects like
-              yours. Include what applies — pricing will be calculated only for
+              yours. Include what applies — contractors will see and bid on the
               items you confirm.
             </p>
           </div>
