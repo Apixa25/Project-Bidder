@@ -352,11 +352,21 @@ export default function ProjectAiScopeItemsSection({
 
   const excludedItems = items.filter((item) => excludedItemIds.has(item.id));
   const nonExcluded = items.filter((item) => !excludedItemIds.has(item.id));
+
+  // Items that are inherently confirmed (required status, or unified package)
+  // go into the full pricing card section at the top.
   const confirmedItems = nonExcluded.filter(
-    (item) => !isProposedItem(item, confirmedItemIds, item.id)
+    (item) =>
+      item.item_key === "unified_project_package" ||
+      item.required_status === "required"
   );
+
+  // All other items stay in the proposed section. Items the user clicked
+  // "Yes, include" on are shown inline with a confirmed state (no page jump).
   const proposedItems = nonExcluded.filter(
-    (item) => isProposedItem(item, confirmedItemIds, item.id)
+    (item) =>
+      item.item_key !== "unified_project_package" &&
+      item.required_status !== "required"
   );
 
   return (
@@ -654,43 +664,72 @@ export default function ProjectAiScopeItemsSection({
             </p>
           </div>
           <div className="space-y-2">
-            {proposedItems.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-start justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-text-primary">
-                    {getProposalQuestion(item)}
-                  </p>
-                  {item.why_it_may_apply && (
-                    <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-                      {item.why_it_may_apply}
-                    </p>
-                  )}
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  {onConfirmItem && (
+            {proposedItems.map((item) => {
+              const isJustConfirmed = confirmedItemIds.has(item.id);
+
+              if (isJustConfirmed) {
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <svg className="h-4 w-4 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <p className="text-sm font-medium text-emerald-800">
+                        {item.item_label} — included
+                      </p>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => onConfirmItem(item.id)}
-                      className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
-                    >
-                      Yes, include
-                    </button>
-                  )}
-                  {onToggleRequired && (
-                    <button
-                      type="button"
-                      onClick={() => onToggleRequired(item.id, "not_required")}
+                      onClick={() => onToggleRequired?.(item.id, "not_required")}
                       className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
                     >
-                      No, skip
+                      Undo
                     </button>
-                  )}
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-start justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-text-primary">
+                      {getProposalQuestion(item)}
+                    </p>
+                    {item.why_it_may_apply && (
+                      <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                        {item.why_it_may_apply}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    {onConfirmItem && (
+                      <button
+                        type="button"
+                        onClick={() => onConfirmItem(item.id)}
+                        className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                      >
+                        Yes, include
+                      </button>
+                    )}
+                    {onToggleRequired && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleRequired(item.id, "not_required")}
+                        className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                      >
+                        No, skip
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
