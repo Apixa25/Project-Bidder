@@ -16,7 +16,6 @@ import {
   Phone,
   Mail,
   MessageSquare,
-  History,
   BriefcaseBusiness,
 } from "lucide-react";
 import { TRADE_LABELS, EXPERTISE_LEVEL_LABELS } from "@/types/database";
@@ -32,6 +31,7 @@ import type {
 } from "@/types/database";
 import ProjectStatusActions from "./ProjectStatusActions";
 import ProjectPhotos from "./ProjectPhotos";
+import ProjectEditHistoryCollapsible from "@/components/project/ProjectEditHistoryCollapsible";
 import AwardBidButton from "./AwardBidButton";
 import { userHasRole } from "@/lib/auth/roles";
 import CredentialChecklist from "@/components/credentials/CredentialChecklist";
@@ -53,21 +53,6 @@ import type {
   ProjectAiScopeItemQuantityDriver,
 } from "@/lib/ai-scope-items";
 
-const FIELD_DISPLAY_NAMES: Record<string, string> = {
-  title: "Title",
-  description: "Description",
-  completion_criteria: "Completion Criteria",
-  trades: "Trades Required",
-  expertise_level: "Expertise Level",
-  location_address: "Street Address",
-  location_city: "City",
-  location_state: "State",
-  location_zip: "ZIP Code",
-  budget_min: "Budget Min",
-  budget_max: "Budget Max",
-  desired_start_date: "Desired Start Date",
-  timeline: "Expected Duration",
-};
 
 export default async function ProjectDetailPage({
   params,
@@ -480,52 +465,7 @@ export default async function ProjectDetailPage({
 
           {/* Edit History */}
           {projectEdits && projectEdits.length > 0 && (
-            <section className="rounded-xl border border-amber-300 bg-amber-50/50 p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <History className="h-5 w-5 text-amber-700" />
-                <h2 className="text-lg font-semibold text-amber-900">
-                  Edit History ⚠️
-                </h2>
-                <span className="rounded-full bg-amber-200 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-                  {projectEdits.length} change{projectEdits.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-              <p className="mb-4 text-xs text-amber-700">
-                This project has been edited after the original posting. All
-                existing bids are date-stamped to their original submission time.
-              </p>
-              <div className="space-y-3">
-                {projectEdits.map((edit) => (
-                  <div
-                    key={edit.id}
-                    className="rounded-lg border border-amber-200 bg-white p-4"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold text-amber-900">
-                        {FIELD_DISPLAY_NAMES[edit.field_name] || edit.field_name}
-                      </span>
-                      <span className="text-xs text-amber-600">
-                        {new Date(edit.edited_at).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <p className="text-xs text-text-muted mb-1">Before</p>
-                        <p className="text-sm text-red-700 bg-red-50 rounded-md px-3 py-2 line-through break-words">
-                          {edit.old_value || "(empty)"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-text-muted mb-1">After</p>
-                        <p className="text-sm text-green-700 bg-green-50 rounded-md px-3 py-2 break-words">
-                          {edit.new_value || "(empty)"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <ProjectEditHistoryCollapsible edits={projectEdits} />
           )}
 
           {/* Project Photos & Documents with Annotation */}
