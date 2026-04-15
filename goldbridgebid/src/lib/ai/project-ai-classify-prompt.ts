@@ -1,5 +1,6 @@
 import type { ProjectAiAnalysisInput } from "@/lib/ai-estimates";
 import { getMaxTradeWage, getWageForExpertiseLevel } from "@/lib/trade-wages";
+import { buildCraftsmanCostContext } from "@/lib/craftsman-lookup";
 import {
   TRADE_LABELS,
   EXPERTISE_LEVEL_LABELS,
@@ -65,6 +66,73 @@ export function buildProjectAiClassifyPrompt(params: {
     clarificationAnswers: (input.clarificationAnswers || []).slice(0, 20),
   };
 
+  // Build Craftsman reference cost context from project description keywords.
+  // We extract likely categories from the description to look up real published costs.
+  const descriptionText = `${input.title || ""} ${input.description || ""}`.toLowerCase();
+  const detectedCategories: string[] = [];
+  const CATEGORY_KEYWORDS: Record<string, string[]> = {
+    site_prep: ["site prep", "clearing", "grubbing", "grade"],
+    demolition: ["demo", "demolition", "tear out", "remove", "gut"],
+    excavation: ["excavat", "trench", "dig", "backfill"],
+    foundation: ["foundation", "footing", "slab", "pier"],
+    concrete: ["concrete", "pour", "rebar", "formwork"],
+    masonry: ["masonry", "brick", "block", "stone wall"],
+    structural: ["structural", "steel beam", "column", "joist"],
+    framing: ["frame", "framing", "stud", "rafter", "sheathing", "lumber"],
+    roofing: ["roof", "shingle", "flashing", "gutter"],
+    electrical: ["electric", "wiring", "outlet", "panel", "circuit"],
+    plumbing: ["plumb", "pipe", "faucet", "drain", "water heater", "toilet", "sink"],
+    hvac: ["hvac", "heating", "cooling", "furnace", "duct", "air condition"],
+    insulation: ["insulat", "batt", "blown", "foam board", "vapor barrier"],
+    drywall: ["drywall", "gypsum", "sheetrock", "taping"],
+    painting: ["paint", "primer", "stain", "coating"],
+    flooring: ["floor", "hardwood", "laminate", "vinyl plank", "carpet"],
+    tile: ["tile", "ceramic", "porcelain", "grout", "backsplash"],
+    cabinetry: ["cabinet", "countertop", "vanity", "kitchen"],
+    windows_doors: ["window", "door", "sliding", "entry", "skylight"],
+    siding_exterior: ["siding", "stucco", "trim", "fascia", "soffit"],
+    waterproofing: ["waterproof", "membrane", "sealant", "caulk"],
+    landscaping: ["landscap", "sod", "plant", "irrigat", "fence", "deck"],
+    cleanup: ["cleanup", "disposal", "dumpster", "haul"],
+  };
+
+  for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (keywords.some((kw) => descriptionText.includes(kw))) {
+      detectedCategories.push(cat);
+    }
+  }
+
+  // Always include general categories likely to apply
+  if (detectedCategories.length === 0) {
+    detectedCategories.push("general_labor", "materials_delivery", "cleanup");
+  }
+
+  const craftsmanContext = buildCraftsmanCostContext({
+    projectDescription: input.description || "",
+    categories: detectedCategories.slice(0, 6),
+    sector: "residential",
+    maxItemsPerCategory: 3,
+    maxTotalItems: 15,
+  });
+
+  console.log(
+    `[classify-prompt] Detected categories: [${detectedCategories.join(", ")}] → ${craftsmanContext.items.length} Craftsman reference items injected into prompt.`
+  );
+
+  const craftsmanPromptBlock =
+    craftsmanContext.items.length > 0
+      ? [
+          "",
+          "REFERENCE COST DATA (CRITICAL — USE THIS):",
+          "Below are REAL published unit costs from the 2023 National Construction Estimator (Craftsman Book Company).",
+          "When generating standard_requirements, use these as authoritative reference points for typical_cost_significance.",
+          "When a Craftsman line item matches a requirement you're generating, it confirms the requirement is legitimate and standard.",
+          "Do NOT copy these costs verbatim into your output — they are context for your professional judgment.",
+          "",
+          craftsmanContext.summary_text,
+        ].join("\n")
+      : "";
+
   return {
     system: [
       "You are an expert construction estimator working for a bidding marketplace.",
@@ -103,12 +171,15 @@ export function buildProjectAiClassifyPrompt(params: {
       "- Do NOT fabricate permit requirements for specific jurisdictions you don't know about.",
       "",
       `The customer requested ${expertiseLevelLabel || "professional"}-level work at $${wageEntry.hourly_rate}/hr (${wageEntry.role_label}).`,
+      craftsmanPromptBlock,
       "Return JSON only matching the provided schema.",
-    ].join("\n"),
+    ]
+      .filter(Boolean)
+      .join("\n"),
     user: JSON.stringify({
       promptVersion,
       step: "classify_and_generate_requirements",
-      goal: "Classify this construction project, then generate a complete list of standard requirements a contractor would need to bid it. For EVERY requirement, check ALL data sources below (description, files, and previous answers) to determine if the customer already addressed it. Minimize what the customer has to re-enter.",
+      goal: "Classify this construction project, then generate a complete list of standard requirements a contractor would need to bid it. For EVERY requirement, check ALL data sources below (description, files, and previous answers) to determine if the customer already addressed it. Minimize what the customer has to re-enter. Use the reference cost data to validate your requirements are standard and real.",
       project: trimmedInput,
       data_sources_to_cross_reference: {
         description: trimmedInput.description || "(none provided)",

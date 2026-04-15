@@ -9,6 +9,10 @@ import {
   getWageForExpertiseLevel,
   type TradeWageEntry,
 } from "@/lib/trade-wages";
+import {
+  findCraftsmanCostsForScopeItem,
+  formatCraftsmanAsQuantityDrivers,
+} from "@/lib/craftsman-lookup";
 import { TRADE_LABELS, type TradeCategory } from "@/types/database";
 import type {
   ProjectAiClassifyOutput,
@@ -212,8 +216,9 @@ function buildScopeItemFromRequirement(params: {
   input: ProjectAiAnalysisInput;
   analysis: ProjectAiAnalysisResult;
   wageEntry: TradeWageEntry;
+  sector?: "residential" | "commercial" | "industrial" | "infrastructure" | "mixed";
 }): ProjectAiScopeItemDraft {
-  const { requirement, index, input, analysis, wageEntry } = params;
+  const { requirement, index, input, analysis, wageEntry, sector } = params;
 
   const requiredStatus = mapInclusionToRequiredStatus(
     requirement.recommended_inclusion
@@ -280,9 +285,59 @@ function buildScopeItemFromRequirement(params: {
     });
   }
 
+  // Look up Craftsman reference costs for this scope item
+  const craftsmanResults = findCraftsmanCostsForScopeItem({
+    itemLabel: requirement.item_label,
+    itemCategory: requirement.category,
+    sector: sector || "residential",
+    maxResults: 3,
+  });
+
+  if (craftsmanResults.length > 0) {
+    console.log(
+      `[scope-items] Craftsman match for "${requirement.item_label}": ${craftsmanResults.length} results (top: "${craftsmanResults[0].item.description}" $${craftsmanResults[0].item.total}/${craftsmanResults[0].item.unit})`
+    );
+  }
+
+  if (craftsmanResults.length > 0) {
+    const craftsmanDrivers = formatCraftsmanAsQuantityDrivers(craftsmanResults);
+    quantityDrivers.push(...craftsmanDrivers);
+
+    const topResult = craftsmanResults[0];
+    const refItem = topResult.item;
+    const costStr = refItem.total !== null
+      ? `$${refItem.total}/${refItem.unit}`
+      : refItem.material !== null
+        ? `$${refItem.material}/${refItem.unit} (material only)`
+        : "reference available";
+
+    evidenceSignals.push({
+      key: "craftsman_reference",
+      label: "Craftsman 2023 reference cost",
+      summary: `Published cost for "${refItem.description}": ${costStr}. Source: 2023 National Construction Estimator.`,
+      strength: "supporting",
+      source: "trade_history",
+    });
+  }
+
   const hasCustomerQuantity =
     requirement.customer_stated_quantity !== null &&
     requirement.customer_stated_quantity !== undefined;
+
+  const assumptions = hasCustomerQuantity
+    ? [
+        `Customer stated ${requirement.customer_stated_quantity} ${requirement.customer_stated_unit || "units"}.`,
+        `This item is listed as ${requirement.recommended_inclusion} for this project type.`,
+      ]
+    : [
+        `This item is listed as ${requirement.recommended_inclusion} for this project type.`,
+      ];
+
+  if (craftsmanResults.length > 0) {
+    assumptions.push(
+      "Unit cost references from 2023 National Construction Estimator (Craftsman). Actual costs vary by location and conditions."
+    );
+  }
 
   return {
     item_key: requirement.item_key,
@@ -309,18 +364,11 @@ function buildScopeItemFromRequirement(params: {
     equipment_high: null,
     quantity_drivers_json: quantityDrivers,
     evidence_signals_json: evidenceSignals,
-    assumptions_json: hasCustomerQuantity
-      ? [
-          `Customer stated ${requirement.customer_stated_quantity} ${requirement.customer_stated_unit || "units"}.`,
-          `This item is listed as ${requirement.recommended_inclusion} for this project type.`,
-        ]
-      : [
-          `This item is listed as ${requirement.recommended_inclusion} for this project type.`,
-        ],
+    assumptions_json: assumptions,
     exclusions_json: [
       "Final pricing depends on site conditions, contractor availability, and material selections.",
     ],
-    source_method: "llm_generated",
+    source_method: craftsmanResults.length > 0 ? "ai_assembly" : "llm_generated",
     needs_clarification: !requirement.is_mentioned_by_customer && !hasCustomerQuantity,
     customer_inclusion: requirement.is_mentioned_by_customer ? "yes" : null,
     display_order: index,
@@ -392,9 +440,10 @@ export function buildProjectAiScopeItems(params: {
   }
 
   // Build scope items from LLM classification requirements.
-  // No pricing is applied at this stage — scope items are a checklist
-  // for the customer to confirm. Pricing comes from contractor bids.
+  // Each item gets Craftsman reference costs attached as quantity drivers
+  // so users see real published unit costs from an authoritative source.
   const requirements = classification.standard_requirements;
+  const sector = classification.project_classification.construction_sector;
 
   return requirements.map((requirement, index) =>
     buildScopeItemFromRequirement({
@@ -403,6 +452,7 @@ export function buildProjectAiScopeItems(params: {
       input,
       analysis,
       wageEntry,
+      sector,
     })
   );
 }
