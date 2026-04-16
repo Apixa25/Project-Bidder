@@ -357,16 +357,40 @@ async function syncProjectAiScopeItems(params: {
 }) {
   const { supabase, projectId, items } = params;
 
-  const { data: existingItems } = await supabase
+  // Wipe all existing scope items for this project so we start clean.
+  // The LLM generates different item_key values each run, so upsert
+  // alone would leave stale duplicates.
+  // NOTE: We use the admin client here because the customer RLS policies
+  // don't include a DELETE policy — the regular client silently deletes
+  // 0 rows, causing duplicate-key errors on the subsequent insert.
+  const admin = createAdminClient();
+  const { error: deleteAllError } = await admin
     .from("project_ai_scope_items")
-    .select("id, item_key")
+    .delete()
     .eq("project_id", projectId);
 
+  if (deleteAllError) {
+    console.error("AI scope item cleanup error:", deleteAllError);
+  }
+
   if (items.length > 0) {
-    const { error: upsertError } = await supabase
+    const seenKeys = new Set<string>();
+    const deduped = items.filter((item) => {
+      if (seenKeys.has(item.item_key)) return false;
+      seenKeys.add(item.item_key);
+      return true;
+    });
+
+    if (deduped.length < items.length) {
+      console.warn(
+        `[scope-items] Deduped ${items.length - deduped.length} duplicate item_key(s) within single LLM run`
+      );
+    }
+
+    const { error: insertError } = await supabase
       .from("project_ai_scope_items")
-      .upsert(
-        items.map((item, index) => ({
+      .insert(
+        deduped.map((item, index) => ({
           project_id: projectId,
           item_key: item.item_key,
           item_label: item.item_label,
@@ -392,28 +416,11 @@ async function syncProjectAiScopeItems(params: {
           needs_clarification: item.needs_clarification,
           customer_inclusion: item.customer_inclusion,
           display_order: index,
-        })),
-        { onConflict: "project_id,item_key" }
+        }))
       );
 
-    if (upsertError) {
-      console.error("AI scope item sync error:", upsertError);
-    }
-  }
-
-  const activeItemKeys = new Set(items.map((item) => item.item_key));
-  const staleItemIds = (existingItems || [])
-    .filter((item) => !activeItemKeys.has(item.item_key))
-    .map((item) => item.id);
-
-  if (staleItemIds.length > 0) {
-    const { error: deleteError } = await supabase
-      .from("project_ai_scope_items")
-      .delete()
-      .in("id", staleItemIds);
-
-    if (deleteError) {
-      console.error("AI scope item cleanup error:", deleteError);
+    if (insertError) {
+      console.error("AI scope item insert error:", insertError);
     }
   }
 
@@ -818,7 +825,19 @@ export async function analyzeProjectDraft(input: ProjectAiAnalysisInput) {
     files: input.files ? await enrichProjectAiFileSignals(input.files) : input.files,
   };
   const analysis = await analyzeProjectAiHybrid(enrichedInput, await getCostEstimates());
-  return { error: null, analysis, classification: analysis.classification };
+
+  const scopeItemDrafts = buildProjectAiScopeItems({
+    input: enrichedInput,
+    analysis,
+    classification: analysis.classification || null,
+  });
+
+  return {
+    error: null,
+    analysis,
+    classification: analysis.classification,
+    scopeItemDrafts,
+  };
 }
 
 export async function refreshProjectAiEstimate(projectId: string) {
@@ -973,6 +992,17 @@ export async function saveProjectAiClarificationsAndShare(
       clarificationId: string;
       answerValue: string | string[];
     }>;
+    confirmedItemIds?: string[];
+    excludedItemIds?: string[];
+    costOverrides?: Record<string, { material: number | null; labor: number | null }>;
+    customLineItems?: Array<{
+      id: string;
+      label: string;
+      unit: string;
+      qty: number;
+      material: number;
+      labor: number;
+    }>;
   }
 ) {
   const supabase = await createClient();
@@ -1086,6 +1116,99 @@ export async function saveProjectAiClarificationsAndShare(
     if (updateError) {
       console.error("Bulk AI item clarification answer error:", updateError);
       return { error: "Failed to save one of the item clarification answers." };
+    }
+  }
+
+  // Persist confirmed/excluded scope items
+  if (answers.confirmedItemIds && answers.confirmedItemIds.length > 0) {
+    const { error: confirmError } = await supabase
+      .from("project_ai_scope_items")
+      .update({ customer_inclusion: "yes" })
+      .eq("project_id", projectId)
+      .in("id", answers.confirmedItemIds);
+
+    if (confirmError) {
+      console.error("Confirm scope items error:", confirmError);
+    }
+  }
+
+  if (answers.excludedItemIds && answers.excludedItemIds.length > 0) {
+    const { error: excludeError } = await supabase
+      .from("project_ai_scope_items")
+      .update({ customer_inclusion: "no" })
+      .eq("project_id", projectId)
+      .in("id", answers.excludedItemIds);
+
+    if (excludeError) {
+      console.error("Exclude scope items error:", excludeError);
+    }
+  }
+
+  // Apply user cost overrides to scope items
+  if (answers.costOverrides) {
+    for (const [itemId, override] of Object.entries(answers.costOverrides)) {
+      const updates: Record<string, number | null> = {};
+      if (override.material !== null) {
+        updates.material_low = override.material;
+        updates.material_high = override.material;
+      }
+      if (override.labor !== null) {
+        updates.labor_low = override.labor;
+        updates.labor_high = override.labor;
+      }
+      if (Object.keys(updates).length > 0) {
+        const totalLow = (updates.material_low ?? 0) + (updates.labor_low ?? 0);
+        const totalHigh = (updates.material_high ?? 0) + (updates.labor_high ?? 0);
+        if (totalLow > 0 || totalHigh > 0) {
+          updates.estimated_low = totalLow;
+          updates.estimated_high = totalHigh;
+        }
+        const { error: overrideError } = await supabase
+          .from("project_ai_scope_items")
+          .update(updates)
+          .eq("id", itemId)
+          .eq("project_id", projectId);
+
+        if (overrideError) {
+          console.error("Cost override error for item:", itemId, overrideError);
+        }
+      }
+    }
+  }
+
+  // Persist custom line items as new scope items
+  if (answers.customLineItems && answers.customLineItems.length > 0) {
+    for (const custom of answers.customLineItems) {
+      const materialTotal = custom.material * custom.qty;
+      const laborTotal = custom.labor * custom.qty;
+      const { error: insertError } = await supabase
+        .from("project_ai_scope_items")
+        .upsert(
+          {
+            project_id: projectId,
+            item_key: custom.id,
+            item_label: custom.label,
+            item_category: "other",
+            required_status: "required",
+            confidence_level: "high",
+            description: `Custom line item added by customer. ${custom.qty} ${custom.unit}.`,
+            source_method: "manual_review",
+            customer_inclusion: "yes",
+            material_low: materialTotal,
+            material_high: materialTotal,
+            labor_low: laborTotal,
+            labor_high: laborTotal,
+            estimated_low: materialTotal + laborTotal,
+            estimated_high: materialTotal + laborTotal,
+            needs_clarification: false,
+            display_order: 9999,
+          },
+          { onConflict: "project_id,item_key" }
+        );
+
+      if (insertError) {
+        console.error("Custom line item insert error:", insertError);
+      }
     }
   }
 

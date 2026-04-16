@@ -24,6 +24,10 @@ import {
   setProjectAiEstimatePublication,
 } from "../actions";
 import ProjectAiScopeItemsSection from "./ProjectAiScopeItemsSection";
+import ProjectAiEstimateSummaryTable, {
+  type CostOverride,
+  type CustomLineItem,
+} from "./ProjectAiEstimateSummaryTable";
 
 interface ClarificationRow {
   id: string;
@@ -94,6 +98,7 @@ interface ProjectAiEstimatePanelProps {
       | "exclusions_json"
       | "source_method"
       | "needs_clarification"
+      | "customer_inclusion"
     >
   >;
 }
@@ -147,6 +152,8 @@ export default function ProjectAiEstimatePanel({
   );
   const [excludedItemIds, setExcludedItemIds] = useState<Set<string>>(new Set());
   const [confirmedItemIds, setConfirmedItemIds] = useState<Set<string>>(new Set());
+  const [costOverrides, setCostOverrides] = useState<Record<string, CostOverride>>({});
+  const [customLineItems, setCustomLineItems] = useState<CustomLineItem[]>([]);
 
   function handleToggleRequired(itemId: string, newStatus: "required" | "not_required") {
     if (newStatus === "not_required") {
@@ -168,6 +175,36 @@ export default function ProjectAiEstimatePanel({
   function handleConfirmItem(itemId: string) {
     setConfirmedItemIds((prev) => new Set(prev).add(itemId));
   }
+
+  function handleCostOverride(itemId: string, field: "material" | "labor", value: number | null) {
+    setCostOverrides((prev) => ({
+      ...prev,
+      [itemId]: {
+        material: field === "material" ? value : (prev[itemId]?.material ?? null),
+        labor: field === "labor" ? value : (prev[itemId]?.labor ?? null),
+      },
+    }));
+  }
+
+  function handleAddCustomItem(item: CustomLineItem) {
+    setCustomLineItems((prev) => [...prev, item]);
+  }
+
+  function handleRemoveCustomItem(id: string) {
+    setCustomLineItems((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  const summaryItems = useMemo(
+    () =>
+      scopeItems.filter(
+        (item) =>
+          !excludedItemIds.has(item.id) &&
+          (item.required_status === "required" ||
+            item.item_key === "unified_project_package" ||
+            confirmedItemIds.has(item.id))
+      ),
+    [scopeItems, excludedItemIds, confirmedItemIds]
+  );
 
   const actionableClarifications = useMemo(
     () => clarifications.filter((item) => item.status !== "dismissed"),
@@ -278,6 +315,10 @@ export default function ProjectAiEstimatePanel({
                   ? answers[clarification.id] || []
                   : answers[clarification.id]?.[0] || "",
             })),
+          confirmedItemIds: Array.from(confirmedItemIds),
+          excludedItemIds: Array.from(excludedItemIds),
+          costOverrides,
+          customLineItems,
         }
       );
 
@@ -400,32 +441,12 @@ export default function ProjectAiEstimatePanel({
 
       {!showLoadingState && estimate ? (
         <div className="mt-5 space-y-5">
-          {!estimate.published_to_bidders && (
-            <div className="rounded-lg border border-border bg-bg-warm px-4 py-3 text-sm text-text-secondary">
-              Bidders will not see this AI baseline or its clarification-informed assumptions until you click <span className="font-semibold text-text-primary">Share With Bidders</span>. Even after sharing, bidders only see a short planning summary, not the full internal clarification workflow.
-            </div>
-          )}
-
-          <AiEstimateSummary
-            status={estimate.status}
-            score={estimate.scope_completeness_score}
-            confidence={estimate.confidence_level}
-            summary={estimate.summary || ""}
-            baselineLow={estimate.baseline_low}
-            baselineHigh={estimate.baseline_high}
-            assumptions={estimate.assumptions_json}
-            exclusions={estimate.exclusions_json}
-            missingItems={estimate.missing_items_json}
-            questions={estimate.recommended_questions_json}
-            tradeBreakdown={estimate.trade_breakdown_json}
-            modelName={latestRunModelName}
-            analysisVersion={estimate.analysis_version || null}
-          />
+          {/* AiEstimateSummary, clarifications, and summary table commented out — rebuilding from the bottom up */}
 
           <ProjectAiScopeItemsSection
             items={scopeItems}
-            itemClarifications={actionableItemClarifications}
-            answers={answers}
+            itemClarifications={[]}
+            answers={{}}
             setSingleValue={setSingleValue}
             toggleMultiValue={toggleMultiValue}
             onToggleRequired={handleToggleRequired}
@@ -434,163 +455,22 @@ export default function ProjectAiEstimatePanel({
             onConfirmItem={handleConfirmItem}
           />
 
-          {estimate.published_to_bidders && (
-            <div className="rounded-lg border border-secondary/30 bg-secondary/5 px-4 py-3 text-sm text-text-primary">
-              Bidders can currently see the AI baseline estimate on this project.
-            </div>
-          )}
-
-          {actionableClarifications.length > 0 && (
-            <div className="rounded-xl border border-border bg-bg-warm px-5 py-4">
-              <h3 className="text-sm font-semibold text-text-primary">
-                Project-level clarification workflow
-              </h3>
-              <p className="mt-1 text-sm text-text-secondary">
-                Answering these structured questions improves scope completeness and
-                helps tighten the estimate range.
-              </p>
-
-              <div className="mt-4 space-y-4">
-                {actionableClarifications.map((clarification) => (
-                  <div
-                    key={clarification.id}
-                    className="rounded-lg border border-border bg-surface px-4 py-4"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-text-primary">
-                          {clarification.question_text}
-                        </p>
-                        {clarification.help_text && (
-                          <p className="mt-1 text-xs leading-relaxed text-text-muted">
-                            {clarification.help_text}
-                          </p>
-                        )}
-                      </div>
-                      <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-text-secondary">
-                        {clarification.status === "answered"
-                          ? "Answered"
-                          : clarification.question_type === "upload_request"
-                            ? "Upload needed"
-                            : "Action needed"}
-                      </span>
-                    </div>
-
-                    <div className="mt-3">
-                      {clarification.question_type === "text" && (
-                        <textarea
-                          value={answers[clarification.id]?.[0] || ""}
-                          onChange={(event) =>
-                            setSingleValue(clarification.id, event.target.value)
-                          }
-                          rows={3}
-                          placeholder={clarification.placeholder || ""}
-                          className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                      )}
-
-                      {clarification.question_type === "number" && (
-                        <input
-                          type="number"
-                          value={answers[clarification.id]?.[0] || ""}
-                          onChange={(event) =>
-                            setSingleValue(clarification.id, event.target.value)
-                          }
-                          placeholder={clarification.placeholder || ""}
-                          className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                      )}
-
-                      {clarification.question_type === "single_select" && (
-                        <select
-                          value={answers[clarification.id]?.[0] || ""}
-                          onChange={(event) =>
-                            setSingleValue(clarification.id, event.target.value)
-                          }
-                          className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        >
-                          <option value="">Select an answer</option>
-                          {clarification.options_json.map((option) => (
-                            <option
-                              key={option.id || option.label}
-                              value={option.id || option.label || ""}
-                            >
-                              {option.label || option.id}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-
-                      {clarification.question_type === "multi_select" && (
-                        <div className="space-y-2">
-                          {clarification.options_json.map((option) => {
-                            const optionValue = option.id || option.label || "";
-                            const isChecked =
-                              answers[clarification.id]?.includes(optionValue) ||
-                              false;
-
-                            return (
-                              <label
-                                key={optionValue}
-                                className="flex items-center gap-2 text-sm text-text-secondary"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() =>
-                                    toggleMultiValue(
-                                      clarification.id,
-                                      optionValue
-                                    )
-                                  }
-                                />
-                                <span>{option.label || option.id}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {clarification.question_type === "upload_request" && (
-                        <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 px-4 py-3 text-sm text-text-secondary">
-                          <div className="flex items-start gap-2">
-                            <UploadCloud className="mt-0.5 h-4 w-4 text-primary" />
-                            <div>
-                              Upload the requested media from the project edit flow,
-                              then click <span className="font-semibold">Refresh AI Estimate</span>.
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {(actionableClarifications.length > 0 ||
-            actionableItemClarifications.length > 0) && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-bg-warm px-4 py-4">
-              <p className="text-sm text-text-secondary">
-                Save all project-level and item-level AI answers together and
-                update what bidders see. The AI can still recommend stronger
-                scope details, but it will not block the bidder update.
-              </p>
-              <button
-                type="button"
-                onClick={handleSaveAndShare}
-                disabled={isPending}
-                className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
-              >
-                <Eye className="h-4 w-4" />
-                {estimate?.published_to_bidders
-                  ? "Save and Update Bidder View"
-                  : "Save and Share With Bidders"}
-              </button>
-            </div>
-          )}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-bg-warm px-4 py-4">
+            <p className="text-sm text-text-secondary">
+              Confirm the items above, then save to update what bidders see.
+            </p>
+            <button
+              type="button"
+              onClick={handleSaveAndShare}
+              disabled={isPending}
+              className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
+            >
+              <Eye className="h-4 w-4" />
+              {estimate?.published_to_bidders
+                ? "Save and Update Bidder View"
+                : "Save and Share With Bidders"}
+            </button>
+          </div>
         </div>
       ) : !showLoadingState ? (
         <div className="mt-5 rounded-xl border border-border bg-bg-warm px-5 py-4 text-sm text-text-secondary">

@@ -24,6 +24,7 @@ import {
   EXPERTISE_LEVEL_DESCRIPTIONS,
 } from "@/types/database";
 import type { ExpertiseLevel } from "@/types/database";
+import type { ProjectAiScopeItemDraft } from "@/lib/ai-scope-items";
 import { compressFiles } from "@/lib/compress-image";
 import { createBrowserClient } from "@supabase/ssr";
 import {
@@ -87,6 +88,9 @@ export default function NewProjectPage() {
   const [aiAnalysis, setAiAnalysis] = useState<DraftAiAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [draftScopeItems, setDraftScopeItems] = useState<ProjectAiScopeItemDraft[]>([]);
+  const [draftExcludedKeys, setDraftExcludedKeys] = useState<Set<string>>(new Set());
+  const [draftConfirmedKeys, setDraftConfirmedKeys] = useState<Set<string>>(new Set());
   const [draftClarificationAnswers, setDraftClarificationAnswers] = useState<
     Record<string, string[]>
   >({});
@@ -270,6 +274,11 @@ export default function NewProjectPage() {
     }
 
     setAiAnalysis(result.analysis);
+    if (result.scopeItemDrafts) {
+      setDraftScopeItems(result.scopeItemDrafts);
+      setDraftExcludedKeys(new Set());
+      setDraftConfirmedKeys(new Set());
+    }
     setDraftClarificationAnswers((prev) => {
       const nextState = { ...prev };
 
@@ -746,203 +755,151 @@ export default function NewProjectPage() {
 
           {aiAnalysis ? (
             <div className="mt-5">
-              <AiEstimateSummary
-                status={aiAnalysis.status}
-                score={aiAnalysis.scope_completeness_score}
-                confidence={aiAnalysis.confidence_level}
-                summary={aiAnalysis.summary}
-                baselineLow={aiAnalysis.baseline_low}
-                baselineHigh={aiAnalysis.baseline_high}
-                assumptions={aiAnalysis.assumptions}
-                exclusions={aiAnalysis.exclusions}
-                missingItems={aiAnalysis.missing_items}
-                questions={[]}
-                tradeBreakdown={aiAnalysis.trade_breakdown}
-                modelName={aiAnalysis.model_name || null}
-                analysisVersion={aiAnalysis.analysis_version}
-              />
-              {aiAnalysis.recommended_questions.length > 0 && (
-                <div className="mt-5 rounded-xl border border-border bg-bg-warm px-5 py-4">
-                  <h3 className="text-sm font-semibold text-text-primary">
-                    Clarification workflow
+              {/* AiEstimateSummary commented out — rebuilding from the bottom up */}
+
+              {draftScopeItems.length > 0 && (
+                <div className="mt-5 rounded-xl border border-border bg-bg-warm/60 p-5">
+                  <h3 className="text-base font-semibold text-text-primary">
+                    Potential Scope Items
                   </h3>
                   <p className="mt-1 text-sm text-text-secondary">
-                    Answer these now to strengthen the scope before you post.
-                    These draft clarification answers will carry into the project
-                    after posting so the AI baseline starts from the improved
-                    version of the scope.
+                    The AI identified these items as likely needed for your project.
+                    Confirm the ones that apply — after you post the project, the AI
+                    will price each confirmed item using published cost data.
                   </p>
 
-                  <div className="mt-4 space-y-4">
-                    {aiAnalysis.recommended_questions.map((question) => (
-                      <div
-                        key={question.question_key}
-                        className="rounded-lg border border-border bg-surface px-4 py-4"
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold text-text-primary">
-                              {question.question_text}
-                            </p>
-                            {question.help_text && (
-                              <p className="mt-1 text-xs leading-relaxed text-text-muted">
-                                {question.help_text}
-                              </p>
+                  <div className="mt-4 space-y-2">
+                    {draftScopeItems
+                      .filter((item) => !draftExcludedKeys.has(item.item_key))
+                      .map((item) => {
+                        const isConfirmed =
+                          item.required_status === "required" ||
+                          draftConfirmedKeys.has(item.item_key);
+                        const isProposed = !isConfirmed;
+
+                        if (isProposed) {
+                          return (
+                            <div
+                              key={item.item_key}
+                              className="flex items-start justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-text-primary">
+                                  Based on your project, you may need:{" "}
+                                  <span className="font-semibold">{item.item_label.toLowerCase()}</span>.
+                                  Would you like to include this?
+                                </p>
+                                {item.why_it_may_apply && (
+                                  <p className="mt-1 text-xs text-text-secondary">
+                                    {item.why_it_may_apply}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex shrink-0 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setDraftConfirmedKeys((prev) =>
+                                      new Set(prev).add(item.item_key)
+                                    )
+                                  }
+                                  className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                                >
+                                  Yes, include
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setDraftExcludedKeys((prev) =>
+                                      new Set(prev).add(item.item_key)
+                                    )
+                                  }
+                                  className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                                >
+                                  No, skip
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={item.item_key}
+                            className="flex items-center justify-between gap-3 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <svg className="h-4 w-4 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                              <div>
+                                <p className="text-sm font-medium text-emerald-800">
+                                  {item.item_label}
+                                  {item.required_status === "required" && (
+                                    <span className="ml-2 text-[11px] font-semibold uppercase text-emerald-600">Required</span>
+                                  )}
+                                </p>
+                                {item.description && (
+                                  <p className="mt-0.5 text-xs text-emerald-700/70">
+                                    {item.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {item.required_status !== "required" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDraftConfirmedKeys((prev) => {
+                                    const next = new Set(prev);
+                                    next.delete(item.item_key);
+                                    return next;
+                                  });
+                                  setDraftExcludedKeys((prev) =>
+                                    new Set(prev).add(item.item_key)
+                                  );
+                                }}
+                                className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                              >
+                                Remove
+                              </button>
                             )}
                           </div>
-                          <span className="rounded-full bg-bg-warm px-2.5 py-1 text-xs font-medium text-text-secondary">
-                            {question.question_type === "upload_request"
-                              ? "Upload needed"
-                              : hasDraftClarificationAnswer(
-                                    getDraftClarificationValue(
-                                      question,
-                                      draftClarificationAnswers
-                                    )
-                                  )
-                                ? "Answered"
-                                : "Action needed"}
-                          </span>
-                        </div>
+                        );
+                      })}
+                  </div>
 
-                        <div className="mt-3">
-                          {question.question_type === "text" && (
-                            <textarea
-                              value={
-                                draftClarificationAnswers[question.question_key]?.[0] ||
-                                ""
+                  {Array.from(draftExcludedKeys).length > 0 && (
+                    <div className="mt-3 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-3">
+                      <p className="text-xs font-semibold text-text-muted mb-2">
+                        Excluded ({draftExcludedKeys.size})
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {draftScopeItems
+                          .filter((item) => draftExcludedKeys.has(item.item_key))
+                          .map((item) => (
+                            <button
+                              key={item.item_key}
+                              type="button"
+                              onClick={() =>
+                                setDraftExcludedKeys((prev) => {
+                                  const next = new Set(prev);
+                                  next.delete(item.item_key);
+                                  return next;
+                                })
                               }
-                              onChange={(event) =>
-                                setDraftSingleValue(
-                                  question.question_key,
-                                  event.target.value
-                                )
-                              }
-                              rows={3}
-                              placeholder={question.placeholder || ""}
-                              className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                            />
-                          )}
-
-                          {question.question_type === "number" && (
-                            <input
-                              type="number"
-                              value={
-                                draftClarificationAnswers[question.question_key]?.[0] ||
-                                ""
-                              }
-                              onChange={(event) =>
-                                setDraftSingleValue(
-                                  question.question_key,
-                                  event.target.value
-                                )
-                              }
-                              placeholder={question.placeholder || ""}
-                              className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                            />
-                          )}
-
-                          {question.question_type === "single_select" && (
-                            <select
-                              value={
-                                draftClarificationAnswers[question.question_key]?.[0] ||
-                                ""
-                              }
-                              onChange={(event) =>
-                                setDraftSingleValue(
-                                  question.question_key,
-                                  event.target.value
-                                )
-                              }
-                              className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-text-secondary line-through hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 hover:no-underline"
                             >
-                              <option value="">Select an answer</option>
-                              {question.options.map((option) => (
-                                <option
-                                  key={option.id || option.label}
-                                  value={option.id || option.label || ""}
-                                >
-                                  {option.label || option.id}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-
-                          {question.question_type === "multi_select" && (
-                            <div className="space-y-2">
-                              {question.options.map((option) => {
-                                const optionValue = option.id || option.label || "";
-                                const isChecked =
-                                  draftClarificationAnswers[
-                                    question.question_key
-                                  ]?.includes(optionValue) || false;
-
-                                return (
-                                  <label
-                                    key={optionValue}
-                                    className="flex items-center gap-2 text-sm text-text-secondary"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() =>
-                                        toggleDraftMultiValue(
-                                          question.question_key,
-                                          optionValue
-                                        )
-                                      }
-                                    />
-                                    <span>{option.label || option.id}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {question.question_type === "upload_request" && (
-                            <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 px-4 py-3 text-sm text-text-secondary">
-                              Add the requested photos, video, or documents in the
-                              upload sections on this page, then run the AI scope
-                              check again.
-                            </div>
-                          )}
-                        </div>
+                              {item.item_label} — Restore
+                            </button>
+                          ))}
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-4">
-                    <p className="text-sm text-text-secondary">
-                      Re-run the assistant after answering questions so it can
-                      update the score, baseline, and remaining missing
-                      information before you post.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleAiScopeCheck}
-                      disabled={aiLoading}
-                      className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
-                    >
-                      {aiLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Updating AI Scope Check...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-4 w-4" />
-                          Apply Answers and Re-run AI Scope Check
-                        </>
-                      )}
-                    </button>
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
-              <p className="mt-4 text-xs leading-relaxed text-text-muted">
-                The AI estimate is a planning baseline, not a contractor quote.
-                Draft clarification answers entered here will be included when
-                you post the project, and you can continue refining the AI
-                workflow from the project detail page afterward.
-              </p>
+
+              {/* Clarification questions and re-run button commented out — rebuilding from the bottom up */}
             </div>
           ) : (
             <div className="mt-5 rounded-lg border border-border bg-bg-warm px-4 py-4 text-sm text-text-secondary">

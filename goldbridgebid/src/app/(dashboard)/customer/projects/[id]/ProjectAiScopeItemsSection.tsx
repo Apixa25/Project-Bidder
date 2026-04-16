@@ -1,26 +1,4 @@
-import { UploadCloud } from "lucide-react";
-import type {
-  ProjectAiItemClarification,
-  ProjectAiScopeItem,
-  ProjectAiScopeItemEvidenceSignal,
-  ProjectAiScopeItemQuantityDriver,
-} from "@/lib/ai-scope-items";
-
-interface ItemClarificationRow
-  extends Pick<
-    ProjectAiItemClarification,
-    | "id"
-    | "scope_item_id"
-    | "question_key"
-    | "question_text"
-    | "question_type"
-    | "help_text"
-    | "placeholder"
-    | "answer_value_json"
-    | "status"
-  > {
-  options_json: Array<{ id?: string; label?: string }>;
-}
+import type { ProjectAiScopeItem } from "@/lib/ai-scope-items";
 
 interface ProjectAiScopeItemsSectionProps {
   items: Array<
@@ -51,7 +29,7 @@ interface ProjectAiScopeItemsSectionProps {
       | "needs_clarification"
     >
   >;
-  itemClarifications: ItemClarificationRow[];
+  itemClarifications: unknown[];
   answers: Record<string, string[]>;
   setSingleValue: (id: string, value: string) => void;
   toggleMultiValue: (id: string, optionId: string) => void;
@@ -61,219 +39,8 @@ interface ProjectAiScopeItemsSectionProps {
   onConfirmItem?: (itemId: string) => void;
 }
 
-function renderSimpleList(title: string, items: string[], tone: "amber" | "slate") {
-  if (items.length === 0) {
-    return null;
-  }
-
-  const toneClasses =
-    tone === "amber"
-      ? "border-amber-200 bg-amber-50 text-amber-900"
-      : "border-slate-200 bg-slate-50 text-slate-800";
-
-  return (
-    <div className={`mt-4 rounded-lg border px-3 py-3 ${toneClasses}`}>
-      <div className="text-xs font-semibold uppercase tracking-wide">
-        {title}
-      </div>
-      <ul className="mt-2 space-y-1 text-sm leading-relaxed">
-        {items.map((item) => (
-          <li key={item}>- {item}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function renderQuantityDrivers(items: ProjectAiScopeItemQuantityDriver[]) {
-  if (items.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="mt-4 rounded-lg border border-violet-200 bg-violet-50 px-3 py-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-violet-800">
-        Quantity drivers
-      </div>
-      <div className="mt-2 grid gap-2 sm:grid-cols-2">
-        {items.map((driver) => (
-          <div
-            key={`${driver.key}-${driver.label}`}
-            className="rounded-lg border border-violet-200 bg-white px-3 py-2"
-          >
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">
-              {driver.label}
-            </div>
-            <div className="mt-1 text-sm font-medium text-text-primary">
-              {driver.value}
-              {driver.unit ? ` ${driver.unit}` : ""}
-            </div>
-            <div className="mt-1 text-[11px] text-text-muted">
-              {driver.source.replaceAll("_", " ")} • {driver.confidence} confidence
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function getEvidenceStrengthClassName(
-  strength: ProjectAiScopeItemEvidenceSignal["strength"]
-) {
-  switch (strength) {
-    case "direct":
-      return "border-emerald-200 bg-emerald-50 text-emerald-900";
-    case "supporting":
-      return "border-sky-200 bg-sky-50 text-sky-900";
-    default:
-      return "border-amber-200 bg-amber-50 text-amber-900";
-  }
-}
-
-function renderEvidenceSignals(items: ProjectAiScopeItemEvidenceSignal[]) {
-  if (items.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
-        Evidence signals
-      </div>
-      <div className="mt-2 space-y-2">
-        {items.map((signal) => (
-          <div
-            key={`${signal.key}-${signal.label}`}
-            className={`rounded-lg border px-3 py-2 ${getEvidenceStrengthClassName(signal.strength)}`}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="text-sm font-semibold">{signal.label}</div>
-              <div className="text-[11px] uppercase tracking-wide">
-                {signal.strength} evidence
-              </div>
-            </div>
-            <div className="mt-1 text-sm leading-relaxed">{signal.summary}</div>
-            {signal.matched_files && signal.matched_files.length > 0 && (
-              <div className="mt-2">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                  Matched files
-                </div>
-                <ul className="mt-1 space-y-1 text-xs text-text-secondary">
-                  {signal.matched_files.map((fileName) => (
-                    <li key={`${signal.key}-${fileName}`}>- {fileName}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {signal.matched_signals && signal.matched_signals.length > 0 && (
-              <div className="mt-2">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                  Extraction signals
-                </div>
-                <ul className="mt-1 space-y-1 text-xs text-text-secondary">
-                  {signal.matched_signals.map((entry) => (
-                    <li key={`${signal.key}-${entry}`}>- {entry}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {signal.matched_excerpts && signal.matched_excerpts.length > 0 && (
-              <div className="mt-2">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                  Extracted text preview
-                </div>
-                <div className="mt-1 space-y-2">
-                  {signal.matched_excerpts.map((excerpt) => (
-                    <div
-                      key={`${signal.key}-${excerpt}`}
-                      className="rounded-md border border-emerald-200 bg-white/70 px-2.5 py-2 text-xs leading-relaxed text-text-secondary"
-                    >
-                      {excerpt}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {signal.verification_gap && (
-              <div className="mt-2 text-xs text-text-muted">
-                Verification gap: {signal.verification_gap}
-              </div>
-            )}
-            {signal.recommended_uploads &&
-              signal.recommended_uploads.length > 0 && (
-                <div className="mt-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                    Next best uploads
-                  </div>
-                  <ul className="mt-1 space-y-1 text-xs text-text-secondary">
-                    {signal.recommended_uploads.map((item) => (
-                      <li key={`${signal.key}-${item}`}>- {item}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            <div className="mt-1 text-[11px] text-text-muted">
-              Source: {signal.source.replaceAll("_", " ")}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function getRequiredStatusLabel(value: ProjectAiScopeItem["required_status"]) {
-  switch (value) {
-    case "required":
-      return "Required";
-    case "likely":
-      return "Likely";
-    case "possible":
-      return "Possible";
-    default:
-      return "Unknown";
-  }
-}
-
-function getRequiredStatusClassName(value: ProjectAiScopeItem["required_status"]) {
-  switch (value) {
-    case "required":
-      return "border-red-200 bg-red-50 text-red-700";
-    case "likely":
-      return "border-amber-200 bg-amber-50 text-amber-800";
-    case "possible":
-      return "border-sky-200 bg-sky-50 text-sky-700";
-    default:
-      return "border-slate-200 bg-slate-50 text-slate-700";
-  }
-}
-
-function getConfidenceClassName(value: ProjectAiScopeItem["confidence_level"]) {
-  switch (value) {
-    case "high":
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
-    case "medium":
-      return "border-amber-200 bg-amber-50 text-amber-800";
-    default:
-      return "border-slate-200 bg-slate-50 text-slate-700";
-  }
-}
-
-function getCategoryLabel(value: ProjectAiScopeItem["item_category"]) {
-  return value.replaceAll("_", " ");
-}
-
-function getProposalQuestion(item: { item_label: string; item_category: string; why_it_may_apply: string | null }) {
-  return `Based on your project, you may need: ${item.item_label.toLowerCase()}. Would you like to include this in the estimate?`;
-}
-
 export default function ProjectAiScopeItemsSection({
   items,
-  itemClarifications,
-  answers,
-  setSingleValue,
-  toggleMultiValue,
   onToggleRequired,
   excludedItemIds = new Set(),
   confirmedItemIds = new Set(),
@@ -284,374 +51,104 @@ export default function ProjectAiScopeItemsSection({
   }
 
   const excludedItems = items.filter((item) => excludedItemIds.has(item.id));
-  const nonExcluded = items.filter((item) => !excludedItemIds.has(item.id));
-
-  const confirmedItems = nonExcluded.filter(
-    (item) =>
-      item.item_key === "unified_project_package" ||
-      item.required_status === "required"
-  );
-
-  const proposedItems = nonExcluded.filter(
-    (item) =>
-      item.item_key !== "unified_project_package" &&
-      item.required_status !== "required"
-  );
+  const activeItems = items.filter((item) => !excludedItemIds.has(item.id));
 
   return (
     <section className="rounded-xl border border-border bg-bg-warm/60 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-text-primary">
-            Project Scope Checklist
-          </h3>
-          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-text-secondary">
-            This is the list of work items that contractors will see and bid
-            against. Review everything below — include what applies to your
-            project and skip what doesn&apos;t.
-          </p>
-        </div>
+      <div>
+        <h3 className="text-base font-semibold text-text-primary">
+          Project Scope Checklist
+        </h3>
+        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-text-secondary">
+          Review the items below. Include what applies to your project and
+          skip what doesn&apos;t. Contractors will see and bid on the
+          items you confirm.
+        </p>
       </div>
 
-      {/* ── Confirmed scope items ── */}
-      <div className="mt-4 space-y-4">
-        {confirmedItems.map((item) => (
-          <article
-            key={item.id}
-            className="rounded-xl border border-border bg-surface p-4 shadow-sm"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h4 className="text-sm font-semibold text-text-primary">
-                  {item.item_label}
-                </h4>
-                <p className="mt-1 text-xs uppercase tracking-wide text-text-muted">
-                  {getCategoryLabel(item.item_category)}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getRequiredStatusClassName(item.required_status)}`}
-                >
-                  {getRequiredStatusLabel(item.required_status)}
-                </span>
-                <span
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getConfidenceClassName(item.confidence_level)}`}
-                >
-                  {item.confidence_level} confidence
-                </span>
+      <div className="mt-4 space-y-2">
+        {activeItems.map((item) => {
+          const isIncluded =
+            item.required_status === "required" ||
+            item.item_key === "unified_project_package" ||
+            confirmedItemIds.has(item.id);
+
+          if (isIncluded) {
+            return (
+              <div
+                key={item.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <svg className="h-4 w-4 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm font-medium text-emerald-800">
+                    {item.item_label}
+                  </span>
+                </div>
                 {onToggleRequired && item.item_key !== "unified_project_package" && (
                   <button
                     type="button"
                     onClick={() => onToggleRequired(item.id, "not_required")}
-                    className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                    className="shrink-0 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
                   >
                     Remove
                   </button>
                 )}
               </div>
-            </div>
+            );
+          }
 
-            {item.description && (
-              <p className="mt-3 text-sm leading-relaxed text-text-secondary">
-                {item.description}
-              </p>
-            )}
-
-            {renderQuantityDrivers(
-              item.quantity_drivers_json as ProjectAiScopeItemQuantityDriver[]
-            )}
-            {renderEvidenceSignals(
-              item.evidence_signals_json as ProjectAiScopeItemEvidenceSignal[]
-            )}
-
-            {item.why_it_may_apply && (
-              <div className="mt-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                  Why it may apply
-                </div>
-                <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-                  {item.why_it_may_apply}
-                </p>
-              </div>
-            )}
-
-            {item.confidence_reason && (
-              <div className="mt-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                  Confidence note
-                </div>
-                <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-                  {item.confidence_reason}
-                </p>
-              </div>
-            )}
-
-            {renderSimpleList("Assumptions", item.assumptions_json, "slate")}
-            {renderSimpleList("Exclusions", item.exclusions_json, "amber")}
-
-            {itemClarifications.filter(
-              (clarification) => clarification.scope_item_id === item.id
-            ).length > 0 && (
-              <div className="mt-4 rounded-xl border border-border bg-bg-warm px-4 py-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                  Item clarification questions
-                </div>
-                <div className="mt-3 space-y-4">
-                  {itemClarifications
-                    .filter((clarification) => clarification.scope_item_id === item.id)
-                    .map((clarification) => (
-                      <div
-                        key={clarification.id}
-                        className="rounded-lg border border-border bg-surface px-4 py-4"
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold text-text-primary">
-                              {clarification.question_text}
-                            </p>
-                            {clarification.help_text && (
-                              <p className="mt-1 text-xs leading-relaxed text-text-muted">
-                                {clarification.help_text}
-                              </p>
-                            )}
-                          </div>
-                          <span className="rounded-full bg-bg-warm px-2.5 py-1 text-xs font-medium text-text-secondary">
-                            {clarification.status === "answered"
-                              ? "Answered"
-                              : clarification.question_type === "upload_request"
-                                ? "Upload needed"
-                                : "Item detail needed"}
-                          </span>
-                        </div>
-
-                        <div className="mt-3">
-                          {clarification.question_type === "text" && (
-                            <textarea
-                              value={answers[clarification.id]?.[0] || ""}
-                              onChange={(event) =>
-                                setSingleValue(clarification.id, event.target.value)
-                              }
-                              rows={3}
-                              placeholder={clarification.placeholder || ""}
-                              className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                            />
-                          )}
-
-                          {clarification.question_type === "number" && (
-                            <input
-                              type="number"
-                              value={answers[clarification.id]?.[0] || ""}
-                              onChange={(event) =>
-                                setSingleValue(clarification.id, event.target.value)
-                              }
-                              placeholder={clarification.placeholder || ""}
-                              className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                            />
-                          )}
-
-                          {clarification.question_type === "single_select" && (
-                            <select
-                              value={answers[clarification.id]?.[0] || ""}
-                              onChange={(event) =>
-                                setSingleValue(clarification.id, event.target.value)
-                              }
-                              className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                            >
-                              <option value="">Select an answer</option>
-                              {clarification.options_json.map((option) => (
-                                <option
-                                  key={option.id || option.label}
-                                  value={option.id || option.label || ""}
-                                >
-                                  {option.label || option.id}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-
-                          {clarification.question_type === "multi_select" && (
-                            <div className="space-y-2">
-                              {clarification.options_json.map((option) => {
-                                const optionValue = option.id || option.label || "";
-                                const isChecked =
-                                  answers[clarification.id]?.includes(optionValue) || false;
-
-                                return (
-                                  <label
-                                    key={optionValue}
-                                    className="flex items-center gap-2 text-sm text-text-secondary"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() =>
-                                        toggleMultiValue(
-                                          clarification.id,
-                                          optionValue
-                                        )
-                                      }
-                                    />
-                                    <span>{option.label || option.id}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {clarification.question_type === "upload_request" && (
-                            <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 px-4 py-3 text-sm text-text-secondary">
-                              <div className="flex items-start gap-2">
-                                <UploadCloud className="mt-0.5 h-4 w-4 text-primary" />
-                                <div>
-                                  <div className="font-medium text-text-primary">
-                                    Add the requested files from the project edit
-                                    flow, then refresh the AI estimate.
-                                  </div>
-                                  <div className="mt-1">
-                                    This item is asking for stronger evidence.
-                                    Photos, short site video, or supporting
-                                    documents can help tighten the range and
-                                    upgrade confidence.
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {item.needs_clarification && (
-              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-                This item still needs clarification before it can be fully
-                scoped for contractors.
-              </div>
-            )}
-          </article>
-        ))}
-      </div>
-
-      {/* ── Proposed items: question cards ── */}
-      {proposedItems.length > 0 && (
-        <div className="mt-6">
-          <div className="mb-3">
-            <h4 className="text-sm font-semibold text-text-primary">
-              Does your project need any of these?
-            </h4>
-            <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-              The AI identified items that are commonly needed for projects like
-              yours. Include what applies — contractors will see and bid on the
-              items you confirm.
-            </p>
-          </div>
-          <div className="space-y-2">
-            {proposedItems.map((item) => {
-              const isJustConfirmed = confirmedItemIds.has(item.id);
-
-              if (isJustConfirmed) {
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3"
+          return (
+            <div
+              key={item.id}
+              className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3"
+            >
+              <span className="text-sm text-text-primary">
+                {item.item_label}
+              </span>
+              <div className="flex shrink-0 gap-2">
+                {onConfirmItem && (
+                  <button
+                    type="button"
+                    onClick={() => onConfirmItem(item.id)}
+                    className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <svg className="h-4 w-4 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                      <p className="text-sm font-medium text-emerald-800">
-                        {item.item_label} — included
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onToggleRequired?.(item.id, "not_required")}
-                      className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
-                    >
-                      Undo
-                    </button>
-                  </div>
-                );
-              }
-
-              return (
-                <div
-                  key={item.id}
-                  className="flex items-start justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-text-primary">
-                      {getProposalQuestion(item)}
-                    </p>
-                    {item.why_it_may_apply && (
-                      <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-                        {item.why_it_may_apply}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    {onConfirmItem && (
-                      <button
-                        type="button"
-                        onClick={() => onConfirmItem(item.id)}
-                        className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
-                      >
-                        Yes, include
-                      </button>
-                    )}
-                    {onToggleRequired && (
-                      <button
-                        type="button"
-                        onClick={() => onToggleRequired(item.id, "not_required")}
-                        className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
-                      >
-                        No, skip
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {excludedItems.length > 0 && (
-        <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-            Excluded items ({excludedItems.length})
-          </h4>
-          <p className="mt-1 text-xs text-text-secondary">
-            These items were marked as not needed. Click &quot;Restore&quot; to
-            add them back, then refresh the estimate.
-          </p>
-          <div className="mt-3 space-y-2">
-            {excludedItems.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2"
-              >
-                <div>
-                  <span className="text-sm font-medium text-text-secondary line-through">
-                    {item.item_label}
-                  </span>
-                  <span className="ml-2 text-xs text-text-muted">
-                    {getCategoryLabel(item.item_category)}
-                  </span>
-                </div>
+                    Yes
+                  </button>
+                )}
                 {onToggleRequired && (
                   <button
                     type="button"
-                    onClick={() => onToggleRequired(item.id, "required")}
-                    className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                    onClick={() => onToggleRequired(item.id, "not_required")}
+                    className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
                   >
-                    Restore
+                    No
                   </button>
                 )}
               </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Excluded items — compact restore list */}
+      {excludedItems.length > 0 && (
+        <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-3">
+          <p className="text-xs font-semibold text-text-muted mb-2">
+            Excluded ({excludedItems.length})
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {excludedItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onToggleRequired?.(item.id, "required")}
+                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-text-secondary line-through hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 hover:no-underline"
+              >
+                {item.item_label} — Restore
+              </button>
             ))}
           </div>
         </div>

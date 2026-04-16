@@ -324,6 +324,61 @@ function buildScopeItemFromRequirement(params: {
     requirement.customer_stated_quantity !== null &&
     requirement.customer_stated_quantity !== undefined;
 
+  // Derive pricing from Craftsman reference costs
+  let materialLow: number | null = null;
+  let materialHigh: number | null = null;
+  let laborLow: number | null = null;
+  let laborHigh: number | null = null;
+  let equipmentLow: number | null = null;
+  let equipmentHigh: number | null = null;
+  let estimatedLow: number | null = null;
+  let estimatedHigh: number | null = null;
+  let craftsmanUnit: string | null = null;
+
+  if (craftsmanResults.length > 0) {
+    const topMatch = craftsmanResults[0].item;
+    craftsmanUnit = topMatch.unit;
+    const qty = hasCustomerQuantity ? (requirement.customer_stated_quantity ?? 1) : 1;
+
+    if (topMatch.material !== null) {
+      materialLow = Math.round(topMatch.material * qty * 0.85 * 100) / 100;
+      materialHigh = Math.round(topMatch.material * qty * 1.15 * 100) / 100;
+    }
+
+    if (topMatch.labor !== null) {
+      laborLow = Math.round(topMatch.labor * qty * 0.85 * 100) / 100;
+      laborHigh = Math.round(topMatch.labor * qty * 1.15 * 100) / 100;
+    } else if (topMatch.manhours !== null) {
+      const laborCost = topMatch.manhours * wageEntry.hourly_rate * qty;
+      laborLow = Math.round(laborCost * 0.85 * 100) / 100;
+      laborHigh = Math.round(laborCost * 1.15 * 100) / 100;
+    }
+
+    if (topMatch.equipment !== null) {
+      equipmentLow = Math.round(topMatch.equipment * qty * 0.85 * 100) / 100;
+      equipmentHigh = Math.round(topMatch.equipment * qty * 1.15 * 100) / 100;
+    }
+
+    estimatedLow = (materialLow ?? 0) + (laborLow ?? 0) + (equipmentLow ?? 0);
+    estimatedHigh = (materialHigh ?? 0) + (laborHigh ?? 0) + (equipmentHigh ?? 0);
+
+    if (estimatedLow === 0 && estimatedHigh === 0) {
+      estimatedLow = null;
+      estimatedHigh = null;
+    }
+
+    if (craftsmanUnit) {
+      quantityDrivers.push({
+        key: "craftsman_unit",
+        label: "Craftsman pricing unit",
+        value: `Per ${craftsmanUnit}${hasCustomerQuantity ? ` × ${requirement.customer_stated_quantity}` : ""}`,
+        unit: craftsmanUnit,
+        confidence: "medium",
+        source: "trade_history",
+      });
+    }
+  }
+
   const assumptions = hasCustomerQuantity
     ? [
         `Customer stated ${requirement.customer_stated_quantity} ${requirement.customer_stated_unit || "units"}.`,
@@ -337,6 +392,11 @@ function buildScopeItemFromRequirement(params: {
     assumptions.push(
       "Unit cost references from 2023 National Construction Estimator (Craftsman). Actual costs vary by location and conditions."
     );
+    if (estimatedLow !== null) {
+      assumptions.push(
+        `Pricing range reflects ±15% of published unit cost${hasCustomerQuantity ? ` multiplied by customer quantity (${requirement.customer_stated_quantity})` : " (qty=1, adjust when quantity is known)"}.`
+      );
+    }
   }
 
   return {
@@ -354,14 +414,14 @@ function buildScopeItemFromRequirement(params: {
       : requirement.is_mentioned_by_customer
         ? "The customer's description directly references this scope item."
         : `This is a standard requirement for this project type. ${requirement.why_standard}`,
-    estimated_low: null,
-    estimated_high: null,
-    labor_low: null,
-    labor_high: null,
-    material_low: null,
-    material_high: null,
-    equipment_low: null,
-    equipment_high: null,
+    estimated_low: estimatedLow,
+    estimated_high: estimatedHigh,
+    labor_low: laborLow,
+    labor_high: laborHigh,
+    material_low: materialLow,
+    material_high: materialHigh,
+    equipment_low: equipmentLow,
+    equipment_high: equipmentHigh,
     quantity_drivers_json: quantityDrivers,
     evidence_signals_json: evidenceSignals,
     assumptions_json: assumptions,

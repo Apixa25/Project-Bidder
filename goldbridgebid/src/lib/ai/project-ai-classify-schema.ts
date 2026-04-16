@@ -49,21 +49,21 @@ export const classifyRequirementSchema = z.object({
   item_key: z.string().trim().min(1).max(80),
   item_label: z.string().trim().min(1).max(120),
   category: z.enum(SCOPE_ITEM_CATEGORIES),
-  description: z.string().trim().min(1).max(300),
-  why_standard: z.string().trim().min(1).max(250),
+  description: z.string().trim().min(1).max(500),
+  why_standard: z.string().trim().min(1).max(500),
   is_mentioned_by_customer: z.boolean(),
-  mention_summary: z.string().trim().max(200).nullable(),
+  mention_summary: z.string().trim().max(500).nullable(),
   recommended_inclusion: z.enum(INCLUSION_LEVELS),
   typical_cost_significance: z.enum(COST_SIGNIFICANCE_LEVELS),
   customer_stated_quantity: z.number().nullable(),
-  customer_stated_unit: z.string().trim().max(40).nullable(),
-  quantity_note: z.string().trim().max(200).nullable(),
+  customer_stated_unit: z.string().trim().max(60).nullable(),
+  quantity_note: z.string().trim().max(500).nullable(),
 });
 
 export const classifyScopeGapSchema = z.object({
-  description: z.string().trim().min(1).max(250),
+  description: z.string().trim().min(1).max(500),
   severity: z.enum(GAP_SEVERITY_LEVELS),
-  suggestion: z.string().trim().min(1).max(250),
+  suggestion: z.string().trim().min(1).max(500),
 });
 
 export const classifyQuestionOptionSchema = z.object({
@@ -90,7 +90,7 @@ export const projectAiClassifyOutputSchema = z.object({
   project_classification: z.object({
     project_type_key: z.string().trim().min(1).max(80),
     project_type_label: z.string().trim().min(1).max(120),
-    description: z.string().trim().min(1).max(400),
+    description: z.string().trim().min(1).max(600),
     construction_sector: z.enum([
       "residential",
       "commercial",
@@ -105,10 +105,10 @@ export const projectAiClassifyOutputSchema = z.object({
   customer_data_assessment: z.object({
     has_enough_for_classification: z.boolean(),
     has_enough_for_initial_estimate: z.boolean(),
-    critical_missing_info: z.array(z.string().trim().max(200)).max(8),
+    critical_missing_info: z.array(z.string().trim().max(500)).max(8),
   }),
   recommended_questions: z.array(classifyQuestionSchema).max(8),
-  summary: z.string().trim().min(1).max(600),
+  summary: z.string().trim().min(1).max(1000),
   confidence_level: z.enum(["low", "medium", "high"]),
 });
 

@@ -74,14 +74,20 @@ export default async function ProjectDetailPage({
 
   if (!(await userHasRole(user.id, "customer"))) redirect("/login");
 
-  const { data: project } = await supabase
+  const { data: project, error: projectError } = await supabase
     .from("projects")
     .select("*")
     .eq("id", id)
     .eq("customer_id", user.id)
     .single();
 
-  if (!project) notFound();
+  if (!project) {
+    console.error(
+      `[project-detail] 404 for project ${id}, user ${user.id}, error:`,
+      projectError
+    );
+    notFound();
+  }
 
   const { data: projectFiles } = await supabase
     .from("project_files")
@@ -442,6 +448,7 @@ export default async function ProjectDetailPage({
                 exclusions_json: item.exclusions_json,
                 source_method: item.source_method,
                 needs_clarification: item.needs_clarification,
+                customer_inclusion: item.customer_inclusion,
               }))
             }
             itemClarifications={

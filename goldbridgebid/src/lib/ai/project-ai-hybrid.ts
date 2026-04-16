@@ -206,6 +206,13 @@ export async function analyzeProjectAiHybrid(
   try {
     const classifyResult = await classifyProjectWithLlm(input);
     classification = classifyResult.classification;
+    console.log(
+      `[hybrid] Classification succeeded: type="${classification.project_classification.project_type_label}", ` +
+      `sector="${classification.project_classification.construction_sector}", ` +
+      `${classification.standard_requirements.length} requirements, ` +
+      `${classification.recommended_questions.length} questions, ` +
+      `confidence=${classification.confidence_level}`
+    );
   } catch (error) {
     console.error(
       "[hybrid] Classification LLM call failed — proceeding without classification.",
