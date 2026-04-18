@@ -58,6 +58,8 @@ export type ProjectAiScopeItemCustomerInclusion =
   | "not_sure"
   | null;
 
+export type ProjectAiScopeItemCalcMode = "multiply" | "add";
+
 export interface ProjectAiScopeItem {
   id: string;
   project_id: string;
@@ -84,6 +86,8 @@ export interface ProjectAiScopeItem {
   source_method: ProjectAiScopeItemSourceMethod;
   needs_clarification: boolean;
   customer_inclusion: ProjectAiScopeItemCustomerInclusion;
+  material_calc_mode: ProjectAiScopeItemCalcMode;
+  labor_calc_mode: ProjectAiScopeItemCalcMode;
   display_order: number;
   created_at: string;
   updated_at: string;

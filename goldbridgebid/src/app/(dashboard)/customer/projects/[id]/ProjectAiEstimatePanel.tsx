@@ -25,8 +25,11 @@ import {
 } from "../actions";
 import ProjectAiScopeItemsSection from "./ProjectAiScopeItemsSection";
 import ProjectAiEstimateSummaryTable, {
+  type CalcMode,
   type CostOverride,
   type CustomLineItem,
+  type ModeOverride,
+  type QuantityOverride,
 } from "./ProjectAiEstimateSummaryTable";
 
 interface ClarificationRow {
@@ -99,6 +102,8 @@ interface ProjectAiEstimatePanelProps {
       | "source_method"
       | "needs_clarification"
       | "customer_inclusion"
+      | "material_calc_mode"
+      | "labor_calc_mode"
     >
   >;
 }
@@ -150,9 +155,27 @@ export default function ProjectAiEstimatePanel({
   const [answers, setAnswers] = useState<Record<string, string[]>>(() =>
     getInitialAnswers([...clarifications, ...itemClarifications])
   );
-  const [excludedItemIds, setExcludedItemIds] = useState<Set<string>>(new Set());
-  const [confirmedItemIds, setConfirmedItemIds] = useState<Set<string>>(new Set());
+  // Seed confirmation/exclusion state from previously saved customer_inclusion
+  // values so the user's earlier decisions don't disappear on page refresh.
+  const [excludedItemIds, setExcludedItemIds] = useState<Set<string>>(
+    () =>
+      new Set(
+        scopeItems.filter((i) => i.customer_inclusion === "no").map((i) => i.id)
+      )
+  );
+  const [confirmedItemIds, setConfirmedItemIds] = useState<Set<string>>(
+    () =>
+      new Set(
+        scopeItems.filter((i) => i.customer_inclusion === "yes").map((i) => i.id)
+      )
+  );
   const [costOverrides, setCostOverrides] = useState<Record<string, CostOverride>>({});
+  const [quantityOverrides, setQuantityOverrides] = useState<
+    Record<string, QuantityOverride>
+  >({});
+  const [modeOverrides, setModeOverrides] = useState<
+    Record<string, ModeOverride>
+  >({});
   const [customLineItems, setCustomLineItems] = useState<CustomLineItem[]>([]);
 
   function handleToggleRequired(itemId: string, newStatus: "required" | "not_required") {
@@ -176,12 +199,49 @@ export default function ProjectAiEstimatePanel({
     setConfirmedItemIds((prev) => new Set(prev).add(itemId));
   }
 
-  function handleCostOverride(itemId: string, field: "material" | "labor", value: number | null) {
+  function handleCostOverride(
+    itemId: string,
+    field: "material" | "labor",
+    value: number | null
+  ) {
     setCostOverrides((prev) => ({
       ...prev,
       [itemId]: {
-        material: field === "material" ? value : (prev[itemId]?.material ?? null),
-        labor: field === "labor" ? value : (prev[itemId]?.labor ?? null),
+        material:
+          field === "material"
+            ? value
+            : (prev[itemId]?.material ?? null),
+        labor:
+          field === "labor" ? value : (prev[itemId]?.labor ?? null),
+      },
+    }));
+  }
+
+  function handleQuantityOverride(
+    itemId: string,
+    qty: number,
+    unit: string | null
+  ) {
+    setQuantityOverrides((prev) => ({
+      ...prev,
+      [itemId]: { qty, unit },
+    }));
+  }
+
+  function handleModeOverride(
+    itemId: string,
+    field: "material" | "labor",
+    mode: CalcMode
+  ) {
+    setModeOverrides((prev) => ({
+      ...prev,
+      [itemId]: {
+        material:
+          field === "material"
+            ? mode
+            : (prev[itemId]?.material ?? null),
+        labor:
+          field === "labor" ? mode : (prev[itemId]?.labor ?? null),
       },
     }));
   }
@@ -318,6 +378,8 @@ export default function ProjectAiEstimatePanel({
           confirmedItemIds: Array.from(confirmedItemIds),
           excludedItemIds: Array.from(excludedItemIds),
           costOverrides,
+          quantityOverrides,
+          modeOverrides,
           customLineItems,
         }
       );
@@ -441,8 +503,6 @@ export default function ProjectAiEstimatePanel({
 
       {!showLoadingState && estimate ? (
         <div className="mt-5 space-y-5">
-          {/* AiEstimateSummary, clarifications, and summary table commented out — rebuilding from the bottom up */}
-
           <ProjectAiScopeItemsSection
             items={scopeItems}
             itemClarifications={[]}
@@ -455,9 +515,26 @@ export default function ProjectAiEstimatePanel({
             onConfirmItem={handleConfirmItem}
           />
 
+          {summaryItems.length > 0 && (
+            <ProjectAiEstimateSummaryTable
+              items={summaryItems}
+              costOverrides={costOverrides}
+              quantityOverrides={quantityOverrides}
+              modeOverrides={modeOverrides}
+              customLineItems={customLineItems}
+              onCostOverride={handleCostOverride}
+              onQuantityOverride={handleQuantityOverride}
+              onModeOverride={handleModeOverride}
+              onAddCustomItem={handleAddCustomItem}
+              onRemoveCustomItem={handleRemoveCustomItem}
+            />
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-bg-warm px-4 py-4">
             <p className="text-sm text-text-secondary">
-              Confirm the items above, then save to update what bidders see.
+              {summaryItems.length > 0
+                ? "Adjust quantities and prices above, then save to update what bidders see."
+                : "Confirm the items above, then save to update what bidders see."}
             </p>
             <button
               type="button"

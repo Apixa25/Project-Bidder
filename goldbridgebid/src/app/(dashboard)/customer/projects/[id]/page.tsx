@@ -449,6 +449,14 @@ export default async function ProjectDetailPage({
                 source_method: item.source_method,
                 needs_clarification: item.needs_clarification,
                 customer_inclusion: item.customer_inclusion,
+                material_calc_mode:
+                  (item as { material_calc_mode?: string }).material_calc_mode === "add"
+                    ? ("add" as const)
+                    : ("multiply" as const),
+                labor_calc_mode:
+                  (item as { labor_calc_mode?: string }).labor_calc_mode === "add"
+                    ? ("add" as const)
+                    : ("multiply" as const),
               }))
             }
             itemClarifications={

@@ -995,6 +995,11 @@ export async function saveProjectAiClarificationsAndShare(
     confirmedItemIds?: string[];
     excludedItemIds?: string[];
     costOverrides?: Record<string, { material: number | null; labor: number | null }>;
+    quantityOverrides?: Record<string, { qty: number; unit: string | null }>;
+    modeOverrides?: Record<
+      string,
+      { material: "multiply" | "add" | null; labor: "multiply" | "add" | null }
+    >;
     customLineItems?: Array<{
       id: string;
       label: string;
@@ -1144,6 +1149,58 @@ export async function saveProjectAiClarificationsAndShare(
     }
   }
 
+  // Apply user quantity overrides — store in quantity_drivers_json as
+  // a customer_stated_quantity entry so the existing pricing pipeline
+  // and summary table can read it back consistently.
+  if (answers.quantityOverrides) {
+    for (const [itemId, override] of Object.entries(answers.quantityOverrides)) {
+      if (!override || !Number.isFinite(override.qty) || override.qty <= 0) {
+        continue;
+      }
+
+      const { data: existingItem } = await supabase
+        .from("project_ai_scope_items")
+        .select("quantity_drivers_json")
+        .eq("id", itemId)
+        .eq("project_id", projectId)
+        .maybeSingle();
+
+      const drivers = Array.isArray(existingItem?.quantity_drivers_json)
+        ? (existingItem.quantity_drivers_json as Array<{
+            key: string;
+            label?: string;
+            value: string;
+            unit: string | null;
+            confidence?: string;
+            source?: string;
+          }>)
+        : [];
+
+      const filteredDrivers = drivers.filter(
+        (d) => d.key !== "customer_stated_quantity"
+      );
+
+      filteredDrivers.unshift({
+        key: "customer_stated_quantity",
+        label: "Customer-stated quantity",
+        value: String(override.qty),
+        unit: override.unit || null,
+        confidence: "high",
+        source: "customer_input",
+      });
+
+      const { error: qtyError } = await supabase
+        .from("project_ai_scope_items")
+        .update({ quantity_drivers_json: filteredDrivers })
+        .eq("id", itemId)
+        .eq("project_id", projectId);
+
+      if (qtyError) {
+        console.error("Quantity override error for item:", itemId, qtyError);
+      }
+    }
+  }
+
   // Apply user cost overrides to scope items
   if (answers.costOverrides) {
     for (const [itemId, override] of Object.entries(answers.costOverrides)) {
@@ -1171,6 +1228,31 @@ export async function saveProjectAiClarificationsAndShare(
 
         if (overrideError) {
           console.error("Cost override error for item:", itemId, overrideError);
+        }
+      }
+    }
+  }
+
+  // Apply user calc-mode overrides (per-unit "multiply" vs flat "add")
+  // for material and labor on each scope item.
+  if (answers.modeOverrides) {
+    for (const [itemId, override] of Object.entries(answers.modeOverrides)) {
+      const updates: Record<string, string> = {};
+      if (override.material === "multiply" || override.material === "add") {
+        updates.material_calc_mode = override.material;
+      }
+      if (override.labor === "multiply" || override.labor === "add") {
+        updates.labor_calc_mode = override.labor;
+      }
+      if (Object.keys(updates).length > 0) {
+        const { error: modeError } = await supabase
+          .from("project_ai_scope_items")
+          .update(updates)
+          .eq("id", itemId)
+          .eq("project_id", projectId);
+
+        if (modeError) {
+          console.error("Calc mode override error for item:", itemId, modeError);
         }
       }
     }
@@ -1212,27 +1294,11 @@ export async function saveProjectAiClarificationsAndShare(
     }
   }
 
-  const [{ data: files }, clarifications] = await Promise.all([
-    supabase
-      .from("project_files")
-      .select("file_name, file_type, file_url")
-      .eq("project_id", projectId),
-    getProjectAiCombinedClarifications(supabase, projectId),
-  ]);
-
-  const analysis = await runAndPersistProjectAiEstimate({
-    supabase,
-    userId: user.id,
-    projectId,
-    projectTitle: project.title,
-    input: await buildProjectAiInput({
-      project,
-      files: files || [],
-      clarifications,
-    }),
-    triggerType: "clarification_answered",
-  });
-
+  // IMPORTANT: We deliberately do NOT re-run runAndPersistProjectAiEstimate here.
+  // That function wipes all scope items and re-runs the LLM, which would destroy
+  // every confirmation, exclusion, cost override, quantity override, and custom
+  // line item the user just saved. The user has finalized their decisions —
+  // just publish the current state to bidders.
   const { error: publishError } = await supabase
     .from("project_ai_estimates")
     .update({
@@ -1252,8 +1318,7 @@ export async function saveProjectAiClarificationsAndShare(
   return {
     error: null,
     success: true,
-    analysis,
-    advisory: buildAiPublicationAdvisory(analysis),
+    advisory: null,
   };
 }
 

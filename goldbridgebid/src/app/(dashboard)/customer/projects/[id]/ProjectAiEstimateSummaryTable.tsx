@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, AlertTriangle, BookOpen } from "lucide-react";
+import { Plus, AlertTriangle, BookOpen, Sparkles } from "lucide-react";
 import type { ProjectAiScopeItem } from "@/lib/ai-scope-items";
 
 type ScopeItemRow = Pick<
@@ -21,11 +21,25 @@ type ScopeItemRow = Pick<
   | "quantity_drivers_json"
   | "source_method"
   | "description"
+  | "material_calc_mode"
+  | "labor_calc_mode"
 >;
+
+export type CalcMode = "multiply" | "add";
 
 export interface CostOverride {
   material: number | null;
   labor: number | null;
+}
+
+export interface QuantityOverride {
+  qty: number;
+  unit: string | null;
+}
+
+export interface ModeOverride {
+  material: CalcMode | null;
+  labor: CalcMode | null;
 }
 
 export interface CustomLineItem {
@@ -40,18 +54,37 @@ export interface CustomLineItem {
 interface ProjectAiEstimateSummaryTableProps {
   items: ScopeItemRow[];
   costOverrides: Record<string, CostOverride>;
+  quantityOverrides: Record<string, QuantityOverride>;
+  modeOverrides: Record<string, ModeOverride>;
   customLineItems: CustomLineItem[];
-  onCostOverride: (itemId: string, field: "material" | "labor", value: number | null) => void;
+  onCostOverride: (
+    itemId: string,
+    field: "material" | "labor",
+    value: number | null
+  ) => void;
+  onQuantityOverride: (
+    itemId: string,
+    qty: number,
+    unit: string | null
+  ) => void;
+  onModeOverride: (
+    itemId: string,
+    field: "material" | "labor",
+    mode: CalcMode
+  ) => void;
   onAddCustomItem: (item: CustomLineItem) => void;
   onRemoveCustomItem: (id: string) => void;
 }
 
 function fmt(val: number | null | undefined): string {
-  if (val === null || val === undefined) return "$0.00";
-  return `$${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (val === null || val === undefined || isNaN(val)) return "$0.00";
+  return `$${val.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
-function getQty(item: ScopeItemRow): { qty: number; unit: string } {
+function getInitialQty(item: ScopeItemRow): { qty: number; unit: string } {
   const drivers = (item.quantity_drivers_json || []) as Array<{
     key: string;
     value: string;
@@ -68,18 +101,37 @@ function getQty(item: ScopeItemRow): { qty: number; unit: string } {
   return { qty: 1, unit: craftsmanUnit?.unit || "ea" };
 }
 
-function getMidpoint(low: number | null, high: number | null): number {
+function getMidpoint(low: number | null, high: number | null): number | null {
   if (low !== null && high !== null) return (low + high) / 2;
   if (low !== null) return low;
   if (high !== null) return high;
-  return 0;
+  return null;
+}
+
+/**
+ * Compute the contribution of a line value to the row total based on its
+ * calc mode. "multiply" treats the value as per-unit and multiplies by qty.
+ * "add" treats it as a flat fee and uses it as-is.
+ */
+function applyMode(
+  value: number | null,
+  mode: CalcMode,
+  qty: number
+): number {
+  if (value === null || isNaN(value)) return 0;
+  if (mode === "multiply") return value * (qty || 0);
+  return value;
 }
 
 export default function ProjectAiEstimateSummaryTable({
   items,
   costOverrides,
+  quantityOverrides,
+  modeOverrides,
   customLineItems,
   onCostOverride,
+  onQuantityOverride,
+  onModeOverride,
   onAddCustomItem,
   onRemoveCustomItem,
 }: ProjectAiEstimateSummaryTableProps) {
@@ -93,30 +145,68 @@ export default function ProjectAiEstimateSummaryTable({
   const rows = useMemo(() => {
     return items.map((item) => {
       const override = costOverrides[item.id];
-      const { qty, unit } = getQty(item);
+      const qtyOverride = quantityOverrides[item.id];
+      const modeOverride = modeOverrides[item.id];
+      const initial = getInitialQty(item);
 
-      const materialVal = override?.material ?? getMidpoint(item.material_low, item.material_high);
-      const laborVal = override?.labor ?? getMidpoint(item.labor_low, item.labor_high);
-      const total = materialVal + laborVal;
-      const hasPricing = item.material_low !== null || item.labor_low !== null || override?.material !== null || override?.labor !== null;
+      const qty = qtyOverride?.qty ?? initial.qty;
+      const unit = qtyOverride?.unit ?? initial.unit;
+
+      const aiMaterial = getMidpoint(item.material_low, item.material_high);
+      const aiLabor = getMidpoint(item.labor_low, item.labor_high);
+
+      const materialVal =
+        override?.material !== undefined && override?.material !== null
+          ? override.material
+          : aiMaterial;
+
+      const laborVal =
+        override?.labor !== undefined && override?.labor !== null
+          ? override.labor
+          : aiLabor;
+
+      const materialMode: CalcMode =
+        modeOverride?.material ??
+        (item.material_calc_mode as CalcMode) ??
+        "multiply";
+
+      const laborMode: CalcMode =
+        modeOverride?.labor ??
+        (item.labor_calc_mode as CalcMode) ??
+        "multiply";
+
+      const materialContribution = applyMode(materialVal, materialMode, qty);
+      const laborContribution = applyMode(laborVal, laborMode, qty);
+      const total = materialContribution + laborContribution;
+
+      const aiPriced = aiMaterial !== null || aiLabor !== null;
       const isCraftsmanBacked = item.source_method === "ai_assembly";
+      const userTouched =
+        override?.material !== undefined ||
+        override?.labor !== undefined ||
+        qtyOverride !== undefined ||
+        modeOverride !== undefined;
 
       return {
         ...item,
         qty,
         unit,
-        materialDisplay: materialVal,
-        laborDisplay: laborVal,
-        totalDisplay: total,
-        hasPricing,
+        materialVal,
+        laborVal,
+        materialMode,
+        laborMode,
+        materialContribution,
+        laborContribution,
+        total,
+        aiPriced,
         isCraftsmanBacked,
-        hasOverride: override?.material !== null || override?.labor !== null,
+        userTouched,
       };
     });
-  }, [items, costOverrides]);
+  }, [items, costOverrides, quantityOverrides, modeOverrides]);
 
   const grandTotal = useMemo(() => {
-    const itemTotal = rows.reduce((sum, r) => sum + r.totalDisplay, 0);
+    const itemTotal = rows.reduce((sum, r) => sum + (r.total || 0), 0);
     const customTotal = customLineItems.reduce(
       (sum, c) => sum + (c.material + c.labor) * c.qty,
       0
@@ -142,16 +232,22 @@ export default function ProjectAiEstimateSummaryTable({
     setShowAddForm(false);
   }
 
+  if (items.length === 0 && customLineItems.length === 0) {
+    return null;
+  }
+
   return (
     <section className="rounded-xl border border-border bg-surface p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-text-primary">
-            Estimate Summary Table
+            Line-Item Estimate Worksheet
           </h3>
-          <p className="mt-1 text-sm text-text-secondary">
-            AI-generated pricing from Craftsman 2023 National Construction
-            Estimator. You can override any $0.00 values manually.
+          <p className="mt-1 max-w-2xl text-sm text-text-secondary">
+            Every cell is editable. Use the dropdown next to each price to
+            specify whether it&apos;s a <strong>per-unit cost</strong> (× Qty)
+            or a <strong>flat fee</strong> (+ added once). Example: gravel at
+            $47/ton × 10 tons + $200 flat labor = $670 total.
           </p>
         </div>
         <div className="rounded-lg bg-gradient-to-r from-primary/10 to-secondary/10 px-4 py-2 text-right">
@@ -171,16 +267,16 @@ export default function ProjectAiEstimateSummaryTable({
               <th className="pb-2 pr-3 font-semibold text-text-primary">
                 Line Item
               </th>
+              <th className="pb-2 px-3 font-semibold text-text-primary text-center w-20">
+                Qty
+              </th>
               <th className="pb-2 px-3 font-semibold text-text-primary text-center w-16">
                 Unit
               </th>
-              <th className="pb-2 px-3 font-semibold text-text-primary text-center w-16">
-                Qty
-              </th>
-              <th className="pb-2 px-3 font-semibold text-text-primary text-right w-32">
+              <th className="pb-2 px-3 font-semibold text-text-primary text-right w-44">
                 Material
               </th>
-              <th className="pb-2 px-3 font-semibold text-text-primary text-right w-32">
+              <th className="pb-2 px-3 font-semibold text-text-primary text-right w-44">
                 Labor
               </th>
               <th className="pb-2 pl-3 font-semibold text-text-primary text-right w-28">
@@ -189,110 +285,184 @@ export default function ProjectAiEstimateSummaryTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-border/50 hover:bg-bg-warm/50 transition-colors"
-              >
-                <td className="py-3 pr-3">
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium text-text-primary">
-                        {row.item_label}
-                      </p>
-                      {!row.hasPricing && (
-                        <div className="mt-1 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3 text-amber-500" />
-                          <span className="text-xs text-amber-600">
-                            Need more info to price this item
-                          </span>
-                        </div>
+            {rows.map((row) => {
+              const overrideMaterial = costOverrides[row.id]?.material;
+              const overrideLabor = costOverrides[row.id]?.labor;
+              const overrideQty = quantityOverrides[row.id];
+
+              const materialInputValue =
+                overrideMaterial !== undefined && overrideMaterial !== null
+                  ? String(overrideMaterial)
+                  : row.materialVal !== null
+                    ? String(row.materialVal)
+                    : "";
+
+              const laborInputValue =
+                overrideLabor !== undefined && overrideLabor !== null
+                  ? String(overrideLabor)
+                  : row.laborVal !== null
+                    ? String(row.laborVal)
+                    : "";
+
+              const qtyInputValue =
+                overrideQty !== undefined ? String(overrideQty.qty) : String(row.qty);
+
+              return (
+                <tr
+                  key={row.id}
+                  className="border-b border-border/50 hover:bg-bg-warm/30 transition-colors"
+                >
+                  <td className="py-3 pr-3 align-top">
+                    <p className="font-medium text-text-primary">
+                      {row.item_label}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      {!row.aiPriced && !row.userTouched && (
+                        <span className="inline-flex items-center gap-1 text-xs text-amber-600">
+                          <AlertTriangle className="h-3 w-3" />
+                          Need more info — please enter values
+                        </span>
                       )}
-                      {row.isCraftsmanBacked && row.hasPricing && (
-                        <div className="mt-1 flex items-center gap-1">
-                          <BookOpen className="h-3 w-3 text-sky-500" />
-                          <span className="text-[11px] text-sky-600">
-                            Ref: 2023 National Construction Estimator
-                          </span>
-                        </div>
+                      {row.isCraftsmanBacked && row.aiPriced && !row.userTouched && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-sky-600">
+                          <BookOpen className="h-3 w-3" />
+                          Auto-filled from Craftsman 2023 NCE
+                        </span>
+                      )}
+                      {row.userTouched && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                          <Sparkles className="h-3 w-3" />
+                          Customized by you
+                        </span>
                       )}
                     </div>
-                  </div>
-                </td>
-                <td className="px-3 py-3 text-center text-text-secondary">
-                  {row.unit}
-                </td>
-                <td className="px-3 py-3 text-center text-text-secondary">
-                  {row.qty}
-                </td>
-                <td className="px-3 py-3 text-right">
-                  {row.hasPricing && !costOverrides[row.id]?.material ? (
-                    <span className="font-medium text-text-primary">
-                      {fmt(row.materialDisplay)}
-                    </span>
-                  ) : (
+                  </td>
+                  <td className="px-3 py-3 align-top">
                     <input
                       type="number"
                       step="0.01"
                       min="0"
-                      value={
-                        costOverrides[row.id]?.material !== null &&
-                        costOverrides[row.id]?.material !== undefined
-                          ? costOverrides[row.id].material!
-                          : row.materialDisplay || ""
-                      }
+                      value={qtyInputValue}
                       onChange={(e) => {
-                        const val = e.target.value === "" ? null : parseFloat(e.target.value);
-                        onCostOverride(row.id, "material", val);
+                        const raw = e.target.value;
+                        const parsed = raw === "" ? 0 : parseFloat(raw);
+                        onQuantityOverride(
+                          row.id,
+                          isNaN(parsed) ? 0 : parsed,
+                          row.unit || null
+                        );
                       }}
-                      placeholder="0.00"
-                      className="w-full rounded-md border border-border bg-surface px-2 py-1 text-right text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                      className="w-full rounded-md border border-border bg-surface px-2 py-1 text-center text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
                     />
-                  )}
-                </td>
-                <td className="px-3 py-3 text-right">
-                  {row.hasPricing && !costOverrides[row.id]?.labor ? (
-                    <span className="font-medium text-text-primary">
-                      {fmt(row.laborDisplay)}
+                  </td>
+                  <td className="px-3 py-3 align-top text-center text-text-secondary">
+                    {row.unit}
+                  </td>
+                  <td className="px-3 py-3 align-top">
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={materialInputValue}
+                        placeholder="0.00"
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          const val = raw === "" ? null : parseFloat(raw);
+                          onCostOverride(
+                            row.id,
+                            "material",
+                            isNaN(val as number) ? null : val
+                          );
+                        }}
+                        className="w-full rounded-md border border-border bg-surface px-2 py-1 text-right text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                      />
+                      <select
+                        value={row.materialMode}
+                        onChange={(e) =>
+                          onModeOverride(
+                            row.id,
+                            "material",
+                            e.target.value as CalcMode
+                          )
+                        }
+                        title={
+                          row.materialMode === "multiply"
+                            ? "Per-unit cost — multiplies by Qty"
+                            : "Flat fee — added once"
+                        }
+                        className="rounded-md border border-border bg-bg-warm/60 px-1.5 py-1 text-xs font-semibold text-text-secondary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                      >
+                        <option value="multiply">× qty</option>
+                        <option value="add">+ flat</option>
+                      </select>
+                    </div>
+                    <p className="mt-1 text-right text-[11px] text-text-muted">
+                      = {fmt(row.materialContribution)}
+                    </p>
+                  </td>
+                  <td className="px-3 py-3 align-top">
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={laborInputValue}
+                        placeholder="0.00"
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          const val = raw === "" ? null : parseFloat(raw);
+                          onCostOverride(
+                            row.id,
+                            "labor",
+                            isNaN(val as number) ? null : val
+                          );
+                        }}
+                        className="w-full rounded-md border border-border bg-surface px-2 py-1 text-right text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                      />
+                      <select
+                        value={row.laborMode}
+                        onChange={(e) =>
+                          onModeOverride(
+                            row.id,
+                            "labor",
+                            e.target.value as CalcMode
+                          )
+                        }
+                        title={
+                          row.laborMode === "multiply"
+                            ? "Per-unit cost — multiplies by Qty"
+                            : "Flat fee — added once"
+                        }
+                        className="rounded-md border border-border bg-bg-warm/60 px-1.5 py-1 text-xs font-semibold text-text-secondary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                      >
+                        <option value="multiply">× qty</option>
+                        <option value="add">+ flat</option>
+                      </select>
+                    </div>
+                    <p className="mt-1 text-right text-[11px] text-text-muted">
+                      = {fmt(row.laborContribution)}
+                    </p>
+                  </td>
+                  <td className="pl-3 py-3 align-top text-right">
+                    <span
+                      className={`font-semibold ${
+                        row.total > 0 ? "text-text-primary" : "text-amber-500"
+                      }`}
+                    >
+                      {fmt(row.total)}
                     </span>
-                  ) : (
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={
-                        costOverrides[row.id]?.labor !== null &&
-                        costOverrides[row.id]?.labor !== undefined
-                          ? costOverrides[row.id].labor!
-                          : row.laborDisplay || ""
-                      }
-                      onChange={(e) => {
-                        const val = e.target.value === "" ? null : parseFloat(e.target.value);
-                        onCostOverride(row.id, "labor", val);
-                      }}
-                      placeholder="0.00"
-                      className="w-full rounded-md border border-border bg-surface px-2 py-1 text-right text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
-                    />
-                  )}
-                </td>
-                <td className="pl-3 py-3 text-right">
-                  <span
-                    className={`font-semibold ${
-                      row.totalDisplay > 0 ? "text-text-primary" : "text-amber-500"
-                    }`}
-                  >
-                    {fmt(row.totalDisplay)}
-                  </span>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
 
             {customLineItems.map((custom) => (
               <tr
                 key={custom.id}
                 className="border-b border-border/50 bg-primary/5 hover:bg-primary/10 transition-colors"
               >
-                <td className="py-3 pr-3">
+                <td className="py-3 pr-3 align-top">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-text-primary">
                       {custom.label}
@@ -309,19 +479,19 @@ export default function ProjectAiEstimateSummaryTable({
                     </button>
                   </div>
                 </td>
-                <td className="px-3 py-3 text-center text-text-secondary">
-                  {custom.unit}
-                </td>
-                <td className="px-3 py-3 text-center text-text-secondary">
+                <td className="px-3 py-3 align-top text-center text-text-secondary">
                   {custom.qty}
                 </td>
-                <td className="px-3 py-3 text-right font-medium text-text-primary">
+                <td className="px-3 py-3 align-top text-center text-text-secondary">
+                  {custom.unit}
+                </td>
+                <td className="px-3 py-3 align-top text-right font-medium text-text-primary">
                   {fmt(custom.material * custom.qty)}
                 </td>
-                <td className="px-3 py-3 text-right font-medium text-text-primary">
+                <td className="px-3 py-3 align-top text-right font-medium text-text-primary">
                   {fmt(custom.labor * custom.qty)}
                 </td>
-                <td className="pl-3 py-3 text-right font-semibold text-text-primary">
+                <td className="pl-3 py-3 align-top text-right font-semibold text-text-primary">
                   {fmt((custom.material + custom.labor) * custom.qty)}
                 </td>
               </tr>
@@ -329,7 +499,10 @@ export default function ProjectAiEstimateSummaryTable({
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-border">
-              <td colSpan={5} className="py-3 pr-3 text-right font-bold text-text-primary">
+              <td
+                colSpan={5}
+                className="py-3 pr-3 text-right font-bold text-text-primary"
+              >
                 Grand Total
               </td>
               <td className="pl-3 py-3 text-right">
