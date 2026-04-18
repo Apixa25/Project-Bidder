@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { submitBid } from "../actions";
-import { TRADE_LABELS } from "@/types/database";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import type { TradeCategory } from "@/types/database";
 import { Upload, X, FileText, Loader2 } from "lucide-react";
@@ -34,7 +33,15 @@ export default function BidForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [scopeCoverage, setScopeCoverage] = useState<"all" | "part">("all");
+  const [scopeDescription, setScopeDescription] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // We still send a `trade` value to the backend so existing queries,
+  // notifications, and paid-estimate logic continue to work. Default to
+  // the first available trade — the customer-facing question is now
+  // "how much of the project are you bidding on?" instead.
+  const defaultTrade = availableTrades[0];
 
   const addFiles = (newFiles: FileList | null) => {
     if (!newFiles) return;
@@ -117,25 +124,52 @@ export default function BidForm({
         </div>
       )}
 
-      {/* Trade Selection */}
+      {/* Hidden trade field — preserved for backward compat with existing
+          queries, notifications, and paid-estimate logic. The user-facing
+          question below is now about scope coverage. */}
+      <input type="hidden" name="trade" value={defaultTrade} />
+
+      {/* Scope Coverage */}
       <div>
         <label className="block text-sm font-semibold text-text-primary mb-2">
-          Which trade are you bidding on? *
+          How much of the project are you bidding on? *
         </label>
         <select
-          name="trade"
+          name="scopeCoverage"
+          value={scopeCoverage}
+          onChange={(e) => setScopeCoverage(e.target.value as "all" | "part")}
           required
           className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
         >
-          {availableTrades.map((trade) => (
-            <option key={trade} value={trade}>
-              {TRADE_LABELS[trade]}
-            </option>
-          ))}
+          <option value="all">All of it</option>
+          <option value="part">Part of it</option>
         </select>
         <p className="mt-1 text-xs text-text-muted">
-          Select the specific trade you are bidding for on this project.
+          Choose &quot;All of it&quot; if your bid covers the full scope, or
+          &quot;Part of it&quot; if you&apos;re bidding on only a portion of
+          the project.
         </p>
+
+        {scopeCoverage === "part" && (
+          <div className="mt-3">
+            <label className="block text-sm font-semibold text-text-primary mb-2">
+              Which part of the project are you bidding on? *
+            </label>
+            <textarea
+              name="scopeDescription"
+              required
+              value={scopeDescription}
+              onChange={(e) => setScopeDescription(e.target.value)}
+              rows={3}
+              placeholder="Describe the specific portion of the project your bid covers — e.g. 'Site grading and gravel pad only', 'Electrical rough-in and finish', 'Roofing only — siding excluded'."
+              className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            <p className="mt-1 text-xs text-text-muted">
+              Be specific so the customer knows exactly what your bid covers
+              (and what it doesn&apos;t).
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Bid Price */}

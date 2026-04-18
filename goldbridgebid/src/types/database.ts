@@ -594,6 +594,8 @@ export interface ProjectEdit {
   edited_at: string;
 }
 
+export type BidScopeCoverage = "all" | "part";
+
 export interface Bid {
   id: string;
   project_id: string;
@@ -604,6 +606,8 @@ export interface Bid {
   estimated_timeline: string;
   estimated_start_date: string;
   notes: string | null;
+  scope_coverage: BidScopeCoverage;
+  scope_description: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -837,6 +841,8 @@ type BidInsert = {
   estimated_start_date: string;
   price_breakdown?: string | null;
   notes?: string | null;
+  scope_coverage?: BidScopeCoverage;
+  scope_description?: string | null;
 };
 
 type PaidEstimateClaimInsert = {

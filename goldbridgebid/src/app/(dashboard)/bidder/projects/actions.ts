@@ -240,9 +240,22 @@ export async function submitBid(formData: FormData) {
   const estimatedTimeline = formData.get("estimatedTimeline") as string;
   const estimatedStartDate = formData.get("estimatedStartDate") as string;
   const notes = formData.get("notes") as string;
+  const scopeCoverageRaw = (formData.get("scopeCoverage") as string) || "all";
+  const scopeCoverage: "all" | "part" =
+    scopeCoverageRaw === "part" ? "part" : "all";
+  const scopeDescriptionRaw =
+    (formData.get("scopeDescription") as string) || "";
+  const scopeDescription = scopeDescriptionRaw.trim();
 
   if (!projectId || !trade || !price || !estimatedTimeline || !estimatedStartDate) {
     return { error: "Please fill in all required fields." };
+  }
+
+  if (scopeCoverage === "part" && scopeDescription.length === 0) {
+    return {
+      error:
+        "Please describe which part of the project your bid covers.",
+    };
   }
 
   const parsedPrice = parseFloat(price);
@@ -284,6 +297,8 @@ export async function submitBid(formData: FormData) {
       estimated_timeline: estimatedTimeline,
       estimated_start_date: estimatedStartDate,
       notes: notes || null,
+      scope_coverage: scopeCoverage,
+      scope_description: scopeCoverage === "part" ? scopeDescription : null,
     })
     .select("id")
     .single();
