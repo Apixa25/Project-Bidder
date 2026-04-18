@@ -237,7 +237,7 @@ export default function RichTextEditor({
 
       {/* Editor area */}
       <div
-        className="rounded-b-lg border border-t-0 border-border bg-surface focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20"
+        className="relative rounded-b-lg border border-t-0 border-border bg-surface focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20"
         style={{ minHeight }}
       >
         <EditorContent
@@ -246,7 +246,7 @@ export default function RichTextEditor({
           style={{ minHeight }}
         />
         {!html && placeholder && (
-          <div className="pointer-events-none absolute px-4 py-2.5 text-text-muted">
+          <div className="pointer-events-none absolute inset-x-0 top-0 px-4 py-2.5 text-text-muted whitespace-pre-wrap break-words">
             {placeholder}
           </div>
         )}
