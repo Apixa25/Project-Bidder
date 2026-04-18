@@ -1,8 +1,120 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, AlertTriangle, BookOpen, Sparkles } from "lucide-react";
 import type { ProjectAiScopeItem } from "@/lib/ai-scope-items";
+
+function formatNum(n: number | null | undefined): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return "";
+  const rounded = Math.round(n * 100) / 100;
+  return String(rounded);
+}
+
+interface MoneyInputProps {
+  value: number | null;
+  onChange: (val: number | null) => void;
+  className?: string;
+  placeholder?: string;
+  ariaLabel?: string;
+}
+
+function MoneyInput({
+  value,
+  onChange,
+  className = "",
+  placeholder = "0",
+  ariaLabel,
+}: MoneyInputProps) {
+  const [localValue, setLocalValue] = useState<string>(formatNum(value));
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) setLocalValue(formatNum(value));
+  }, [value, isFocused]);
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      aria-label={ariaLabel}
+      value={localValue}
+      placeholder={placeholder}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => {
+        setIsFocused(false);
+        setLocalValue(formatNum(value));
+      }}
+      onChange={(e) => {
+        const raw = e.target.value;
+        if (raw === "") {
+          setLocalValue("");
+          onChange(null);
+          return;
+        }
+        if (!/^\d*\.?\d{0,2}$/.test(raw)) return;
+        setLocalValue(raw);
+        if (raw === "." || raw === "") {
+          onChange(null);
+          return;
+        }
+        const parsed = parseFloat(raw);
+        if (isNaN(parsed)) {
+          onChange(null);
+          return;
+        }
+        onChange(Math.round(parsed * 100) / 100);
+      }}
+      className={className}
+    />
+  );
+}
+
+interface QtyInputProps {
+  value: number;
+  onChange: (val: number) => void;
+  className?: string;
+}
+
+function QtyInput({ value, onChange, className = "" }: QtyInputProps) {
+  const [localValue, setLocalValue] = useState<string>(formatNum(value));
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) setLocalValue(formatNum(value));
+  }, [value, isFocused]);
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={localValue}
+      placeholder="0"
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => {
+        setIsFocused(false);
+        setLocalValue(formatNum(value));
+      }}
+      onChange={(e) => {
+        const raw = e.target.value;
+        if (raw === "") {
+          setLocalValue("");
+          onChange(0);
+          return;
+        }
+        if (!/^\d*\.?\d{0,2}$/.test(raw)) return;
+        setLocalValue(raw);
+        if (raw === ".") {
+          onChange(0);
+          return;
+        }
+        const parsed = parseFloat(raw);
+        if (isNaN(parsed)) return;
+        onChange(Math.round(parsed * 100) / 100);
+      }}
+      className={className}
+    />
+  );
+}
 
 type ScopeItemRow = Pick<
   ProjectAiScopeItem,
@@ -279,7 +391,7 @@ export default function ProjectAiEstimateSummaryTable({
               <th className="pb-2 px-2 font-semibold text-text-primary text-right w-32">
                 Labor
               </th>
-              <th className="pb-2 pl-2 font-semibold text-text-primary text-right w-24">
+              <th className="pb-2 pl-2 pr-6 font-semibold text-text-primary text-right w-28">
                 Total
               </th>
             </tr>
@@ -289,28 +401,6 @@ export default function ProjectAiEstimateSummaryTable({
               const overrideMaterial = costOverrides[row.id]?.material;
               const overrideLabor = costOverrides[row.id]?.labor;
               const overrideQty = quantityOverrides[row.id];
-
-              const to2 = (n: number) =>
-                Number.isFinite(n) ? (Math.round(n * 100) / 100).toFixed(2) : "";
-
-              const materialInputValue =
-                overrideMaterial !== undefined && overrideMaterial !== null
-                  ? to2(overrideMaterial)
-                  : row.materialVal !== null
-                    ? to2(row.materialVal)
-                    : "";
-
-              const laborInputValue =
-                overrideLabor !== undefined && overrideLabor !== null
-                  ? to2(overrideLabor)
-                  : row.laborVal !== null
-                    ? to2(row.laborVal)
-                    : "";
-
-              const qtyInputValue =
-                overrideQty !== undefined
-                  ? String(overrideQty.qty)
-                  : String(row.qty);
 
               return (
                 <tr
@@ -343,20 +433,13 @@ export default function ProjectAiEstimateSummaryTable({
                     </div>
                   </td>
                   <td className="px-2 py-3 align-top">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={qtyInputValue}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        const parsed = raw === "" ? 0 : parseFloat(raw);
-                        onQuantityOverride(
-                          row.id,
-                          isNaN(parsed) ? 0 : parsed,
-                          row.unit || null
-                        );
-                      }}
+                    <QtyInput
+                      value={
+                        overrideQty !== undefined ? overrideQty.qty : row.qty
+                      }
+                      onChange={(val) =>
+                        onQuantityOverride(row.id, val, row.unit || null)
+                      }
                       className="mx-auto block w-11 rounded-md border border-border bg-surface px-1 py-1.5 text-center text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
                     />
                   </td>
@@ -384,22 +467,17 @@ export default function ProjectAiEstimateSummaryTable({
                         <option value="multiply">×</option>
                         <option value="add">+</option>
                       </select>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={materialInputValue}
-                        placeholder="0.00"
-                        onChange={(e) => {
-                          const raw = e.target.value;
-                          const parsed = raw === "" ? null : parseFloat(raw);
-                          const val =
-                            parsed === null || isNaN(parsed)
-                              ? null
-                              : Math.round(parsed * 100) / 100;
-                          onCostOverride(row.id, "material", val);
-                        }}
-                        className="w-20 shrink-0 rounded-md border border-border bg-surface px-1.5 py-1.5 text-right text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                      <MoneyInput
+                        ariaLabel="Material cost"
+                        value={
+                          overrideMaterial !== undefined
+                            ? overrideMaterial
+                            : row.materialVal
+                        }
+                        onChange={(val) =>
+                          onCostOverride(row.id, "material", val)
+                        }
+                        className="w-16 shrink-0 rounded-md border border-border bg-surface px-1.5 py-1.5 text-right text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
                       />
                     </div>
                     <p className="mt-1 text-right text-[11px] text-text-muted">
@@ -427,29 +505,24 @@ export default function ProjectAiEstimateSummaryTable({
                         <option value="multiply">×</option>
                         <option value="add">+</option>
                       </select>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={laborInputValue}
-                        placeholder="0.00"
-                        onChange={(e) => {
-                          const raw = e.target.value;
-                          const parsed = raw === "" ? null : parseFloat(raw);
-                          const val =
-                            parsed === null || isNaN(parsed)
-                              ? null
-                              : Math.round(parsed * 100) / 100;
-                          onCostOverride(row.id, "labor", val);
-                        }}
-                        className="w-20 shrink-0 rounded-md border border-border bg-surface px-1.5 py-1.5 text-right text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                      <MoneyInput
+                        ariaLabel="Labor cost"
+                        value={
+                          overrideLabor !== undefined
+                            ? overrideLabor
+                            : row.laborVal
+                        }
+                        onChange={(val) =>
+                          onCostOverride(row.id, "labor", val)
+                        }
+                        className="w-16 shrink-0 rounded-md border border-border bg-surface px-1.5 py-1.5 text-right text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
                       />
                     </div>
                     <p className="mt-1 text-right text-[11px] text-text-muted">
                       = {fmt(row.laborContribution)}
                     </p>
                   </td>
-                  <td className="pl-2 py-3 align-top text-right">
+                  <td className="pl-2 pr-6 py-3 align-top text-right">
                     <span
                       className={`font-semibold ${
                         row.total > 0 ? "text-text-primary" : "text-amber-500"
@@ -496,7 +569,7 @@ export default function ProjectAiEstimateSummaryTable({
                 <td className="px-2 py-3 align-top text-right font-medium text-text-primary">
                   {fmt(custom.labor * custom.qty)}
                 </td>
-                <td className="pl-2 py-3 align-top text-right font-semibold text-text-primary">
+                <td className="pl-2 pr-6 py-3 align-top text-right font-semibold text-text-primary">
                   {fmt((custom.material + custom.labor) * custom.qty)}
                 </td>
               </tr>
@@ -510,7 +583,7 @@ export default function ProjectAiEstimateSummaryTable({
               >
                 Grand Total
               </td>
-              <td className="pl-2 py-3 text-right">
+              <td className="pl-2 pr-6 py-3 text-right">
                 <span className="text-lg font-bold text-text-primary">
                   {fmt(grandTotal)}
                 </span>

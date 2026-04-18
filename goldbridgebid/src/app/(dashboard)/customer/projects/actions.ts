@@ -1318,7 +1318,7 @@ export async function saveProjectAiClarificationsAndShare(
   return {
     error: null,
     success: true,
-    advisory: null,
+    advisory: null as string | null,
   };
 }
 

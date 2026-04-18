@@ -435,6 +435,8 @@ function buildScopeItemFromRequirement(params: {
     source_method: craftsmanResults.length > 0 ? "ai_assembly" : "llm_generated",
     needs_clarification: !requirement.is_mentioned_by_customer && !hasCustomerQuantity,
     customer_inclusion: requirement.is_mentioned_by_customer ? "yes" : null,
+    material_calc_mode: "multiply",
+    labor_calc_mode: "multiply",
     display_order: index,
   };
 }
@@ -498,6 +500,8 @@ export function buildProjectAiScopeItems(params: {
         source_method: "insufficient_signal",
         needs_clarification: true,
         customer_inclusion: null,
+        material_calc_mode: "multiply",
+        labor_calc_mode: "multiply",
         display_order: 0,
       },
     ];
