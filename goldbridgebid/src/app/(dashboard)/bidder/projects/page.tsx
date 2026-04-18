@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { TRADE_LABELS, EXPERTISE_LEVEL_LABELS } from "@/types/database";
 import type { ExpertiseLevel } from "@/types/database";
+import { stripHtml } from "@/components/ui/RichTextRenderer";
 import type {
   TradeCategory,
   ProjectPaidEstimatePool,
@@ -402,7 +403,7 @@ export default async function BrowseProjectsPage() {
                   )}
 
                   <p className="mt-2 text-sm text-text-secondary line-clamp-3 sm:line-clamp-2">
-                    {project.description}
+                    {stripHtml(project.description)}
                   </p>
 
                   <div className="mt-4 grid gap-2 text-sm text-text-muted sm:mt-3 sm:flex sm:flex-wrap sm:items-center sm:gap-4 sm:text-xs">

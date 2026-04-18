@@ -13,6 +13,7 @@ import {
 import { TRADE_LABELS, EXPERTISE_LEVEL_LABELS } from "@/types/database";
 import type { ExpertiseLevel } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
+import { stripHtml } from "@/components/ui/RichTextRenderer";
 import { userHasRole } from "@/lib/auth/roles";
 import { bidCountForDisplay } from "@/lib/projects/bidCountDisplay";
 import {
@@ -120,7 +121,7 @@ export default async function MyProjectsPage() {
                   </div>
 
                   <p className="mt-2 text-sm text-text-secondary line-clamp-2">
-                    {project.description}
+                    {stripHtml(project.description)}
                   </p>
 
                   <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-text-muted">
