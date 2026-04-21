@@ -39,13 +39,18 @@ export default function PrintProjectButton({
   title = "Print or save the full project description as a PDF",
   variant = "default",
 }: PrintProjectButtonProps) {
+  // Base styles per variant. The `print-btn-glow` utility (see globals.css)
+  // adds the colored glow, lift, and icon-bob animation on hover so the
+  // button visibly invites a click whenever the cursor enters it.
   const className =
     variant === "muted"
-      ? "inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary shadow-sm transition-colors hover:bg-surface-hover"
-      : "inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-primary shadow-sm transition-colors hover:bg-surface-hover";
+      ? "print-btn-glow inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary shadow-sm"
+      : "print-btn-glow inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-primary shadow-sm";
 
   const iconClassName =
-    variant === "muted" ? "h-3.5 w-3.5 text-primary" : "h-4 w-4 text-primary";
+    variant === "muted"
+      ? "print-btn-icon h-3.5 w-3.5 text-primary"
+      : "print-btn-icon h-4 w-4 text-primary";
 
   return (
     <button

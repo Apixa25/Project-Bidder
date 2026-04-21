@@ -195,3 +195,71 @@ body {
 @page {
   margin: 0.5in;
 }
+
+/* ---------------------------------------------------------------------------
+ * Print button hover effect
+ *
+ * Gives the shared <PrintProjectButton /> a "this is interactive!" feel with:
+ *   - A soft colored glow + slight lift on hover
+ *   - A primary-tinted background and border
+ *   - A continuously bobbing printer icon while the cursor sits on the button
+ *
+ * The animation is intentionally subtle (2px travel, 0.7s loop) so it reads
+ * as "alive" without becoming a distraction. It only runs while the button
+ * is actively hovered, which respects users' "prefers-reduced-motion" setting
+ * via the @media query below.
+ * ------------------------------------------------------------------------- */
+@keyframes printer-bob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+.print-btn-glow {
+  transition:
+    transform 180ms ease-out,
+    box-shadow 180ms ease-out,
+    background-color 180ms ease-out,
+    border-color 180ms ease-out,
+    color 180ms ease-out;
+}
+
+.print-btn-glow:hover {
+  transform: translateY(-1px) scale(1.04);
+  background-color: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-primary) 55%, transparent);
+  color: var(--color-primary-dark);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent),
+    0 10px 22px -8px color-mix(in srgb, var(--color-primary) 55%, transparent);
+}
+
+.print-btn-glow:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent),
+    0 10px 22px -8px color-mix(in srgb, var(--color-primary) 55%, transparent);
+}
+
+.print-btn-glow:active {
+  transform: translateY(0) scale(1);
+}
+
+.print-btn-glow:hover .print-btn-icon {
+  animation: printer-bob 0.7s ease-in-out infinite;
+  color: var(--color-primary-dark);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .print-btn-glow,
+  .print-btn-glow:hover .print-btn-icon {
+    transition: none;
+    animation: none;
+  }
+  .print-btn-glow:hover {
+    transform: none;
+  }
+}
