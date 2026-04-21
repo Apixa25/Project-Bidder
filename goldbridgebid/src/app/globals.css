@@ -135,3 +135,63 @@ body {
   pointer-events: none;
   height: 0;
 }
+
+/* ---------------------------------------------------------------------------
+ * Print-friendly styles
+ *
+ * These rules clean up the printed page so contractors can take the project
+ * description, scope items, Q&A, and photo contact-sheet into the field on
+ * paper. Anything tagged `.no-print` is hidden when printing, and the
+ * `.print-sheet` container is widened to fill the paper margins. The
+ * `.print-root` wrapper from `app/print/layout.tsx` forces a white background
+ * so the dashboard's warm bg color doesn't bleed into the printout.
+ * ------------------------------------------------------------------------- */
+@media print {
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .print-root {
+    background: #ffffff !important;
+  }
+
+  .print-sheet {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: #000000 !important;
+  }
+
+  /* Try to keep cards and Q&A items from splitting awkwardly across pages. */
+  .page-break-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .page-break-before {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  /* Avoid color-printing huge ink-hungry backgrounds. */
+  .print-sheet section,
+  .print-sheet figure,
+  .print-sheet table {
+    background: transparent !important;
+  }
+
+  a {
+    color: #000000 !important;
+    text-decoration: none !important;
+  }
+}
+
+@page {
+  margin: 0.5in;
+}

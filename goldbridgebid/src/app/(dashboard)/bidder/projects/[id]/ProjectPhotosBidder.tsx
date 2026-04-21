@@ -8,6 +8,9 @@ import {
   FileText,
   PlayCircle,
   Video,
+  Download,
+  Printer,
+  ExternalLink,
 } from "lucide-react";
 import ImageLightbox from "@/components/ImageLightbox";
 import VideoLightbox from "@/components/VideoLightbox";
@@ -27,10 +30,16 @@ interface ProjectFileData {
 
 interface ProjectPhotosBidderProps {
   files: ProjectFileData[];
+  /**
+   * Project id is used to deep-link into the print-friendly photo sheet so
+   * contractors can take all the project pictures with them on paper.
+   */
+  projectId?: string;
 }
 
 export default function ProjectPhotosBidder({
   files,
+  projectId,
 }: ProjectPhotosBidderProps) {
   const [showOriginals, setShowOriginals] = useState(false);
   const [viewingImage, setViewingImage] = useState<ProjectFileData | null>(null);
@@ -49,31 +58,52 @@ export default function ProjectPhotosBidder({
     <>
       {imageFiles.length > 0 && (
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <ImageIcon className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-semibold text-text-primary">
                 Project Photos
               </h2>
             </div>
-            {hasAnnotations && (
-              <button
-                onClick={() => setShowOriginals(!showOriginals)}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover"
-              >
-                {showOriginals ? (
-                  <>
-                    <Eye className="h-3.5 w-3.5" />
-                    Show Annotated
-                  </>
-                ) : (
-                  <>
-                    <EyeOff className="h-3.5 w-3.5" />
-                    Show Originals
-                  </>
-                )}
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {projectId && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.open(
+                      `/print/projects/${projectId}/photos${
+                        showOriginals ? "?originals=1" : ""
+                      }`,
+                      "_blank",
+                      "noopener"
+                    )
+                  }
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover"
+                  title="Open a printable photo contact sheet"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Print Photos
+                </button>
+              )}
+              {hasAnnotations && (
+                <button
+                  onClick={() => setShowOriginals(!showOriginals)}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover"
+                >
+                  {showOriginals ? (
+                    <>
+                      <Eye className="h-3.5 w-3.5" />
+                      Show Annotated
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="h-3.5 w-3.5" />
+                      Show Originals
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {imageFiles.map((file) => {
@@ -166,20 +196,23 @@ export default function ProjectPhotosBidder({
 
       {docFiles.length > 0 && (
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-text-primary">
-              Documents & Plans
-            </h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold text-text-primary">
+                Documents &amp; Plans
+              </h2>
+            </div>
+            <p className="text-xs text-text-muted">
+              Open a doc to print it from your browser, or download to your
+              computer.
+            </p>
           </div>
           <div className="space-y-2">
             {docFiles.map((file) => (
-              <a
+              <div
                 key={file.id}
-                href={file.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 transition-colors hover:bg-surface-hover"
+                className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3 transition-colors hover:bg-surface-hover"
               >
                 <FileText className="h-5 w-5 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
@@ -188,7 +221,68 @@ export default function ProjectPhotosBidder({
                   </p>
                   <p className="text-xs text-text-muted">{file.file_type}</p>
                 </div>
-              </a>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <a
+                    href={file.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-warm"
+                    title="Open document in a new tab. From there you can use your browser's Print button (Ctrl+P / Cmd+P)."
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open
+                  </a>
+                  <a
+                    href={file.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(event) => {
+                      // PDFs and images render natively in the browser, so the
+                      // most reliable "print" path is: open the file -> wait
+                      // for it to render -> trigger the browser print dialog.
+                      const fileWindow = window.open(
+                        file.file_url,
+                        "_blank",
+                        "noopener"
+                      );
+                      if (fileWindow) {
+                        event.preventDefault();
+                        // Try to auto-trigger print once the file finishes
+                        // loading. Fallback: user can hit Ctrl+P themselves.
+                        const tryPrint = () => {
+                          try {
+                            fileWindow.focus();
+                            fileWindow.print();
+                          } catch {
+                            // Cross-origin browsers will block this; that's
+                            // OK — the doc is already open for manual print.
+                          }
+                        };
+                        fileWindow.addEventListener("load", tryPrint);
+                        // Safety fallback if `load` never fires (e.g. PDFs
+                        // served with content-disposition: attachment).
+                        window.setTimeout(tryPrint, 1500);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/15"
+                    title="Open this document and trigger the print dialog"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    Print
+                  </a>
+                  <a
+                    href={file.file_url}
+                    download={file.file_name}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-warm"
+                    title="Download a copy to your device"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download
+                  </a>
+                </div>
+              </div>
             ))}
           </div>
         </section>

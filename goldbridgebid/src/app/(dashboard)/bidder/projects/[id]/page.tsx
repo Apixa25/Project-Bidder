@@ -29,6 +29,7 @@ import type {
 } from "@/types/database";
 import BidForm from "./BidForm";
 import ProjectPhotosBidder from "./ProjectPhotosBidder";
+import PrintProjectButton from "@/components/project/PrintProjectButton";
 import { userHasRole } from "@/lib/auth/roles";
 import ProjectQA from "@/components/ProjectQA";
 import {
@@ -278,9 +279,12 @@ export default async function BidderProjectDetailPage({
               received
             </p>
           </div>
-          <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
-            Open for Bidding
-          </span>
+          <div className="flex items-center gap-2">
+            <PrintProjectButton projectId={project.id} />
+            <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+              Open for Bidding
+            </span>
+          </div>
         </div>
       </div>
 
@@ -474,7 +478,7 @@ export default async function BidderProjectDetailPage({
 
           {/* Project media with annotation-aware photo view */}
           {projectFiles && projectFiles.length > 0 && (
-            <ProjectPhotosBidder files={projectFiles} />
+            <ProjectPhotosBidder files={projectFiles} projectId={project.id} />
           )}
 
           {/* Bid Form */}

@@ -21,6 +21,7 @@ import {
   FileText,
 } from "lucide-react";
 import ProjectDetailTabs from "./ProjectDetailTabs";
+import PrintProjectButton from "@/components/project/PrintProjectButton";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -189,6 +190,14 @@ export default async function AdminProjectDetailPage({ params }: Props) {
             </Link>{" "}
             on {new Date(project.created_at).toLocaleDateString()}
           </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <PrintProjectButton
+            projectId={project.id}
+            variant="muted"
+            label="Print Project"
+            title="Print the project summary for moderation paperwork or offline review"
+          />
         </div>
       </div>
 

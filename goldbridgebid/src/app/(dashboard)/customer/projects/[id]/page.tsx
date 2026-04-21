@@ -30,6 +30,7 @@ import type {
   PaidEstimateDispute,
 } from "@/types/database";
 import ProjectStatusActions from "./ProjectStatusActions";
+import PrintProjectButton from "@/components/project/PrintProjectButton";
 import ProjectPhotos from "./ProjectPhotos";
 import ProjectEditHistoryCollapsible from "@/components/project/ProjectEditHistoryCollapsible";
 import AwardBidButton from "./AwardBidButton";
@@ -344,10 +345,17 @@ export default async function ProjectDetailPage({
             </p>
           </div>
 
-          <ProjectStatusActions
-            projectId={project.id}
-            currentStatus={project.status}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <PrintProjectButton
+              projectId={project.id}
+              label="Print Project"
+              title="Print or save your project posting as a PDF — handy for sharing with bidders offline"
+            />
+            <ProjectStatusActions
+              projectId={project.id}
+              currentStatus={project.status}
+            />
+          </div>
         </div>
       </div>
 
