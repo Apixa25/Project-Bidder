@@ -30,6 +30,7 @@ import type {
 import BidForm from "./BidForm";
 import ProjectPhotosBidder from "./ProjectPhotosBidder";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
+import ProjectAddressMap from "@/components/project/ProjectAddressMap";
 import { userHasRole } from "@/lib/auth/roles";
 import ProjectQA from "@/components/ProjectQA";
 import {
@@ -546,6 +547,15 @@ export default async function BidderProjectDetailPage({
                 </p>
               </div>
             </div>
+
+            <ProjectAddressMap
+              address={project.location_address}
+              city={project.location_city}
+              state={project.location_state}
+              zip={project.location_zip}
+              heading=""
+              linkBehavior="directions"
+            />
 
             {project.desired_start_date && (
               <div className="flex items-center gap-3">

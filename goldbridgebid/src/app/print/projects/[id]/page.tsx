@@ -173,6 +173,30 @@ export default async function PrintProjectSummaryPage({
               {project.location_city}, {project.location_state}{" "}
               {project.location_zip}
             </p>
+            {(() => {
+              const parts = [
+                project.location_address,
+                project.location_city,
+                project.location_state,
+                project.location_zip,
+              ]
+                .map((p) => (typeof p === "string" ? p.trim() : ""))
+                .filter((p) => p.length > 0);
+              if (parts.length === 0) return null;
+              const encoded = encodeURIComponent(parts.join(", "));
+              const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encoded}`;
+              return (
+                <p className="mt-1 break-all text-xs text-slate-500">
+                  Map / Directions:{" "}
+                  <a
+                    href={directionsUrl}
+                    className="text-slate-700 underline"
+                  >
+                    {directionsUrl}
+                  </a>
+                </p>
+              );
+            })()}
           </div>
 
           <div>

@@ -31,6 +31,7 @@ import type {
 } from "@/types/database";
 import ProjectStatusActions from "./ProjectStatusActions";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
+import ProjectAddressMap from "@/components/project/ProjectAddressMap";
 import ProjectPhotos from "./ProjectPhotos";
 import ProjectEditHistoryCollapsible from "@/components/project/ProjectEditHistoryCollapsible";
 import AwardBidButton from "./AwardBidButton";
@@ -829,6 +830,15 @@ export default async function ProjectDetailPage({
                 </p>
               </div>
             </div>
+
+            <ProjectAddressMap
+              address={project.location_address}
+              city={project.location_city}
+              state={project.location_state}
+              zip={project.location_zip}
+              heading=""
+              linkBehavior="view"
+            />
 
             {project.desired_start_date && (
               <div className="flex items-center gap-3">

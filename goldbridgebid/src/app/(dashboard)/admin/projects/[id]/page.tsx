@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import ProjectDetailTabs from "./ProjectDetailTabs";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
+import ProjectAddressMap from "@/components/project/ProjectAddressMap";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -242,6 +243,40 @@ export default async function AdminProjectDetailPage({ params }: Props) {
           </span>
         </div>
       </div>
+
+      {/* Project Location Map — gives moderators a visual on the job site */}
+      {(project.location_address ||
+        project.location_city ||
+        project.location_state ||
+        project.location_zip) && (
+        <div className="mb-6 rounded-xl border border-border bg-surface p-4">
+          <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Project Address
+              </p>
+              {project.location_address && (
+                <p className="mt-1 text-sm font-medium text-text-primary">
+                  {project.location_address}
+                </p>
+              )}
+              <p className="text-sm text-text-secondary">
+                {project.location_city}, {project.location_state}{" "}
+                {project.location_zip}
+              </p>
+            </div>
+            <ProjectAddressMap
+              address={project.location_address}
+              city={project.location_city}
+              state={project.location_state}
+              zip={project.location_zip}
+              heading=""
+              heightPx={200}
+              linkBehavior="view"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Expertise Level / Trades */}
       <div className="mb-6 flex flex-wrap gap-2">
