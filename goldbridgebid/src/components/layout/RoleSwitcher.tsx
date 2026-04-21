@@ -59,10 +59,10 @@ export default function RoleSwitcher({
                 <Link
                   key={role}
                   href={`/${role}`}
-                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`nav-btn-glow rounded-lg border px-3 py-2 text-sm font-medium ${
                     isActive || role === currentRole
                       ? "border-accent-light/35 bg-accent-light/10 text-accent-light"
-                      : "border-border bg-surface text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                      : "border-border bg-surface text-text-secondary"
                   }`}
                 >
                   {ROLE_LABELS[role]} Mode
@@ -85,7 +85,7 @@ export default function RoleSwitcher({
                 type="button"
                 onClick={() => handleEnable(role)}
                 disabled={savingRole !== null}
-                className="rounded-lg border border-border bg-surface px-3 py-2 text-left text-sm font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                className="nav-btn-glow rounded-lg border border-border bg-surface px-3 py-2 text-left text-sm font-medium text-text-secondary disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {savingRole === role
                   ? `Enabling ${ROLE_LABELS[role]}...`

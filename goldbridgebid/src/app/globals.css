@@ -263,3 +263,72 @@ body {
     transform: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Sidebar nav button glow effect
+ *
+ * Same blue glow language as `.print-btn-glow`, but tuned for the full-width,
+ * stacked sidebar nav items (Dashboard, My Bids, Browse Projects, etc.) and
+ * the role-switcher buttons ("Enable Customer Mode", etc.).
+ *
+ * Differences from the print-button variant:
+ *   - Items shift slightly RIGHT (translate-x: 2px) instead of scaling up,
+ *     because scaling stacked full-width items looks awkward.
+ *   - A 3px primary-color stripe slides in along the LEFT edge — a classic
+ *     navigation affordance that says "this is the click target".
+ *   - The icon slides right + nudges up in size, hinting at forward motion
+ *     to the page the item links to.
+ *
+ * Works equally well on inactive items (light grey) and active items (already
+ * highlighted with the accent color) — when you hover an active item it gets
+ * an extra blue glow on top of its existing highlight.
+ * ------------------------------------------------------------------------- */
+.nav-btn-glow {
+  position: relative;
+  transition:
+    transform 180ms ease-out,
+    box-shadow 220ms ease-out,
+    background-color 180ms ease-out,
+    color 180ms ease-out;
+}
+
+.nav-btn-glow-icon {
+  transition:
+    transform 180ms ease-out,
+    color 180ms ease-out;
+}
+
+.nav-btn-glow:hover {
+  transform: translateX(2px);
+  background-color: color-mix(in srgb, var(--color-primary) 9%, var(--color-surface));
+  color: var(--color-primary-dark);
+  box-shadow:
+    inset 3px 0 0 0 var(--color-primary),
+    0 6px 14px -6px color-mix(in srgb, var(--color-primary) 50%, transparent);
+}
+
+.nav-btn-glow:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 3px 0 0 0 var(--color-primary),
+    0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+.nav-btn-glow:hover .nav-btn-glow-icon {
+  color: var(--color-primary-dark);
+  transform: translateX(2px) scale(1.08);
+}
+
+.nav-btn-glow:active {
+  transform: translateX(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-btn-glow,
+  .nav-btn-glow-icon,
+  .nav-btn-glow:hover,
+  .nav-btn-glow:hover .nav-btn-glow-icon {
+    transition: none;
+    transform: none;
+  }
+}

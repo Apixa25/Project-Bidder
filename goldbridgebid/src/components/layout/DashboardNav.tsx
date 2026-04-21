@@ -175,13 +175,13 @@ export default function DashboardNav({
                 <Link
                   href={item.href}
                   onClick={onClose}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  className={`nav-btn-glow flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
                     isActive
                       ? "bg-accent-light/10 text-accent-light"
-                      : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+                      : "text-text-secondary"
                   }`}
                 >
-                  <item.icon className="h-5 w-5 shrink-0" />
+                  <item.icon className="nav-btn-glow-icon h-5 w-5 shrink-0" />
                   {item.label}
                 </Link>
               </li>
@@ -195,9 +195,9 @@ export default function DashboardNav({
         <Link
           href={`/${currentRole}/notifications`}
           onClick={onClose}
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors"
+          className="nav-btn-glow flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary"
         >
-          <Bell className="h-5 w-5 shrink-0" />
+          <Bell className="nav-btn-glow-icon h-5 w-5 shrink-0" />
           Notifications
           {unreadNotifications > 0 && (
             <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-light px-1.5 text-xs font-bold text-white">
