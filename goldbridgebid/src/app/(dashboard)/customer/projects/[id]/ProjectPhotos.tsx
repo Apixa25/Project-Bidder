@@ -8,6 +8,8 @@ import {
   Video,
   PlayCircle,
   Star,
+  Download,
+  ExternalLink,
 } from "lucide-react";
 import PhotoAnnotator from "@/components/annotation/PhotoAnnotator";
 import ImageLightbox from "@/components/ImageLightbox";
@@ -252,20 +254,22 @@ export default function ProjectPhotos({ files }: ProjectPhotosProps) {
 
       {docFiles.length > 0 && (
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-text-primary">
-              Documents & Plans
-            </h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold text-text-primary">
+                Documents &amp; Plans
+              </h2>
+            </div>
+            <p className="text-xs text-text-muted">
+              Open to view, or download a copy to your device.
+            </p>
           </div>
           <div className="space-y-2">
             {docFiles.map((file) => (
-              <a
+              <div
                 key={file.id}
-                href={file.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 transition-colors hover:bg-surface-hover"
+                className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3 transition-colors hover:bg-surface-hover"
               >
                 <FileText className="h-5 w-5 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
@@ -274,7 +278,27 @@ export default function ProjectPhotos({ files }: ProjectPhotosProps) {
                   </p>
                   <p className="text-xs text-text-muted">{file.file_type}</p>
                 </div>
-              </a>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <a
+                    href={file.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-warm"
+                    title="Open document in a new tab"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open
+                  </a>
+                  <a
+                    href={`/api/project-files/${file.id}/download`}
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-warm"
+                    title="Download a copy to your device"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download
+                  </a>
+                </div>
+              </div>
             ))}
           </div>
         </section>

@@ -271,10 +271,7 @@ export default function ProjectPhotosBidder({
                     Print
                   </a>
                   <a
-                    href={file.file_url}
-                    download={file.file_name}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={`/api/project-files/${file.id}/download`}
                     className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-warm"
                     title="Download a copy to your device"
                   >

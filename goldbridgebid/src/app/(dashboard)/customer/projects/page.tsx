@@ -22,6 +22,7 @@ import {
   getProjectPreviewUrl,
   isProjectVideo,
 } from "@/lib/project-media";
+import PrintProjectButton from "@/components/project/PrintProjectButton";
 
 export default async function MyProjectsPage() {
   const supabase = await createClient();
@@ -72,8 +73,21 @@ export default async function MyProjectsPage() {
             const previewIsVideo = isProjectVideo(previewFile);
 
             return (
+            <div key={project.id} className="group relative">
+              {/* Print button overlay — sits ABOVE the card link so clicking
+                  it opens the printable summary instead of navigating into
+                  the project. Reveals on hover for a clean default look. */}
+              <div className="pointer-events-none absolute right-4 top-4 z-10 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="pointer-events-auto">
+                  <PrintProjectButton
+                    projectId={project.id}
+                    variant="muted"
+                    label="Print"
+                    title="Open a print-friendly copy of this project"
+                  />
+                </div>
+              </div>
             <Link
-              key={project.id}
               href={`/customer/projects/${project.id}`}
               className="block rounded-xl border border-border bg-surface p-6 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
             >
@@ -196,6 +210,7 @@ export default async function MyProjectsPage() {
                 </div>
               </div>
             </Link>
+            </div>
             );
           })}
         </div>

@@ -50,6 +50,7 @@ import {
   getProjectPreviewUrl,
   isProjectVideo,
 } from "@/lib/project-media";
+import PrintProjectButton from "@/components/project/PrintProjectButton";
 
 export default async function BrowseProjectsPage() {
   const supabase = await createClient();
@@ -354,8 +355,22 @@ export default async function BrowseProjectsPage() {
             );
 
             return (
+            <div key={project.id} className="group relative">
+              {/* Print button overlay — sits ABOVE the card link so clicking
+                  it opens the printable summary instead of navigating into
+                  the project. Hidden on mobile to keep the card clean,
+                  shown on hover for desktop. */}
+              <div className="pointer-events-none absolute right-3 top-3 z-10 opacity-0 transition-opacity group-hover:opacity-100 sm:right-4 sm:top-4">
+                <div className="pointer-events-auto">
+                  <PrintProjectButton
+                    projectId={project.id}
+                    variant="muted"
+                    label="Print"
+                    title="Open a print-friendly copy of this project"
+                  />
+                </div>
+              </div>
             <Link
-              key={project.id}
               href={`/bidder/projects/${project.id}`}
               className="block rounded-xl border border-border bg-surface p-4 shadow-sm transition-all hover:border-secondary/30 hover:shadow-md sm:p-6"
             >
@@ -564,6 +579,7 @@ export default async function BrowseProjectsPage() {
                 </div>
               </div>
             </Link>
+            </div>
             );
           })}
         </div>
