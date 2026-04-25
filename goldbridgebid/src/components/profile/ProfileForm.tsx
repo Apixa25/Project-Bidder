@@ -66,6 +66,8 @@ export default function ProfileForm({
 
   return (
     <form action={handleSubmit} className="space-y-6">
+      <input type="hidden" name="editorRole" value={editorRole} />
+
       {error && (
         <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 border border-red-200">
           {error}
@@ -296,7 +298,7 @@ export default function ProfileForm({
               </div>
             ) : (
               <p className="text-sm text-text-muted">
-                No service areas set — you'll see all projects regardless of location.
+                No service areas set — you&apos;ll see all projects regardless of location.
               </p>
             )}
           </div>

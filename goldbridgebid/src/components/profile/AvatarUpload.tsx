@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { uploadAvatar, removeAvatar } from "@/app/(dashboard)/profile/avatar-actions";
-import { Camera, Loader2, Trash2, ZoomIn, ZoomOut, Check, X } from "lucide-react";
+import { Camera, Loader2, ZoomIn, ZoomOut, Check, X } from "lucide-react";
 import { compressImage, PRESETS } from "@/lib/compress-image";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
@@ -54,6 +55,7 @@ function createCroppedImage(
 }
 
 export default function AvatarUpload({ currentUrl, userName }: AvatarUploadProps) {
+  const router = useRouter();
   const [avatarUrl, setAvatarUrl] = useState(currentUrl);
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -107,7 +109,8 @@ export default function AvatarUpload({ currentUrl, userName }: AvatarUploadProps
       if (result.error) {
         setError(result.error);
       } else if (result.success && result.url) {
-        setAvatarUrl(result.url + "?t=" + Date.now());
+        setAvatarUrl(result.url);
+        router.refresh();
       }
     } catch {
       setError("Failed to crop image. Please try again.");
@@ -120,9 +123,13 @@ export default function AvatarUpload({ currentUrl, userName }: AvatarUploadProps
 
   async function handleRemove() {
     setRemoving(true);
+    setError(null);
     const result = await removeAvatar();
     if (result.success) {
       setAvatarUrl(null);
+      router.refresh();
+    } else if (result.error) {
+      setError(result.error);
     }
     setRemoving(false);
   }

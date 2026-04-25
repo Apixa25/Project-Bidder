@@ -25,12 +25,16 @@ export async function uploadAvatar(formData: FormData) {
     return { error: "Image must be under 12MB." };
   }
 
-  const fileExt = file.name.split(".").pop();
-  const filePath = `avatars/${user.id}/profile.${fileExt}`;
+  const fileExt = file.name.split(".").pop() || "jpg";
+  const filePath = `avatars/${user.id}/profile-${Date.now()}.${fileExt}`;
 
   const { error: uploadError } = await supabase.storage
     .from("profile-media")
-    .upload(filePath, file, { upsert: true });
+    .upload(filePath, file, {
+      contentType: file.type || undefined,
+      cacheControl: "3600",
+      upsert: false,
+    });
 
   if (uploadError) {
     console.error("Avatar upload error:", uploadError);
@@ -41,10 +45,14 @@ export async function uploadAvatar(formData: FormData) {
     data: { publicUrl },
   } = supabase.storage.from("profile-media").getPublicUrl(filePath);
 
-  await generateAndUploadThumbnail(file, "profile-media", filePath, {
-    width: 150,
-    quality: 75,
-  });
+  try {
+    await generateAndUploadThumbnail(file, "profile-media", filePath, {
+      width: 150,
+      quality: 75,
+    });
+  } catch (thumbnailError) {
+    console.error("Avatar thumbnail generation failed:", thumbnailError);
+  }
 
   const { error: updateError } = await supabase
     .from("profiles")
@@ -53,11 +61,18 @@ export async function uploadAvatar(formData: FormData) {
 
   if (updateError) {
     console.error("Profile update error:", updateError);
-    return { error: "Failed to save avatar." };
+    return {
+      error:
+        process.env.NODE_ENV === "production"
+          ? "Failed to save avatar."
+          : `Failed to save avatar: ${updateError.message}`,
+    };
   }
 
   const revalidatePaths = await getProfileRevalidatePaths(user.id);
   revalidatePaths.forEach((path) => revalidatePath(path));
+  revalidatePath("/customer");
+  revalidatePath("/bidder");
 
   return { success: true, url: publicUrl };
 }
@@ -71,13 +86,25 @@ export async function removeAvatar() {
 
   if (!user) return { error: "Not authenticated" };
 
-  await supabase
+  const { error } = await supabase
     .from("profiles")
     .update({ avatar_url: null })
     .eq("user_id", user.id);
 
+  if (error) {
+    console.error("Avatar remove profile update error:", error);
+    return {
+      error:
+        process.env.NODE_ENV === "production"
+          ? "Failed to remove avatar."
+          : `Failed to remove avatar: ${error.message}`,
+    };
+  }
+
   const revalidatePaths = await getProfileRevalidatePaths(user.id);
   revalidatePaths.forEach((path) => revalidatePath(path));
+  revalidatePath("/customer");
+  revalidatePath("/bidder");
 
   return { success: true };
 }

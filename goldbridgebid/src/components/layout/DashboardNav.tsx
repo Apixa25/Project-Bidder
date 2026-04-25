@@ -42,6 +42,7 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
   customer: [
     { href: "/customer", label: "Dashboard", icon: LayoutDashboard },
     { href: "/customer/projects", label: "My Projects", icon: FolderOpen },
+    { href: "/customer/bids", label: "My Bids", icon: ClipboardList },
     { href: "/customer/contractors", label: "Find Contractors", icon: Users },
     { href: "/customer/messages", label: "Messages", icon: MessageSquare },
     { href: "/customer/profile", label: "Profile", icon: User },

@@ -21,6 +21,7 @@ export async function updateProfile(formData: FormData) {
   const state = formData.get("state") as string;
   const zip = formData.get("zip") as string;
   const bio = formData.get("bio") as string;
+  const editorRole = formData.get("editorRole") as string;
   const businessName = formData.get("businessName") as string;
   const yearsInBusinessRaw = formData.get("yearsInBusiness") as string;
   const serviceRadiusRaw = formData.get("serviceRadiusMiles") as string;
@@ -47,6 +48,8 @@ export async function updateProfile(formData: FormData) {
     return { error: "One or more selected specialties are invalid." };
   }
 
+  const isEditingBidderProfile = editorRole === "bidder";
+
   const updateData: Record<string, string | number | boolean | null> = {
     full_name: fullName,
     phone,
@@ -57,21 +60,31 @@ export async function updateProfile(formData: FormData) {
     bio: bio || null,
   };
 
-  if (businessName !== undefined && businessName !== null) {
+  if (isEditingBidderProfile && businessName !== undefined && businessName !== null) {
     updateData.business_name = businessName || null;
   }
 
-  if (yearsInBusinessRaw !== null && yearsInBusinessRaw !== undefined) {
+  if (
+    isEditingBidderProfile &&
+    yearsInBusinessRaw !== null &&
+    yearsInBusinessRaw !== undefined
+  ) {
     const parsed = parseInt(yearsInBusinessRaw, 10);
     updateData.years_in_business = isNaN(parsed) ? null : Math.max(0, Math.min(100, parsed));
   }
 
-  if (serviceRadiusRaw !== null && serviceRadiusRaw !== undefined) {
+  if (
+    isEditingBidderProfile &&
+    serviceRadiusRaw !== null &&
+    serviceRadiusRaw !== undefined
+  ) {
     const parsed = parseInt(serviceRadiusRaw, 10);
     updateData.service_radius_miles = isNaN(parsed) ? 50 : Math.max(0, Math.min(500, parsed));
   }
 
-  updateData.available_for_work = availableForWork;
+  if (isEditingBidderProfile) {
+    updateData.available_for_work = availableForWork;
+  }
 
   const { error } = await supabase
     .from("profiles")
@@ -80,12 +93,17 @@ export async function updateProfile(formData: FormData) {
 
   if (error) {
     console.error("Profile update error:", error);
-    return { error: "Failed to update profile." };
+    return {
+      error:
+        process.env.NODE_ENV === "production"
+          ? "Failed to update profile."
+          : `Failed to update profile: ${error.message}`,
+    };
   }
 
   const currentRoles = await getUserRoles(user.id);
 
-  if (currentRoles.includes("bidder")) {
+  if (isEditingBidderProfile && currentRoles.includes("bidder")) {
     const { error: deleteSpecialtiesError } = await supabase
       .from("bidder_specialties")
       .delete()
@@ -114,7 +132,7 @@ export async function updateProfile(formData: FormData) {
     }
   }
 
-  if (currentRoles.includes("bidder")) {
+  if (isEditingBidderProfile && currentRoles.includes("bidder")) {
     await supabase
       .from("bidder_service_areas")
       .delete()
