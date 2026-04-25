@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { hideReview, publishReview, deleteReview } from "@/app/(dashboard)/admin/actions";
+import { deleteReviewResponse } from "@/app/(dashboard)/profile/reputation-actions";
 
 interface ReviewItem {
   id: string;
@@ -18,6 +19,11 @@ interface ReviewItem {
   revieweeName: string;
   revieweeUserId: string;
   reportCount: number;
+  response: {
+    body: string;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
 }
 
 export default function ReviewModerationList({ reviews }: { reviews: ReviewItem[] }) {
@@ -102,6 +108,43 @@ export default function ReviewModerationList({ reviews }: { reviews: ReviewItem[
                 )}
                 {review.relationship_context && <span>{review.relationship_context}</span>}
               </div>
+
+              {review.response && (
+                <div className="mt-3 rounded-lg border border-secondary/30 bg-teal-50/60 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-secondary">
+                      Reviewee response
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
+                      <span>
+                        Posted {new Date(review.response.createdAt).toLocaleString()}
+                      </span>
+                      {review.response.updatedAt !== review.response.createdAt && (
+                        <span>
+                          • Edited {new Date(review.response.updatedAt).toLocaleString()}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const confirmed = window.confirm(
+                            "Delete this reviewee response? This cannot be undone."
+                          );
+                          if (!confirmed) return;
+                          await deleteReviewResponse(review.id);
+                          window.location.reload();
+                        }}
+                        className="font-semibold text-red-600 hover:underline"
+                      >
+                        Delete response
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
+                    {review.response.body}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2 lg:w-44 lg:flex-col">

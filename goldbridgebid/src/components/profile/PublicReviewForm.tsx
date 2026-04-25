@@ -29,7 +29,7 @@ export default function PublicReviewForm({
       return;
     }
 
-    setSuccess("Public reference posted.");
+    setSuccess("Review posted. Thank you for sharing!");
     setSaving(false);
   }
 
@@ -91,15 +91,14 @@ export default function PublicReviewForm({
 
       <div>
         <label className="mb-1.5 block text-sm font-semibold text-text-primary">
-          Public reference
+          Your story{" "}
+          <span className="font-normal text-text-muted">(optional)</span>
         </label>
         <textarea
           name="reviewBody"
-          required
-          minLength={20}
           rows={4}
           disabled={disabled || saving}
-          placeholder="Share how you know this person and what stood out about working with them."
+          placeholder="Share how you know this person and what stood out about working with them. (Stars-only is fine too — leave blank if you'd rather not write one.)"
           className="block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
         />
       </div>
@@ -127,7 +126,7 @@ export default function PublicReviewForm({
         disabled={disabled || saving}
         className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {saving ? "Posting..." : "Post Public Reference"}
+        {saving ? "Posting..." : "Post Review"}
       </button>
     </form>
   );

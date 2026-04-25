@@ -7,6 +7,7 @@ import type { BadgeLevel, TradeCategory } from "@/types/database";
 
 interface ComparisonBid {
   id: string;
+  bidder_user_id: string;
   bidder_name: string;
   business_name: string | null;
   badge_level: BadgeLevel;
@@ -16,6 +17,8 @@ interface ComparisonBid {
   estimated_start_date: string;
   notes: string | null;
   created_at: string;
+  review_avg: number | null;
+  review_count: number;
 }
 
 interface BidComparisonToggleProps {

@@ -2,6 +2,62 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { sendNewReviewEmail } from "@/lib/email";
+
+// Best-effort: drop a notification on the reviewee + fire an email letting
+// them know they've received a review. Failures here are logged but never
+// block the underlying review insert (the review is the source of truth;
+// the notification is just a delivery channel).
+async function notifyRevieweeOfNewReview(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  params: {
+    revieweeUserId: string;
+    reviewerUserId: string;
+    ratingOverall: number;
+    reviewType: "verified_platform" | "public_reference";
+  }
+) {
+  try {
+    const reviewLabel =
+      params.reviewType === "verified_platform"
+        ? "verified project review"
+        : "community review";
+
+    const { data: reviewerProfile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("user_id", params.reviewerUserId)
+      .maybeSingle();
+
+    const reviewerName = reviewerProfile?.full_name || "A community member";
+
+    await supabase.from("notifications").insert({
+      user_id: params.revieweeUserId,
+      type: "new_review",
+      title: `New ${params.ratingOverall}-star review`,
+      message: `${reviewerName} just left a ${reviewLabel} on your profile.`,
+      link: `/profile/${params.revieweeUserId}`,
+    });
+
+    const { data: revieweeProfile } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("user_id", params.revieweeUserId)
+      .maybeSingle();
+
+    if (revieweeProfile?.email) {
+      await sendNewReviewEmail(
+        revieweeProfile.email,
+        reviewerName,
+        params.ratingOverall,
+        params.reviewType,
+        params.revieweeUserId
+      );
+    }
+  } catch (notifyError) {
+    console.error("notifyRevieweeOfNewReview failed:", notifyError);
+  }
+}
 
 function normalizeRating(value: FormDataEntryValue | null) {
   const parsed = Number(value);
@@ -107,10 +163,8 @@ export async function createPublicReview(formData: FormData) {
     return { error: "Please choose an overall rating from 1 to 5." };
   }
 
-  if (reviewBody.length < 20) {
-    return { error: "Please write at least 20 characters for the review." };
-  }
-
+  // Body is optional — stars-only reviews are explicitly supported. The DB
+  // column is NOT NULL so we still store an empty string rather than null.
   const { data: review, error } = await supabase
     .from("user_reviews")
     .insert({
@@ -136,6 +190,12 @@ export async function createPublicReview(formData: FormData) {
 
   if (review) {
     await uploadReviewPhotos(supabase, review.id, formData);
+    await notifyRevieweeOfNewReview(supabase, {
+      revieweeUserId,
+      reviewerUserId: user.id,
+      ratingOverall,
+      reviewType: "public_reference",
+    });
   }
 
   revalidatePath(`/profile/${revieweeUserId}`);
@@ -172,9 +232,8 @@ export async function createVerifiedReview(formData: FormData) {
     return { error: "Please complete all verified review ratings." };
   }
 
-  if (reviewBody.length < 20) {
-    return { error: "Please write at least 20 characters for the review." };
-  }
+  // Body is optional on verified reviews too. Star ratings carry the signal
+  // even when the reviewer doesn't have time to write a paragraph.
 
   const { data: project } = await supabase
     .from("projects")
@@ -231,9 +290,143 @@ export async function createVerifiedReview(formData: FormData) {
 
   if (review) {
     await uploadReviewPhotos(supabase, review.id, formData);
+    await notifyRevieweeOfNewReview(supabase, {
+      revieweeUserId,
+      reviewerUserId: user.id,
+      ratingOverall,
+      reviewType: "verified_platform",
+    });
   }
 
   revalidatePath(`/profile/${revieweeUserId}`);
+  return { success: true };
+}
+
+// Insert OR update the reviewee's response on a review. Only the user being
+// reviewed (i.e. user_reviews.reviewee_user_id === auth.uid()) can call this
+// successfully — RLS enforces that, but we also do a defensive check first
+// for a clearer error message. Body is required and trimmed.
+export async function respondToReview(reviewId: string, body: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "You must be logged in to respond to a review." };
+  }
+
+  const trimmedBody = body.trim();
+  if (trimmedBody.length === 0) {
+    return { error: "Please write something before posting your response." };
+  }
+
+  const { data: review } = await supabase
+    .from("user_reviews")
+    .select("id, reviewer_user_id, reviewee_user_id")
+    .eq("id", reviewId)
+    .maybeSingle();
+
+  if (!review) {
+    return { error: "Review not found." };
+  }
+
+  if (review.reviewee_user_id !== user.id) {
+    return {
+      error: "Only the user who was reviewed can respond to this review.",
+    };
+  }
+
+  // Upsert pattern: try insert first; if there's already a response (UNIQUE
+  // on review_id), fall back to update. This way the same action handles
+  // both first-time response and subsequent edits.
+  const { error: insertError } = await supabase
+    .from("review_responses")
+    .insert({
+      review_id: reviewId,
+      responder_user_id: user.id,
+      body: trimmedBody,
+    });
+
+  if (insertError && insertError.code === "23505") {
+    const { error: updateError } = await supabase
+      .from("review_responses")
+      .update({ body: trimmedBody })
+      .eq("review_id", reviewId)
+      .eq("responder_user_id", user.id);
+
+    if (updateError) {
+      console.error("Update review response error:", updateError);
+      return { error: "Unable to update your response right now." };
+    }
+  } else if (insertError) {
+    console.error("Insert review response error:", insertError);
+    return { error: "Unable to save your response right now." };
+  } else {
+    // Only fire the notification on the FIRST response (insert succeeded).
+    // Editing your own response is silent — we don't want to spam the
+    // reviewer every time the reviewee tweaks a typo.
+    try {
+      const { data: responderProfile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const responderName =
+        responderProfile?.full_name || "The reviewed user";
+
+      await supabase.from("notifications").insert({
+        user_id: review.reviewer_user_id,
+        type: "review_responded",
+        title: "Your review received a response",
+        message: `${responderName} responded to a review you wrote.`,
+        link: `/profile/${review.reviewee_user_id}`,
+      });
+    } catch (notifyError) {
+      console.error(
+        "respondToReview notification insert failed:",
+        notifyError
+      );
+    }
+  }
+
+  revalidatePath(`/profile/${review.reviewee_user_id}`);
+  return { success: true };
+}
+
+export async function deleteReviewResponse(reviewId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "You must be logged in." };
+  }
+
+  const { data: review } = await supabase
+    .from("user_reviews")
+    .select("id, reviewee_user_id")
+    .eq("id", reviewId)
+    .maybeSingle();
+
+  if (!review) {
+    return { error: "Review not found." };
+  }
+
+  const { error } = await supabase
+    .from("review_responses")
+    .delete()
+    .eq("review_id", reviewId)
+    .eq("responder_user_id", user.id);
+
+  if (error) {
+    console.error("Delete review response error:", error);
+    return { error: "Unable to delete your response right now." };
+  }
+
+  revalidatePath(`/profile/${review.reviewee_user_id}`);
   return { success: true };
 }
 

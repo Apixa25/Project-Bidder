@@ -58,7 +58,7 @@ export default async function MyBidsPage() {
     projectIds.length
       ? supabase
           .from("projects")
-          .select("id, title, status, location_city, location_state, trades, awarded_bid_id")
+          .select("id, title, status, location_city, location_state, trades, awarded_bid_id, customer_id")
           .in("id", projectIds)
       : Promise.resolve({ data: [] }),
     bidIds.length
@@ -74,6 +74,24 @@ export default async function MyBidsPage() {
   );
   const projectMap = new Map(
     (projectRows || []).map((project) => [project.id, project])
+  );
+
+  // Find every project where this bidder has already left a verified review
+  // so we can suppress the "Leave a Review" nudge on bids tied to those
+  // projects. We query in a single round-trip for all the bidder's projects.
+  const { data: existingVerifiedReviewRows } = projectIds.length
+    ? await supabase
+        .from("user_reviews")
+        .select("project_id")
+        .eq("reviewer_user_id", user.id)
+        .eq("review_type", "verified_platform")
+        .in("project_id", projectIds)
+    : { data: [] };
+
+  const reviewedProjectIds = new Set(
+    (existingVerifiedReviewRows || [])
+      .map((row) => row.project_id)
+      .filter((id): id is string => Boolean(id))
   );
   const bidFilesMap = new Map<string, {
     id: string;
@@ -139,6 +157,7 @@ export default async function MyBidsPage() {
                   location_state: string;
                   trades: TradeCategory[];
                   awarded_bid_id: string | null;
+                  customer_id: string;
                 }
               | undefined;
             const bidFiles = bidFilesMap.get(bid.id) || [];
@@ -155,7 +174,20 @@ export default async function MyBidsPage() {
               location_state: string;
               trades: TradeCategory[];
               awarded_bid_id: string | null;
+              customer_id: string;
             };
+
+            // Bidder is eligible to leave a verified review when the project
+            // was awarded to THIS bid (i.e. the bidder won) and they haven't
+            // already submitted a verified review for this project.
+            const isAwardedToMe =
+              projectDetails.awarded_bid_id === bid.id &&
+              (projectDetails.status === "awarded" ||
+                projectDetails.status === "completed");
+            const showLeaveReviewCta =
+              isAwardedToMe && !reviewedProjectIds.has(project.id);
+            const alreadyReviewedAwarded =
+              isAwardedToMe && reviewedProjectIds.has(project.id);
 
             return (
               <div
@@ -295,6 +327,38 @@ export default async function MyBidsPage() {
                       </p>
                     </div>
                   </div>
+                )}
+
+                {/* "Leave a Review" prompt — only on bids that were awarded
+                    to this bidder and where the bidder hasn't yet posted a
+                    verified review for the customer on this project. The CTA
+                    drops them onto the customer's public profile, where the
+                    existing VerifiedReviewForm in the sidebar handles the
+                    actual submission. */}
+                {showLeaveReviewCta && (
+                  <div className="mt-3 flex flex-col gap-3 rounded-lg border border-secondary/30 bg-teal-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-text-primary">
+                        How was working with this customer? ⭐
+                      </p>
+                      <p className="mt-0.5 text-xs text-text-secondary">
+                        Leave a quick verified review — it helps fellow
+                        contractors vet customers in the future.
+                      </p>
+                    </div>
+                    <Link
+                      href={`/profile/${projectDetails.customer_id}`}
+                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-secondary-dark"
+                    >
+                      Leave a Review
+                    </Link>
+                  </div>
+                )}
+
+                {alreadyReviewedAwarded && (
+                  <p className="mt-3 text-xs text-text-muted">
+                    You&apos;ve already left a verified review for this customer on this project. 🙌
+                  </p>
                 )}
 
                 {/* Bid Files */}

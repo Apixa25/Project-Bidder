@@ -172,10 +172,25 @@ export default async function PublicProfilePage({
     reviewPhotoMap.set(photo.review_id, existing);
   }
 
+  // Fetch responses (one per review) for the visible review window so we can
+  // render the reviewee's reply inline beneath each review.
+  const visibleReviewIds = (reviews || []).slice(0, 10).map((r) => r.id);
+  const { data: reviewResponses } = visibleReviewIds.length
+    ? await supabase
+        .from("review_responses")
+        .select("review_id, body, created_at, updated_at")
+        .in("review_id", visibleReviewIds)
+    : { data: [] };
+
+  const reviewResponseMap = new Map(
+    (reviewResponses || []).map((response) => [response.review_id, response])
+  );
+
   const reviewItems = (reviews || []).slice(0, 10).map((review) => ({
     ...review,
     reviewer: reviewerMap.get(review.reviewer_user_id) || null,
     photos: reviewPhotoMap.get(review.id) || [],
+    response: reviewResponseMap.get(review.id) || null,
   }));
 
   const { data: existingPublicReview } = isOwnProfile
@@ -379,6 +394,7 @@ export default async function PublicProfilePage({
             <ProfileReviewsList
               reviews={reviewItems}
               canReport={!isOwnProfile}
+              viewerCanRespondAsReviewee={isOwnProfile}
             />
           </div>
         </div>
@@ -402,14 +418,16 @@ export default async function PublicProfilePage({
 
               <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
                 <h3 className="mb-3 text-sm font-semibold text-text-primary">
-                  Public Reference
+                  Share Your Experience
                 </h3>
                 <p className="mb-4 text-xs text-text-muted">
-                  Share past real-world experience with this user. Public references are labeled separately from verified platform reviews.
+                  Have you worked with this person before — on or off
+                  projectxbidx? Leave a quick rating (and an optional story) so
+                  others can learn from your experience. Stars-only is fine.
                 </p>
                 {existingPublicReview ? (
                   <p className="text-sm text-text-secondary">
-                    You already posted a public reference for this user.
+                    You&apos;ve already posted a community review for this user.
                   </p>
                 ) : (
                   <PublicReviewForm revieweeUserId={userId} />

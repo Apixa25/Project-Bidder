@@ -41,6 +41,17 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
         .in("content_id", reviewIds)
     : { data: [] };
 
+  const { data: reviewResponses } = reviewIds.length
+    ? await supabase
+        .from("review_responses")
+        .select("review_id, body, responder_user_id, created_at, updated_at")
+        .in("review_id", reviewIds)
+    : { data: [] };
+
+  const responseMap = new Map(
+    (reviewResponses || []).map((response) => [response.review_id, response])
+  );
+
   const profileIds = Array.from(
     new Set(
       (allReviews || []).flatMap((review) => [
@@ -92,14 +103,24 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
     return true;
   });
 
-  const reviewItems = filteredReviews.map((review) => ({
-    ...review,
-    reviewerName: profileMap.get(review.reviewer_user_id) || "Unknown user",
-    revieweeName: profileMap.get(review.reviewee_user_id) || "Unknown user",
-    reviewerUserId: review.reviewer_user_id,
-    revieweeUserId: review.reviewee_user_id,
-    reportCount: flagCountMap.get(review.id) || 0,
-  }));
+  const reviewItems = filteredReviews.map((review) => {
+    const response = responseMap.get(review.id);
+    return {
+      ...review,
+      reviewerName: profileMap.get(review.reviewer_user_id) || "Unknown user",
+      revieweeName: profileMap.get(review.reviewee_user_id) || "Unknown user",
+      reviewerUserId: review.reviewer_user_id,
+      revieweeUserId: review.reviewee_user_id,
+      reportCount: flagCountMap.get(review.id) || 0,
+      response: response
+        ? {
+            body: response.body,
+            createdAt: response.created_at,
+            updatedAt: response.updated_at,
+          }
+        : null,
+    };
+  });
 
   const totalItems = reviewItems.length;
   const page = Math.max(1, Number(params.page || "1"));

@@ -212,6 +212,37 @@ export async function sendProjectDeletedEmail(
   );
 }
 
+// Sent to the reviewee whenever a new community or verified review lands
+// on their profile. Keeps the loop tight so people see (and respond to) the
+// social proof being built up about them.
+export async function sendNewReviewEmail(
+  recipientEmail: string,
+  reviewerName: string,
+  ratingOverall: number,
+  reviewType: "verified_platform" | "public_reference",
+  recipientUserId: string
+) {
+  const reviewLabel =
+    reviewType === "verified_platform"
+      ? "verified project review"
+      : "community review";
+
+  await sendEmail(
+    recipientEmail,
+    `New ${ratingOverall}-star ${reviewLabel} on your profile`,
+    `
+    <h2 style="margin:0 0 12px;font-size:20px;color:#1C1917;">You just received a review ⭐</h2>
+    <p style="margin:0 0 8px;color:#44403C;font-size:15px;line-height:1.6;">
+      <strong>${reviewerName}</strong> left a ${ratingOverall}-star ${reviewLabel} on your projectxbidx profile.
+    </p>
+    <p style="margin:0 0 4px;color:#44403C;font-size:15px;line-height:1.6;">
+      Reviews build trust with future customers and bidders. Open your profile to read it — and post a quick response if you'd like.
+    </p>
+    ${ctaButton("View Your Profile", `${BASE_URL}/profile/${recipientUserId}`)}
+    `
+  );
+}
+
 export async function sendPaidEstimateDisputeEmail(
   bidderEmail: string,
   projectTitle: string

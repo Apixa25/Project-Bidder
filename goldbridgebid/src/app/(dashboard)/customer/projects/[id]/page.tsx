@@ -176,6 +176,36 @@ export default async function ProjectDetailPage({
         .order("display_order", { ascending: true })
     : { data: [] };
 
+  // Pull every published review for every bidder we're comparing so we can
+  // surface their reputation inline in the bid comparison table. We aggregate
+  // in JS rather than via a Postgres aggregate function to avoid needing a new
+  // RPC — the row volume is small (max ~10 bidders × their lifetime reviews).
+  const { data: bidderReviewRows } = bidderIds.length > 0
+    ? await supabase
+        .from("user_reviews")
+        .select("reviewee_user_id, rating_overall")
+        .in("reviewee_user_id", bidderIds)
+        .eq("status", "published")
+    : { data: [] };
+
+  const reviewStatsMap = new Map<
+    string,
+    { avg: number; count: number }
+  >();
+  for (const row of bidderReviewRows || []) {
+    const current = reviewStatsMap.get(row.reviewee_user_id) || {
+      avg: 0,
+      count: 0,
+    };
+    const newCount = current.count + 1;
+    const newAvg =
+      (current.avg * current.count + row.rating_overall) / newCount;
+    reviewStatsMap.set(row.reviewee_user_id, {
+      avg: newAvg,
+      count: newCount,
+    });
+  }
+
   // Fetch edit history
   const { data: projectEdits } = await supabase
     .from("project_edits")
@@ -244,6 +274,25 @@ export default async function ProjectDetailPage({
   const awardedProfile = project.awarded_bidder_id
     ? profileMap.get(project.awarded_bidder_id)
     : null;
+
+  // For the "Leave a Review" nudge on awarded/completed projects: check if
+  // the customer has already left a verified review for the awarded bidder
+  // on THIS project. If they have, we suppress the CTA; if they haven't, we
+  // show it prominently inside the Winning Bid Selected card.
+  const customerVerifiedReviewedThisProject = project.awarded_bidder_id
+    ? Boolean(
+        (
+          await supabase
+            .from("user_reviews")
+            .select("id")
+            .eq("reviewer_user_id", user.id)
+            .eq("reviewee_user_id", project.awarded_bidder_id)
+            .eq("project_id", project.id)
+            .eq("review_type", "verified_platform")
+            .maybeSingle()
+        ).data
+      )
+    : false;
   let paidPool = (paidEstimatePool || null) as ProjectPaidEstimatePool | null;
 
   if (
@@ -287,8 +336,10 @@ export default async function ProjectDetailPage({
   const comparisonBids = (bids || []).map((bid) => {
     const p = profileMap.get(bid.bidder_id);
     const c = credentialMap.get(bid.bidder_id);
+    const reviewStats = reviewStatsMap.get(bid.bidder_id) || null;
     return {
       id: bid.id,
+      bidder_user_id: bid.bidder_id as string,
       bidder_name: p?.full_name || "Unknown",
       business_name: p?.business_name || null,
       badge_level: (c?.badge_level as BadgeLevel) || null,
@@ -298,6 +349,8 @@ export default async function ProjectDetailPage({
       estimated_start_date: bid.estimated_start_date,
       notes: bid.notes,
       created_at: bid.created_at,
+      review_avg: reviewStats ? reviewStats.avg : null,
+      review_count: reviewStats ? reviewStats.count : 0,
     };
   });
 
@@ -502,10 +555,12 @@ export default async function ProjectDetailPage({
             <ProjectPhotos files={projectFiles} />
           )}
 
-          {project.status === "awarded" && (
+          {(project.status === "awarded" || project.status === "completed") && (
             <section className="rounded-xl border border-secondary/30 bg-teal-50 p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-text-primary">
-                Winning Bid Selected
+                {project.status === "completed"
+                  ? "Project Completed"
+                  : "Winning Bid Selected"}
               </h2>
               <p className="mt-2 text-sm text-text-secondary">
                 {awardedProfile
@@ -515,6 +570,37 @@ export default async function ProjectDetailPage({
               {project.awarded_at && (
                 <p className="mt-1 text-xs text-text-muted">
                   Awarded on {new Date(project.awarded_at).toLocaleString()}
+                </p>
+              )}
+
+              {/* "Leave a verified review" nudge — only render if we have an
+                  awarded bidder and the customer hasn't already reviewed them
+                  for this specific project. The link drops the customer onto
+                  the contractor's public profile, where the existing
+                  VerifiedReviewForm in the sidebar is preselected for this
+                  project. */}
+              {project.awarded_bidder_id && !customerVerifiedReviewedThisProject && (
+                <div className="mt-4 rounded-lg border border-secondary/40 bg-white/70 p-4">
+                  <p className="text-sm font-semibold text-text-primary">
+                    How was working with {awardedProfile?.full_name || "this contractor"}? ⭐
+                  </p>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    Leaving a quick verified review helps future customers pick
+                    great contractors with confidence — and helps this
+                    contractor build their reputation.
+                  </p>
+                  <Link
+                    href={`/profile/${project.awarded_bidder_id}`}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-secondary-dark"
+                  >
+                    Leave a Review
+                  </Link>
+                </div>
+              )}
+
+              {project.awarded_bidder_id && customerVerifiedReviewedThisProject && (
+                <p className="mt-4 text-xs text-text-muted">
+                  You&apos;ve already left a verified review for this project. Thanks for sharing your experience! 🙌
                 </p>
               )}
             </section>

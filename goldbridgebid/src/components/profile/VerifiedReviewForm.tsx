@@ -129,15 +129,14 @@ export default function VerifiedReviewForm({
 
       <div>
         <label className="mb-1.5 block text-sm font-semibold text-text-primary">
-          Verified review
+          Your story{" "}
+          <span className="font-normal text-text-muted">(optional)</span>
         </label>
         <textarea
           name="reviewBody"
-          required
-          minLength={20}
           rows={4}
           disabled={saving}
-          placeholder="Share what the work experience was like on this awarded project."
+          placeholder="Share what the work experience was like on this awarded project. (Stars-only is fine too — leave blank if you'd rather not write one.)"
           className="block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
         />
       </div>

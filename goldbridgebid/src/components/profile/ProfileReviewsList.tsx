@@ -1,11 +1,18 @@
 import Image from "next/image";
 import ReportReviewButton from "@/components/profile/ReportReviewButton";
+import ReviewResponseForm from "@/components/profile/ReviewResponseForm";
 
 type ReviewPhoto = {
   review_id: string;
   file_url: string;
   file_name: string;
   display_order: number;
+};
+
+type ReviewResponse = {
+  body: string;
+  created_at: string;
+  updated_at: string;
 };
 
 type ReviewListItem = {
@@ -22,16 +29,22 @@ type ReviewListItem = {
     role: string;
   } | null;
   photos?: ReviewPhoto[];
+  response?: ReviewResponse | null;
 };
 
 interface ProfileReviewsListProps {
   reviews: ReviewListItem[];
   canReport?: boolean;
+  // True when the viewer IS the user being reviewed on this profile. We only
+  // render the response form when this is true. The response form itself
+  // double-checks via RLS; this flag just keeps the UI honest.
+  viewerCanRespondAsReviewee?: boolean;
 }
 
 export default function ProfileReviewsList({
   reviews,
   canReport = false,
+  viewerCanRespondAsReviewee = false,
 }: ProfileReviewsListProps) {
   if (reviews.length === 0) {
     return (
@@ -61,7 +74,7 @@ export default function ProfileReviewsList({
             >
               {review.review_type === "verified_platform"
                 ? "Verified Project Review"
-                : "Public Reference"}
+                : "Community Review"}
             </span>
             <span className="text-sm font-semibold text-text-primary">
               {review.rating_overall}/5
@@ -78,9 +91,11 @@ export default function ProfileReviewsList({
             </h3>
           )}
 
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
-            {review.review_body}
-          </p>
+          {review.review_body.trim() && (
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
+              {review.review_body}
+            </p>
+          )}
 
           {review.photos && review.photos.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -114,6 +129,27 @@ export default function ProfileReviewsList({
               <span>{review.would_work_again ? "Would work again" : "Would not work again"}</span>
             )}
           </div>
+
+          {/* Public read-only response visible to everyone when present and
+              the viewer is not the reviewee (the reviewee gets the editable
+              form below instead). */}
+          {review.response && !viewerCanRespondAsReviewee && (
+            <div className="mt-3 rounded-lg border border-secondary/30 bg-teal-50/60 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-secondary">
+                Response from this user
+              </p>
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
+                {review.response.body}
+              </p>
+            </div>
+          )}
+
+          {viewerCanRespondAsReviewee && (
+            <ReviewResponseForm
+              reviewId={review.id}
+              existingResponse={review.response?.body || null}
+            />
+          )}
         </article>
       ))}
     </div>
