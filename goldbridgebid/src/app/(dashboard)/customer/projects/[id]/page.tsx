@@ -313,10 +313,15 @@ export default async function ProjectDetailPage({
           Back to My Projects
         </Link>
 
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-text-primary">
+        {/* Title + actions row.
+            On phones we stack the actions UNDER the title — otherwise the title
+            (often a long sentence) gets squeezed into a single-word-per-line
+            column while the action buttons hog the right half and one of them
+            (Delete) clips off the viewport edge. See mobile audit, batch 3. */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <h1 className="text-2xl font-bold text-text-primary break-words">
                 {project.title}
               </h1>
               <span
@@ -346,7 +351,7 @@ export default async function ProjectDetailPage({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:shrink-0">
             <PrintProjectButton
               projectId={project.id}
               label="Print Project"

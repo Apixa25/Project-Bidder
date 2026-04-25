@@ -261,10 +261,14 @@ export default async function BidderProjectDetailPage({
           Back to Browse Projects
         </Link>
 
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold text-text-primary">
+        {/* Title + actions row.
+            Same fix as the customer-side project detail page (mobile audit
+            batch 3) — on phones the title and the action buttons can't share
+            a row without collapsing the title into a one-word-per-line column. */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <h1 className="text-2xl font-bold text-text-primary break-words">
                 {project.title}
               </h1>
               {paidEstimateLive && (
@@ -280,7 +284,7 @@ export default async function BidderProjectDetailPage({
               received
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:shrink-0">
             <PrintProjectButton projectId={project.id} />
             <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
               Open for Bidding
