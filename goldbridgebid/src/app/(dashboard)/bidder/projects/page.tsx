@@ -18,8 +18,10 @@ import {
   Bookmark,
   RefreshCcw,
   Trash2,
+  X,
+  Sparkles,
 } from "lucide-react";
-import { TRADE_LABELS, EXPERTISE_LEVEL_LABELS } from "@/types/database";
+import { FORM_TRADES, TRADE_LABELS, EXPERTISE_LEVEL_LABELS } from "@/types/database";
 import type { ExpertiseLevel } from "@/types/database";
 import { stripHtml } from "@/components/ui/RichTextRenderer";
 import type {
@@ -33,6 +35,8 @@ import {
   deleteBidderProjectSearch,
   checkBidderProjectAlerts,
 } from "./actions";
+import AdminSearchBar from "@/components/admin/AdminSearchBar";
+import AdminFilterBar, { FilterDropdown } from "@/components/admin/AdminFilters";
 import {
   CORE_CREDENTIAL_LABELS,
   getPaidEstimateEligibility,
@@ -52,7 +56,19 @@ import {
 } from "@/lib/project-media";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
 
-export default async function BrowseProjectsPage() {
+// Keys we honor in the URL for browse filters. Centralized so the saved-search
+// hidden field, the "clear filters" check, and any future quick chips can all
+// stay in sync without hunting through the JSX.
+const BROWSE_PARAM_KEYS = ["q", "trade", "state", "city"] as const;
+
+interface BrowseProjectsPageProps {
+  searchParams: Promise<{ [key: string]: string | undefined }>;
+}
+
+export default async function BrowseProjectsPage({
+  searchParams,
+}: BrowseProjectsPageProps) {
+  const params = await searchParams;
   const supabase = await createClient();
   const admin = createAdminClient();
 
@@ -82,6 +98,18 @@ export default async function BrowseProjectsPage() {
     .from("bidder_service_areas")
     .select("state, city")
     .eq("user_id", user.id);
+
+  // Bidder's own specialty list — used to populate the "My Specialties"
+  // quick-filter shortcut so they can see only projects matching trades they
+  // actually work in with one click.
+  const { data: bidderSpecialtyRows } = await supabase
+    .from("bidder_specialties")
+    .select("trade")
+    .eq("user_id", user.id);
+
+  const bidderSpecialties = (bidderSpecialtyRows || []).map(
+    (row) => row.trade as TradeCategory
+  );
 
   const { data: savedSearches } = await supabase
     .from("bidder_saved_project_searches")
@@ -197,7 +225,7 @@ export default async function BrowseProjectsPage() {
   }
 
   const hasServiceAreas = (bidderServiceAreas || []).length > 0;
-  const filteredProjects = hasServiceAreas
+  const serviceAreaFiltered = hasServiceAreas
     ? (projects || []).filter((project) => {
         return (bidderServiceAreas || []).some((area) => {
           const stateMatch =
@@ -212,6 +240,115 @@ export default async function BrowseProjectsPage() {
         });
       })
     : projects || [];
+
+  // ---- URL-driven filter state (trade / state / city / search query) ----
+  const searchTerm = (params.q || "").trim().toLowerCase();
+  const selectedTrade = (params.trade || "").trim();
+  const selectedState = (params.state || "").trim();
+  const selectedCity = (params.city || "").trim();
+
+  // Trade filter options: only show trades that at least one currently visible
+  // project is tagged with (after service-area filtering). Keeps the dropdown
+  // tight and avoids showing trades that would always return zero matches.
+  const tradesInResults = new Set<string>();
+  for (const project of serviceAreaFiltered) {
+    for (const trade of (project.trades || []) as string[]) {
+      tradesInResults.add(trade);
+    }
+  }
+  const tradeOptions = FORM_TRADES.filter((trade) =>
+    tradesInResults.has(trade)
+  ).map((trade) => ({ value: trade, label: TRADE_LABELS[trade] }));
+
+  // State/city options derived from the same in-results pool so dropdowns
+  // never show locations that wouldn't return matches.
+  const stateOptions = Array.from(
+    new Set(
+      serviceAreaFiltered
+        .map((project) => project.location_state?.trim().toUpperCase())
+        .filter(Boolean)
+    )
+  )
+    .sort()
+    .map((state) => ({ value: state as string, label: state as string }));
+
+  const cityOptions = Array.from(
+    new Set(
+      serviceAreaFiltered
+        .filter((project) =>
+          selectedState
+            ? project.location_state?.trim().toUpperCase() ===
+              selectedState.toUpperCase()
+            : true
+        )
+        .map((project) => project.location_city?.trim())
+        .filter(Boolean)
+    )
+  )
+    .sort((a, b) => (a as string).localeCompare(b as string))
+    .map((city) => ({
+      value: city as string,
+      label: city as string,
+    }));
+
+  const filteredProjects = serviceAreaFiltered.filter((project) => {
+    if (selectedTrade) {
+      const trades = (project.trades || []) as string[];
+      if (!trades.includes(selectedTrade)) return false;
+    }
+
+    if (
+      selectedState &&
+      project.location_state?.trim().toUpperCase() !==
+        selectedState.toUpperCase()
+    ) {
+      return false;
+    }
+
+    if (
+      selectedCity &&
+      project.location_city?.trim().toLowerCase() !==
+        selectedCity.toLowerCase()
+    ) {
+      return false;
+    }
+
+    if (!searchTerm) return true;
+
+    const tradeLabels = ((project.trades || []) as TradeCategory[]).map(
+      (trade) => TRADE_LABELS[trade]
+    );
+    const searchable = [
+      project.title,
+      stripHtml(project.description || ""),
+      project.location_city,
+      project.location_state,
+      ...tradeLabels,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return searchable.includes(searchTerm);
+  });
+
+  // Build the canonical query string for the active filters. Used by the
+  // "Save current search" form so saved searches replay exactly what the
+  // bidder is currently looking at — and the alerts logic in actions.ts
+  // already knows how to read these keys.
+  const activeQuery = new URLSearchParams();
+  for (const key of BROWSE_PARAM_KEYS) {
+    const value = params[key];
+    if (value && value.trim()) {
+      activeQuery.set(key, value.trim());
+    }
+  }
+  const activeQueryString = activeQuery.toString();
+  const hasActiveFilters = activeQueryString.length > 0;
+
+  // Quick "My Specialties" chip — only meaningful if the bidder has selected
+  // specialties AND the trade filter isn't already pinned to one of them.
+  const hasOwnSpecialties = bidderSpecialties.length > 0;
 
   return (
     <div>
@@ -232,6 +369,92 @@ export default async function BrowseProjectsPage() {
         )}
       </div>
 
+      {/* Filter by Trade (and friends): URL-driven so deep-links and saved
+          searches just work. The trade dropdown only includes trades that are
+          actually present in the open-project pool the bidder can see. */}
+      <div className="mb-6 rounded-xl border border-border bg-surface p-4 shadow-sm space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 text-base font-semibold text-text-primary">
+              <Search className="h-4 w-4" />
+              Filter Open Projects
+            </h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Narrow the list by trade, location, or keywords. Showing{" "}
+              {filteredProjects.length} of {serviceAreaFiltered.length} project
+              {serviceAreaFiltered.length === 1 ? "" : "s"}.
+            </p>
+          </div>
+          {hasActiveFilters && (
+            <Link
+              href="/bidder/projects"
+              className="inline-flex items-center gap-2 self-start rounded-full bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+            >
+              <X className="h-4 w-4" />
+              Clear all filters
+            </Link>
+          )}
+        </div>
+
+        <div className="max-w-xl">
+          <AdminSearchBar placeholder="Search project title, description, location, or trade..." />
+        </div>
+
+        {hasOwnSpecialties && (
+          <div className="flex flex-wrap gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-text-muted self-center mr-1">
+              My Specialties:
+            </span>
+            {bidderSpecialties.map((trade) => {
+              const isActive = selectedTrade === trade;
+              const next = new URLSearchParams(activeQueryString);
+              if (isActive) {
+                next.delete("trade");
+              } else {
+                next.set("trade", trade);
+              }
+              const queryString = next.toString();
+              const href = queryString
+                ? `/bidder/projects?${queryString}`
+                : "/bidder/projects";
+              return (
+                <Link
+                  key={trade}
+                  href={href}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    isActive
+                      ? "bg-secondary text-white hover:bg-secondary-dark"
+                      : "bg-secondary/10 text-secondary hover:bg-secondary/15"
+                  }`}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  {TRADE_LABELS[trade]}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
+        <AdminFilterBar>
+          <FilterDropdown
+            paramName="trade"
+            label="Trade"
+            options={tradeOptions}
+          />
+          <FilterDropdown
+            paramName="state"
+            label="State"
+            options={stateOptions}
+            resetParams={["city"]}
+          />
+          <FilterDropdown
+            paramName="city"
+            label="City"
+            options={cityOptions}
+          />
+        </AdminFilterBar>
+      </div>
+
       <div className="mb-6 rounded-xl border border-border bg-surface p-4 shadow-sm">
         <h2 className="flex items-center gap-2 text-base font-semibold text-text-primary">
           <Bookmark className="h-4 w-4" />
@@ -249,12 +472,16 @@ export default async function BrowseProjectsPage() {
             }}
             className="flex flex-wrap gap-2 items-end"
           >
-            <input type="hidden" name="queryString" value="" />
+            <input type="hidden" name="queryString" value={activeQueryString} />
             <input
               type="text"
               name="label"
               maxLength={80}
-              placeholder="Name this search (e.g. 'Electrical in CA')"
+              placeholder={
+                hasActiveFilters
+                  ? "Name this search (saves current filters)"
+                  : "Name this search (e.g. 'Electrical in CA')"
+              }
               className="w-56 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
             <label className="flex items-center gap-2 text-sm text-text-primary">
@@ -296,9 +523,16 @@ export default async function BrowseProjectsPage() {
                 className="flex items-center justify-between gap-3 rounded-lg border border-border bg-bg-warm px-3 py-2.5"
               >
                 <div className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-text-primary">
+                  <Link
+                    href={
+                      saved.query_string
+                        ? `/bidder/projects?${saved.query_string}`
+                        : "/bidder/projects"
+                    }
+                    className="block truncate text-sm font-semibold text-text-primary hover:text-primary"
+                  >
                     {saved.label}
-                  </span>
+                  </Link>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-text-muted">
                     <span>Saved {new Date(saved.created_at).toLocaleDateString()}</span>
                     {saved.notify_on_new_matches && (
@@ -587,10 +821,25 @@ export default async function BrowseProjectsPage() {
         <div className="rounded-xl border border-border bg-surface py-16 text-center shadow-sm">
           <Search className="mx-auto h-12 w-12 text-text-muted/40" />
           <p className="mt-4 text-lg font-medium text-text-secondary">
-            No open projects right now
+            {hasActiveFilters
+              ? "No projects match those filters"
+              : "No open projects right now"}
           </p>
           <p className="mt-1 text-sm text-text-muted">
-            Check back soon — new projects are posted regularly!
+            {hasActiveFilters ? (
+              <>
+                Try a broader trade or location, or{" "}
+                <Link
+                  href="/bidder/projects"
+                  className="font-medium text-primary hover:underline"
+                >
+                  clear all filters
+                </Link>
+                .
+              </>
+            ) : (
+              "Check back soon — new projects are posted regularly!"
+            )}
           </p>
         </div>
       )}

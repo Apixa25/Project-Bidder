@@ -9,8 +9,14 @@ import {
   ImageIcon,
   Video,
   FileText as FileIcon,
+  Search,
+  X,
 } from "lucide-react";
-import { TRADE_LABELS, EXPERTISE_LEVEL_LABELS } from "@/types/database";
+import {
+  FORM_TRADES,
+  TRADE_LABELS,
+  EXPERTISE_LEVEL_LABELS,
+} from "@/types/database";
 import type { ExpertiseLevel } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import { stripHtml } from "@/components/ui/RichTextRenderer";
@@ -23,8 +29,17 @@ import {
   isProjectVideo,
 } from "@/lib/project-media";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
+import AdminSearchBar from "@/components/admin/AdminSearchBar";
+import AdminFilterBar, { FilterDropdown } from "@/components/admin/AdminFilters";
 
-export default async function MyProjectsPage() {
+interface MyProjectsPageProps {
+  searchParams: Promise<{ [key: string]: string | undefined }>;
+}
+
+export default async function MyProjectsPage({
+  searchParams,
+}: MyProjectsPageProps) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -42,6 +57,58 @@ export default async function MyProjectsPage() {
     )
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false });
+
+  const allProjects = projects || [];
+
+  // ---- URL-driven filter state for "My Projects" ----
+  const searchTerm = (params.q || "").trim().toLowerCase();
+  const selectedTrade = (params.trade || "").trim();
+  const selectedStatus = (params.status || "").trim();
+
+  // Trade dropdown only includes trades the customer has actually used in
+  // their own projects — keeps the dropdown short and meaningful.
+  const tradesInProjects = new Set<string>();
+  for (const project of allProjects) {
+    for (const trade of (project.trades || []) as string[]) {
+      tradesInProjects.add(trade);
+    }
+  }
+  const tradeOptions = FORM_TRADES.filter((trade) =>
+    tradesInProjects.has(trade)
+  ).map((trade) => ({ value: trade, label: TRADE_LABELS[trade] }));
+
+  const filteredProjects = allProjects.filter((project) => {
+    if (selectedTrade) {
+      const trades = (project.trades || []) as string[];
+      if (!trades.includes(selectedTrade)) return false;
+    }
+
+    if (selectedStatus && project.status !== selectedStatus) {
+      return false;
+    }
+
+    if (!searchTerm) return true;
+
+    const tradeLabels = ((project.trades || []) as TradeCategory[]).map(
+      (trade) => TRADE_LABELS[trade]
+    );
+    const searchable = [
+      project.title,
+      stripHtml(project.description || ""),
+      project.location_city,
+      project.location_state,
+      ...tradeLabels,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return searchable.includes(searchTerm);
+  });
+
+  const hasActiveFilters = Boolean(
+    searchTerm || selectedTrade || selectedStatus
+  );
 
   return (
     <div>
@@ -63,9 +130,60 @@ export default async function MyProjectsPage() {
         </Link>
       </div>
 
-      {projects && projects.length > 0 ? (
+      {/* Filter by Trade + status — purely additive. Without filters, the page
+          looks identical to before; with filters, the URL drives the result
+          set so links can be shared and back/forward navigation just works. */}
+      {allProjects.length > 0 && (
+        <div className="mb-6 rounded-xl border border-border bg-surface p-4 shadow-sm space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 text-base font-semibold text-text-primary">
+                <Search className="h-4 w-4" />
+                Filter My Projects
+              </h2>
+              <p className="mt-1 text-sm text-text-muted">
+                Showing {filteredProjects.length} of {allProjects.length}{" "}
+                project{allProjects.length === 1 ? "" : "s"}.
+              </p>
+            </div>
+            {hasActiveFilters && (
+              <Link
+                href="/customer/projects"
+                className="inline-flex items-center gap-2 self-start rounded-full bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+              >
+                <X className="h-4 w-4" />
+                Clear all filters
+              </Link>
+            )}
+          </div>
+
+          <div className="max-w-xl">
+            <AdminSearchBar placeholder="Search title, description, location, or trade..." />
+          </div>
+
+          <AdminFilterBar>
+            <FilterDropdown
+              paramName="trade"
+              label="Trade"
+              options={tradeOptions}
+            />
+            <FilterDropdown
+              paramName="status"
+              label="Status"
+              options={[
+                { value: "open", label: "Open" },
+                { value: "awarded", label: "Awarded" },
+                { value: "completed", label: "Completed" },
+                { value: "closed", label: "Closed" },
+              ]}
+            />
+          </AdminFilterBar>
+        </div>
+      )}
+
+      {filteredProjects.length > 0 ? (
         <div className="space-y-4">
-          {projects.map((project) => {
+          {filteredProjects.map((project) => {
             const bidsShown = bidCountForDisplay(project);
             const previewFile = getProjectPreviewFile(project.project_files || []);
             const thumbUrl = getProjectPreviewUrl(previewFile);
@@ -213,6 +331,23 @@ export default async function MyProjectsPage() {
             </div>
             );
           })}
+        </div>
+      ) : allProjects.length > 0 ? (
+        <div className="rounded-xl border border-border bg-surface py-16 text-center shadow-sm">
+          <Search className="mx-auto h-12 w-12 text-text-muted/40" />
+          <p className="mt-4 text-lg font-medium text-text-secondary">
+            No projects match those filters
+          </p>
+          <p className="mt-1 text-sm text-text-muted">
+            Try a different trade or status, or{" "}
+            <Link
+              href="/customer/projects"
+              className="font-medium text-primary hover:underline"
+            >
+              clear all filters
+            </Link>
+            .
+          </p>
         </div>
       ) : (
         <div className="rounded-xl border border-border bg-surface py-16 text-center shadow-sm">
