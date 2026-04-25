@@ -9,6 +9,8 @@ import type {
 } from "@/types/database";
 import { userHasRole } from "@/lib/auth/roles";
 import AutoPrintTrigger from "../../AutoPrintTrigger";
+import Image from "next/image";
+import { getPrintLocationMapData } from "@/lib/maps/printLocationMap";
 
 /**
  * Print-friendly project summary.
@@ -131,6 +133,20 @@ export default async function PrintProjectSummaryPage({
 
   const printedAt = new Date().toLocaleString();
 
+  const addressParts = [
+    project.location_address,
+    project.location_city,
+    project.location_state,
+    project.location_zip,
+  ]
+    .map((p) => (typeof p === "string" ? p.trim() : ""))
+    .filter((p) => p.length > 0);
+  const fullAddressForMap = addressParts.join(", ");
+  const printMap =
+    fullAddressForMap.length > 0
+      ? await getPrintLocationMapData(fullAddressForMap)
+      : null;
+
   return (
     <>
       <AutoPrintTrigger />
@@ -173,30 +189,56 @@ export default async function PrintProjectSummaryPage({
               {project.location_city}, {project.location_state}{" "}
               {project.location_zip}
             </p>
-            {(() => {
-              const parts = [
-                project.location_address,
-                project.location_city,
-                project.location_state,
-                project.location_zip,
-              ]
-                .map((p) => (typeof p === "string" ? p.trim() : ""))
-                .filter((p) => p.length > 0);
-              if (parts.length === 0) return null;
-              const encoded = encodeURIComponent(parts.join(", "));
-              const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encoded}`;
-              return (
-                <p className="mt-1 break-all text-xs text-slate-500">
-                  Map / Directions:{" "}
-                  <a
-                    href={directionsUrl}
-                    className="text-slate-700 underline"
-                  >
-                    {directionsUrl}
-                  </a>
+            {printMap && (
+              <div className="mt-2 max-w-[200px]">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  Location map
                 </p>
-              );
-            })()}
+                <div className="relative mt-1 aspect-square w-full max-h-40 overflow-hidden rounded border border-slate-300 bg-slate-100">
+                  <Image
+                    src={printMap.tileUrl}
+                    width={256}
+                    height={256}
+                    unoptimized
+                    alt={`Map near ${fullAddressForMap}`}
+                    className="relative z-0 h-full w-full object-fill"
+                  />
+                  {/*
+                    CSS background (bg-red) often disappears in print when
+                    "Background graphics" is off. Inline SVG fill + print-color-adjust
+                    keeps the pin visible on paper. z-10 keeps it above next/image wrapper.
+                  */}
+                  <span
+                    className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
+                    style={{
+                      left: `${(printMap.markerX / 256) * 100}%`,
+                      top: `${(printMap.markerY / 256) * 100}%`,
+                      printColorAdjust: "exact",
+                      WebkitPrintColorAdjust: "exact",
+                    }}
+                    aria-hidden
+                  >
+                    <svg
+                      width={22}
+                      height={22}
+                      viewBox="0 0 16 16"
+                      className="block"
+                    >
+                      <path
+                        fill="#dc2626"
+                        stroke="#ffffff"
+                        strokeWidth="0.4"
+                        d="M8 16s6-5.7 6-10A6 6 0 0 0 2 6c0 4.3 6 10 6 10z"
+                      />
+                      <circle cx="8" cy="6" r="1.75" fill="#ffffff" />
+                    </svg>
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[8px] leading-tight text-slate-500">
+                  Map data © OpenStreetMap contributors
+                </p>
+              </div>
+            )}
           </div>
 
           <div>
