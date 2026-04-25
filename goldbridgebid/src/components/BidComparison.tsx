@@ -26,8 +26,17 @@ export default function BidComparison({ bids }: BidComparisonProps) {
   const sorted = [...bids].sort((a, b) => a.price - b.price);
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-sm">
-      <table className="w-full text-sm">
+    <div className="space-y-2">
+      {/* Mobile-only hint: with multiple bids the comparison table scrolls
+          horizontally (the first "Attribute" column is sticky). Without this
+          hint, mobile users sometimes don't realize there's more to the right. */}
+      {sorted.length > 1 && (
+        <p className="text-xs text-text-muted sm:hidden">
+          Swipe horizontally to compare all {sorted.length} bids →
+        </p>
+      )}
+      <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-sm">
+        <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-bg-warm">
             <th className="sticky left-0 z-10 bg-bg-warm px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-text-muted">
@@ -151,7 +160,8 @@ export default function BidComparison({ bids }: BidComparisonProps) {
             </tr>
           )}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   );
 }

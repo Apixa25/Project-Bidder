@@ -366,9 +366,9 @@ export default async function ProjectDetailPage({
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         {/* Main Content */}
-        <div className="col-span-2 space-y-6">
+        <div className="space-y-6 lg:col-span-2">
           <PaidEstimatePoolPanel
             projectId={project.id}
             projectStatus={project.status}
@@ -664,8 +664,8 @@ export default async function ProjectDetailPage({
                         </div>
                       </div>
 
-                      {/* Bid Details */}
-                      <div className="grid grid-cols-2 gap-4 mb-4">
+                      {/* Bid Details — stack on phones, side-by-side at sm+. */}
+                      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="rounded-lg bg-bg-warm px-4 py-3">
                           <p className="text-xs text-text-muted">Timeline</p>
                           <p className="text-sm font-medium text-text-primary">
@@ -727,8 +727,8 @@ export default async function ProjectDetailPage({
                         </div>
                       )}
 
-                      {/* Contact Info */}
-                      <div className="flex items-center gap-4 text-sm">
+                      {/* Contact Info — wrap on mobile so long emails don't push overflow. */}
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                         {profile?.email && (
                           <a
                             href={`mailto:${profile.email}`}

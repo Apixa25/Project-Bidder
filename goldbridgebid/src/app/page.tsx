@@ -98,16 +98,19 @@ const TRADES = [
 
 export default function Home() {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen overflow-x-clip">
       {/* Navigation */}
       <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur-sm">
-        <nav className="mx-auto flex w-full max-w-7xl items-center gap-3 px-4 py-2.5 sm:gap-4 sm:px-6 sm:py-3">
+        <nav className="mx-auto flex w-full max-w-7xl items-center gap-2 px-4 py-2.5 sm:gap-4 sm:px-6 sm:py-3">
           <BrandWordmark
             priority
             linkClassName="flex shrink-0 items-center"
-            className="h-11 w-auto max-w-[min(100%,min(92vw,380px))] object-contain object-left sm:h-12 md:h-[3.25rem]"
+            className="h-7 w-auto max-w-[min(100%,min(48vw,180px))] object-contain object-left sm:h-12 sm:max-w-[min(100%,min(92vw,380px))] md:h-[3.25rem]"
           />
-          <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center px-2">
+          {/* Decorative X logo — only render on md+ where there's room. On phones
+              it would otherwise eat all the available width and push the auth
+              buttons off-screen (see mobile audit). */}
+          <div className="hidden min-h-0 min-w-0 flex-1 items-center justify-center px-2 md:flex">
             <Image
               src="/logo-mark.png"
               alt="projectxbidx"
@@ -117,7 +120,10 @@ export default function Home() {
               priority
             />
           </div>
-          <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+          {/* On phones we still want the nav buttons to push to the right edge;
+              the spacer below replaces the (now hidden) center logo's flex-grow. */}
+          <div className="flex-1 md:hidden" aria-hidden />
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-4">
             <Link
               href="/how-it-works"
               className="hidden sm:inline-flex text-sm font-medium text-text-secondary transition-colors hover:text-text-primary"
@@ -126,13 +132,13 @@ export default function Home() {
             </Link>
             <Link
               href="/login"
-              className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-secondary-dark"
+              className="rounded-lg bg-secondary px-2.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-secondary-dark sm:px-4 sm:text-sm"
             >
               Log In
             </Link>
             <Link
               href="/signup"
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm hover:bg-primary-dark hover:text-white transition-colors"
+              className="rounded-lg bg-primary px-2.5 py-2 text-xs font-semibold text-slate-950 shadow-sm hover:bg-primary-dark hover:text-white transition-colors sm:px-4 sm:text-sm"
             >
               Get Started
             </Link>

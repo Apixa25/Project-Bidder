@@ -533,8 +533,11 @@ export default function NewProjectPage() {
               />
             </div>
 
-            <div className="grid grid-cols-6 gap-4">
-              <div className="col-span-3">
+            {/* On mobile each field stacks full-width so the State <select>
+                isn't crushed to ~35px. At sm+ we restore the original 6-column
+                layout (city=3, state=1, zip=2). */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-6">
+              <div className="sm:col-span-3">
                 <label
                   htmlFor="locationCity"
                   className="block text-sm font-medium text-text-primary"
@@ -550,7 +553,7 @@ export default function NewProjectPage() {
                   placeholder="Crescent City"
                 />
               </div>
-              <div className="col-span-1">
+              <div className="sm:col-span-1">
                 <label
                   htmlFor="locationState"
                   className="block text-sm font-medium text-text-primary"
@@ -571,7 +574,7 @@ export default function NewProjectPage() {
                   ))}
                 </select>
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label
                   htmlFor="locationZip"
                   className="block text-sm font-medium text-text-primary"
@@ -598,7 +601,8 @@ export default function NewProjectPage() {
           </h2>
 
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
+            {/* Stack inputs full-width on phones; restore 2-column layout at sm+. */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label
                   htmlFor="desiredStartDate"
@@ -659,7 +663,8 @@ export default function NewProjectPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Dollar inputs need breathing room; stack on phones. */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label
                   htmlFor="budgetMin"
