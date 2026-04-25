@@ -13,9 +13,11 @@ import {
 import { TRADE_LABELS } from "@/types/database";
 import type {
   BidderPayoutAccount,
+  BidLineItem,
   PaidEstimateClaim,
   TradeCategory,
 } from "@/types/database";
+import BidLineItemsTable from "@/components/bids/BidLineItemsTable";
 import { userHasRole } from "@/lib/auth/roles";
 import {
   BIDDER_PAYOUT_READINESS_LABELS,
@@ -43,7 +45,13 @@ export default async function MyBidsPage() {
   const bids = bidRows || [];
   const bidIds = bids.map((bid) => bid.id);
   const projectIds = Array.from(new Set(bids.map((bid) => bid.project_id)));
-  const [{ data: claimRows }, { data: payoutAccountRow }, { data: projectRows }, { data: bidFileRows }] = await Promise.all([
+  const [
+    { data: claimRows },
+    { data: payoutAccountRow },
+    { data: projectRows },
+    { data: bidFileRows },
+    { data: bidLineItemRows },
+  ] = await Promise.all([
     bidIds.length
       ? admin
           .from("paid_estimate_claims")
@@ -66,6 +74,13 @@ export default async function MyBidsPage() {
           .from("bid_files")
           .select("*")
           .in("bid_id", bidIds)
+      : Promise.resolve({ data: [] }),
+    bidIds.length
+      ? supabase
+          .from("bid_line_items")
+          .select("*")
+          .in("bid_id", bidIds)
+          .order("display_order", { ascending: true })
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -103,6 +118,12 @@ export default async function MyBidsPage() {
     const existing = bidFilesMap.get(file.bid_id) || [];
     existing.push(file);
     bidFilesMap.set(file.bid_id, existing);
+  }
+  const bidLineItemsMap = new Map<string, BidLineItem[]>();
+  for (const lineItem of (bidLineItemRows || []) as BidLineItem[]) {
+    const existing = bidLineItemsMap.get(lineItem.bid_id) || [];
+    existing.push(lineItem);
+    bidLineItemsMap.set(lineItem.bid_id, existing);
   }
   const payoutAccount =
     (payoutAccountRow as BidderPayoutAccount | null | undefined) || null;
@@ -161,6 +182,7 @@ export default async function MyBidsPage() {
                 }
               | undefined;
             const bidFiles = bidFilesMap.get(bid.id) || [];
+            const bidLineItems = bidLineItemsMap.get(bid.id) || [];
             const claim = claimMap.get(bid.id) || null;
 
             if (!project) {
@@ -296,6 +318,16 @@ export default async function MyBidsPage() {
                     <RichTextRenderer
                       content={bid.notes}
                       className="text-sm text-text-secondary line-clamp-3"
+                    />
+                  </div>
+                )}
+
+                {bidLineItems.length > 0 && (
+                  <div className="mt-3">
+                    <BidLineItemsTable
+                      lineItems={bidLineItems}
+                      title="Your Quick Bid Line Items"
+                      compact
                     />
                   </div>
                 )}

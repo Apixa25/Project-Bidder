@@ -28,6 +28,7 @@ import type {
   ProjectPaidEstimatePool,
   PaidEstimateClaim,
   PaidEstimateDispute,
+  BidLineItem,
 } from "@/types/database";
 import ProjectStatusActions from "./ProjectStatusActions";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
@@ -44,6 +45,7 @@ import ProjectAiEstimatePanel from "./ProjectAiEstimatePanel";
 import { isPaidEstimatePoolVisibleAsPaid } from "@/lib/paid-estimates/pools";
 import ProjectQA from "@/components/ProjectQA";
 import BidComparisonToggle from "@/components/BidComparisonToggle";
+import BidLineItemsTable from "@/components/bids/BidLineItemsTable";
 import { reconcilePaidEstimatePoolFunding } from "@/lib/paid-estimates/funding";
 import { getStripeServerClient } from "@/lib/stripe/server";
 import type {
@@ -144,6 +146,15 @@ export default async function ProjectDetailPage({
     .select("*, bid_files(*)")
     .eq("project_id", id)
     .order("created_at", { ascending: true });
+
+  const bidIds = (bids || []).map((bid) => bid.id);
+  const { data: bidLineItemRows } = bidIds.length
+    ? await supabase
+        .from("bid_line_items")
+        .select("*")
+        .in("bid_id", bidIds)
+        .order("display_order", { ascending: true })
+    : { data: [] };
 
   const bidCount = bids?.length ?? 0;
 
@@ -265,6 +276,12 @@ export default async function ProjectDetailPage({
       dispute,
     ])
   );
+  const bidLineItemsMap = new Map<string, BidLineItem[]>();
+  for (const lineItem of (bidLineItemRows || []) as BidLineItem[]) {
+    const current = bidLineItemsMap.get(lineItem.bid_id) || [];
+    current.push(lineItem);
+    bidLineItemsMap.set(lineItem.bid_id, current);
+  }
   const specialtyMap = new Map<string, string[]>();
   for (const specialty of bidderSpecialties || []) {
     const current = specialtyMap.get(specialty.user_id) || [];
@@ -631,6 +648,7 @@ export default async function ProjectDetailPage({
                     file_name: string;
                     file_type: string;
                   }[];
+                  const bidLineItems = bidLineItemsMap.get(bid.id) || [];
                   const specialtyLabels = specialtyMap.get(bid.bidder_id) || [];
                   const claim = claimMap.get(bid.id) || null;
                   const dispute = claim ? disputeMap.get(claim.id) || null : null;
@@ -793,6 +811,12 @@ export default async function ProjectDetailPage({
                           <p className="text-sm text-text-secondary whitespace-pre-wrap">
                             {bid.price_breakdown}
                           </p>
+                        </div>
+                      )}
+
+                      {bidLineItems.length > 0 && (
+                        <div className="mb-4">
+                          <BidLineItemsTable lineItems={bidLineItems} />
                         </div>
                       )}
 

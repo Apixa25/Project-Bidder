@@ -17,6 +17,7 @@ import type {
   ProjectPaidEstimatePool,
   PaidEstimateClaimStatus,
   BidderCredentials,
+  BidLineItemCalcMode,
 } from "@/types/database";
 import { userHasRole } from "@/lib/auth/roles";
 import { getStripeServerClient } from "@/lib/stripe/server";
@@ -30,6 +31,112 @@ const PAID_SLOT_STATUSES: PaidEstimateClaimStatus[] = [
   "paid_out",
   "disputed",
 ];
+
+type SubmittedBidLineItem = {
+  scopeItemId?: string | null;
+  itemLabel?: string;
+  description?: string | null;
+  unit?: string | null;
+  quantity?: number;
+  materialAmount?: number;
+  materialCalcMode?: BidLineItemCalcMode;
+  materialTotal?: number;
+  laborAmount?: number;
+  laborCalcMode?: BidLineItemCalcMode;
+  laborTotal?: number;
+  lineTotal?: number;
+  displayOrder?: number;
+  isCustom?: boolean;
+};
+
+function toMoney(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return Math.round(parsed * 100) / 100;
+}
+
+function toCalcMode(value: unknown): BidLineItemCalcMode {
+  return value === "add" ? "add" : "multiply";
+}
+
+function applyLineItemMode(
+  value: number,
+  mode: BidLineItemCalcMode,
+  quantity: number
+) {
+  return mode === "multiply" ? value * quantity : value;
+}
+
+function parseBidLineItems(raw: string | null) {
+  if (!raw) return { items: [], error: null as string | null };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return {
+      items: [],
+      error: "Please refresh the page and try the quick bid form again.",
+    };
+  }
+
+  if (!Array.isArray(parsed)) {
+    return {
+      items: [],
+      error: "Please refresh the page and try the quick bid form again.",
+    };
+  }
+
+  const items = parsed
+    .map((item, index) => {
+      const line = item as SubmittedBidLineItem;
+      const itemLabel = String(line.itemLabel || "").trim();
+      if (!itemLabel) return null;
+
+      const quantity = toMoney(line.quantity);
+      const materialAmount = toMoney(line.materialAmount);
+      const materialCalcMode = toCalcMode(line.materialCalcMode);
+      const laborAmount = toMoney(line.laborAmount);
+      const laborCalcMode = toCalcMode(line.laborCalcMode);
+      const materialTotal =
+        Math.round(
+          applyLineItemMode(materialAmount, materialCalcMode, quantity) * 100
+        ) / 100;
+      const laborTotal =
+        Math.round(applyLineItemMode(laborAmount, laborCalcMode, quantity) * 100) /
+        100;
+      const lineTotal = Math.round((materialTotal + laborTotal) * 100) / 100;
+
+      return {
+        scopeItemId: line.scopeItemId ? String(line.scopeItemId) : null,
+        itemLabel: itemLabel.slice(0, 200),
+        description: line.description ? String(line.description).slice(0, 1000) : null,
+        unit: line.unit ? String(line.unit).trim().slice(0, 40) || null : null,
+        quantity,
+        materialAmount,
+        materialCalcMode,
+        materialTotal,
+        laborAmount,
+        laborCalcMode,
+        laborTotal,
+        lineTotal,
+        displayOrder: Number.isInteger(line.displayOrder)
+          ? Number(line.displayOrder)
+          : index,
+        isCustom: Boolean(line.isCustom),
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .filter(
+      (item) =>
+        item.lineTotal > 0 ||
+        item.quantity > 0 ||
+        item.materialAmount > 0 ||
+        item.laborAmount > 0
+    );
+
+  return { items, error: null as string | null };
+}
 
 async function reservePaidSlot(
   admin: ReturnType<typeof createAdminClient>,
@@ -240,6 +347,8 @@ export async function submitBid(formData: FormData) {
   const estimatedTimeline = formData.get("estimatedTimeline") as string;
   const estimatedStartDate = formData.get("estimatedStartDate") as string;
   const notes = formData.get("notes") as string;
+  const bidLineItemsRaw = formData.get("bidLineItemsJson") as string | null;
+  const hasQuickBidWorksheet = bidLineItemsRaw !== null;
   const scopeCoverageRaw = (formData.get("scopeCoverage") as string) || "all";
   const scopeCoverage: "all" | "part" =
     scopeCoverageRaw === "part" ? "part" : "all";
@@ -247,7 +356,12 @@ export async function submitBid(formData: FormData) {
     (formData.get("scopeDescription") as string) || "";
   const scopeDescription = scopeDescriptionRaw.trim();
 
-  if (!projectId || !trade || !price || !estimatedTimeline || !estimatedStartDate) {
+  const parsedLineItems = parseBidLineItems(bidLineItemsRaw);
+  if (parsedLineItems.error) {
+    return { error: parsedLineItems.error };
+  }
+
+  if (!projectId || !trade || !estimatedTimeline || !estimatedStartDate) {
     return { error: "Please fill in all required fields." };
   }
 
@@ -258,7 +372,21 @@ export async function submitBid(formData: FormData) {
     };
   }
 
-  const parsedPrice = parseFloat(price);
+  const worksheetTotal = parsedLineItems.items.reduce(
+    (sum, item) => sum + item.lineTotal,
+    0
+  );
+  const parsedPrice = hasQuickBidWorksheet
+    ? Math.round(worksheetTotal * 100) / 100
+    : parseFloat(price);
+
+  if (hasQuickBidWorksheet && parsedLineItems.items.length === 0) {
+    return {
+      error:
+        "Please enter at least one priced line item before submitting your quick bid.",
+    };
+  }
+
   if (isNaN(parsedPrice) || parsedPrice <= 0) {
     return { error: "Please enter a valid bid price." };
   }
@@ -271,6 +399,35 @@ export async function submitBid(formData: FormData) {
 
   if (!project || project.status !== "open") {
     return { error: "This project is no longer open for bidding." };
+  }
+
+  let scopedLineItems = parsedLineItems.items;
+  const submittedScopeItemIds = [
+    ...new Set(
+      scopedLineItems
+        .map((item) => item.scopeItemId)
+        .filter((scopeItemId): scopeItemId is string => Boolean(scopeItemId))
+    ),
+  ];
+
+  if (submittedScopeItemIds.length > 0) {
+    const { data: validScopeRows } = await admin
+      .from("project_ai_scope_items")
+      .select("id")
+      .eq("project_id", projectId)
+      .in("id", submittedScopeItemIds);
+
+    const validScopeItemIds = new Set(
+      (validScopeRows || []).map((row) => row.id as string)
+    );
+
+    scopedLineItems = scopedLineItems.map((item) => ({
+      ...item,
+      scopeItemId:
+        item.scopeItemId && validScopeItemIds.has(item.scopeItemId)
+          ? item.scopeItemId
+          : null,
+    }));
   }
 
   // Check if already bid on this trade for this project
@@ -306,6 +463,34 @@ export async function submitBid(formData: FormData) {
   if (bidError) {
     console.error("Bid submission error:", bidError);
     return { error: "Failed to submit bid. Please try again." };
+  }
+
+  if (bid && scopedLineItems.length > 0) {
+    const { error: lineItemsError } = await admin.from("bid_line_items").insert(
+      scopedLineItems.map((item) => ({
+        bid_id: bid.id,
+        scope_item_id: item.scopeItemId,
+        item_label: item.itemLabel,
+        description: item.description,
+        unit: item.unit,
+        quantity: item.quantity,
+        material_amount: item.materialAmount,
+        material_calc_mode: item.materialCalcMode,
+        material_total: item.materialTotal,
+        labor_amount: item.laborAmount,
+        labor_calc_mode: item.laborCalcMode,
+        labor_total: item.laborTotal,
+        line_total: item.lineTotal,
+        display_order: item.displayOrder,
+        is_custom: item.isCustom,
+      }))
+    );
+
+    if (lineItemsError) {
+      console.error("Bid line item insert error:", lineItemsError);
+      await admin.from("bids").delete().eq("id", bid.id);
+      return { error: "Failed to save quick bid line items. Please try again." };
+    }
   }
 
   // Handle file uploads

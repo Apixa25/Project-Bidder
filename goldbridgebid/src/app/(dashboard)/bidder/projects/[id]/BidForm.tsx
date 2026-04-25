@@ -7,6 +7,7 @@ import type { TradeCategory } from "@/types/database";
 import { Upload, X, FileText, Loader2 } from "lucide-react";
 import { compressFiles } from "@/lib/compress-image";
 import { BID_ATTACHMENT_FILE_ACCEPT } from "@/lib/file-uploads";
+import QuickBidWorksheet from "./QuickBidWorksheet";
 
 type PaidEstimateMode =
   | "not_available"
@@ -21,6 +22,13 @@ interface BidFormProps {
   paidEstimateMode: PaidEstimateMode;
   paidEstimateReward: number | null;
   paidEstimateRemainingSlots: number;
+  quickBidItems: {
+    id: string;
+    item_label: string;
+    description: string | null;
+    quantity_drivers_json: unknown;
+    display_order: number;
+  }[];
 }
 
 export default function BidForm({
@@ -29,6 +37,7 @@ export default function BidForm({
   paidEstimateMode,
   paidEstimateReward,
   paidEstimateRemainingSlots,
+  quickBidItems,
 }: BidFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +51,7 @@ export default function BidForm({
   // the first available trade — the customer-facing question is now
   // "how much of the project are you bidding on?" instead.
   const defaultTrade = availableTrades[0];
+  const hasQuickBidItems = quickBidItems.length > 0;
 
   const addFiles = (newFiles: FileList | null) => {
     if (!newFiles) return;
@@ -129,6 +139,8 @@ export default function BidForm({
           question below is now about scope coverage. */}
       <input type="hidden" name="trade" value={defaultTrade} />
 
+      {hasQuickBidItems && <QuickBidWorksheet items={quickBidItems} />}
+
       {/* Scope Coverage */}
       <div>
         <label className="block text-sm font-semibold text-text-primary mb-2">
@@ -172,41 +184,48 @@ export default function BidForm({
         )}
       </div>
 
-      {/* Bid Price */}
-      <div>
-        <label className="block text-sm font-semibold text-text-primary mb-2">
-          Bid Price (Lump Sum) *
-        </label>
-        <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted font-medium">
-            $
-          </span>
-          <input
-            type="number"
-            name="price"
-            required
-            min="1"
-            step="0.01"
-            placeholder="25,000"
-            className="block w-full rounded-lg border border-border bg-surface pl-8 pr-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
+      {!hasQuickBidItems && (
+        <div>
+          <label className="block text-sm font-semibold text-text-primary mb-2">
+            Bid Price (Lump Sum) *
+          </label>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted font-medium">
+              $
+            </span>
+            <input
+              type="number"
+              name="price"
+              required
+              min="1"
+              step="0.01"
+              placeholder="25,000"
+              className="block w-full rounded-lg border border-border bg-surface pl-8 pr-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Price Breakdown (optional) */}
       <div>
         <label className="block text-sm font-semibold text-text-primary mb-2">
-          Price Breakdown{" "}
+          {hasQuickBidItems ? "Additional Price Notes" : "Price Breakdown"}{" "}
           <span className="font-normal text-text-muted">(optional)</span>
         </label>
         <textarea
           name="priceBreakdown"
           rows={4}
-          placeholder="e.g.&#10;Materials: $8,000&#10;Labor: $12,000&#10;Equipment rental: $3,000&#10;Overhead/profit: $2,000"
+          placeholder={
+            hasQuickBidItems
+              ? "Add exclusions, allowances, markups, or any extra pricing notes the line items do not capture."
+              : "e.g.\nMaterials: $8,000\nLabor: $12,000\nEquipment rental: $3,000\nOverhead/profit: $2,000"
+          }
           className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
         />
         <p className="mt-1 text-xs text-text-muted">
-          Breaking down your price helps customers understand your proposal.
+          {hasQuickBidItems
+            ? "The quick bid table is saved with your bid; use this for anything extra."
+            : "Breaking down your price helps customers understand your proposal."}
         </p>
       </div>
 

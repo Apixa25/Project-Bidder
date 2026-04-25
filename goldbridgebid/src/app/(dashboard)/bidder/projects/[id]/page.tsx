@@ -309,99 +309,6 @@ export default async function BidderProjectDetailPage({
 
           {/* Completion Criteria — disabled; description + AI questions cover this */}
 
-          {/* Expected Items to Bid On */}
-          {publishedScopeItems.length > 0 && (
-            <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <ClipboardCheck className="h-5 w-5 text-secondary" />
-                <h2 className="text-lg font-semibold text-text-primary">
-                  Expected Items to Bid On
-                </h2>
-              </div>
-              <p className="mb-4 text-sm text-text-secondary">
-                The project owner has identified these line items as part of the
-                project scope. Use this as a guide when preparing your bid.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="pb-2 pr-3 font-semibold text-text-primary">
-                        Item
-                      </th>
-                      <th className="pb-2 px-3 font-semibold text-text-primary">
-                        Description
-                      </th>
-                      <th className="pb-2 px-3 font-semibold text-text-primary text-center w-20">
-                        Unit
-                      </th>
-                      <th className="pb-2 px-3 font-semibold text-text-primary text-center w-16">
-                        Qty
-                      </th>
-                      <th className="pb-2 pl-3 font-semibold text-text-primary">
-                        Notes
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {publishedScopeItems.map((scopeItem) => {
-                      const drivers = Array.isArray(scopeItem.quantity_drivers_json)
-                        ? (scopeItem.quantity_drivers_json as Array<{
-                            key: string;
-                            value: string;
-                            unit: string | null;
-                            label: string;
-                          }>)
-                        : [];
-                      const customerQty = drivers.find(
-                        (d) => d.key === "customer_stated_quantity"
-                      );
-                      const craftsmanUnit = drivers.find(
-                        (d) => d.key === "craftsman_unit"
-                      );
-                      const qtyNote = drivers.find(
-                        (d) => d.key === "quantity_note"
-                      );
-
-                      const qty = customerQty
-                        ? customerQty.value
-                        : "1";
-                      const unit = customerQty?.unit ||
-                        craftsmanUnit?.unit ||
-                        "ea";
-
-                      return (
-                        <tr
-                          key={scopeItem.id}
-                          className="border-b border-border/50 hover:bg-bg-warm/30 transition-colors"
-                        >
-                          <td className="py-3 pr-3 font-medium text-text-primary">
-                            {scopeItem.item_label}
-                          </td>
-                          <td className="px-3 py-3 text-text-secondary">
-                            {scopeItem.description || "—"}
-                          </td>
-                          <td className="px-3 py-3 text-center text-text-secondary">
-                            {unit}
-                          </td>
-                          <td className="px-3 py-3 text-center text-text-secondary">
-                            {qty}
-                          </td>
-                          <td className="pl-3 py-3 text-text-muted text-xs">
-                            {qtyNote ? qtyNote.value : "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <p className="mt-3 text-xs text-text-muted">
-                Prices are not shown — contractors provide their own pricing for each line item in their bid.
-              </p>
-            </section>
-          )}
-
           {paidEstimateLive && paidPool && paidEligibility && (
             <section className="rounded-xl border border-border bg-surface p-6 shadow-sm ring-1 ring-amber-200">
               <div className="flex flex-wrap items-center gap-2">
@@ -512,6 +419,7 @@ export default async function BidderProjectDetailPage({
                 paidEstimateRemainingSlots={
                   paidEstimateLive ? paidPoolRemainingSlots : 0
                 }
+                quickBidItems={publishedScopeItems}
               />
             ) : (
               <div className="rounded-lg bg-green-50 px-6 py-8 text-center">

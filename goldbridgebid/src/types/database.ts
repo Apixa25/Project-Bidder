@@ -612,6 +612,29 @@ export interface Bid {
   updated_at: string;
 }
 
+export type BidLineItemCalcMode = "multiply" | "add";
+
+export interface BidLineItem {
+  id: string;
+  bid_id: string;
+  scope_item_id: string | null;
+  item_label: string;
+  description: string | null;
+  unit: string | null;
+  quantity: number;
+  material_amount: number;
+  material_calc_mode: BidLineItemCalcMode;
+  material_total: number;
+  labor_amount: number;
+  labor_calc_mode: BidLineItemCalcMode;
+  labor_total: number;
+  line_total: number;
+  display_order: number;
+  is_custom: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PaidEstimateClaim {
   id: string;
   project_id: string;
@@ -843,6 +866,24 @@ type BidInsert = {
   notes?: string | null;
   scope_coverage?: BidScopeCoverage;
   scope_description?: string | null;
+};
+
+type BidLineItemInsert = {
+  bid_id: string;
+  scope_item_id?: string | null;
+  item_label: string;
+  description?: string | null;
+  unit?: string | null;
+  quantity?: number;
+  material_amount?: number;
+  material_calc_mode?: BidLineItemCalcMode;
+  material_total?: number;
+  labor_amount?: number;
+  labor_calc_mode?: BidLineItemCalcMode;
+  labor_total?: number;
+  line_total?: number;
+  display_order?: number;
+  is_custom?: boolean;
 };
 
 type PaidEstimateClaimInsert = {
@@ -1211,6 +1252,12 @@ export interface Database {
         Row: Bid;
         Insert: BidInsert;
         Update: Partial<Omit<BidInsert, "project_id" | "bidder_id">>;
+        Relationships: [];
+      };
+      bid_line_items: {
+        Row: BidLineItem;
+        Insert: BidLineItemInsert;
+        Update: Partial<Omit<BidLineItemInsert, "bid_id">>;
         Relationships: [];
       };
       paid_estimate_claims: {
