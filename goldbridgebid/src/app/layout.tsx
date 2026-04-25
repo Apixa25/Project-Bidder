@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import PwaRegistration from "@/components/PwaRegistration";
+import HydrationWatchdog from "@/components/HydrationWatchdog";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -53,6 +54,13 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full scroll-smooth antialiased`}
     >
+      <head>
+        {/* Inline self-healing watchdog — must render inside <head> so it
+            executes before React hydration begins. If the page never comes
+            alive within ~5s of full load, it unregisters service workers,
+            clears caches, and reloads exactly once. */}
+        <HydrationWatchdog />
+      </head>
       <body className="min-h-full flex flex-col">
         <NextTopLoader
           color="#2563eb"

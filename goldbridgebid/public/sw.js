@@ -15,11 +15,21 @@
 // becoming the source of stale content).
 
 // Bump this when you ship a SW change that needs old caches purged.
-const CACHE_VERSION = "pxb-sw-v1";
+const CACHE_VERSION = "pxb-sw-v2";
 
 self.addEventListener("install", () => {
   // Activate this new SW immediately, don't wait for old tabs to close.
   self.skipWaiting();
+});
+
+// PwaRegistration posts this message when it spots a waiting SW (a new
+// version installed while an old one was still controlling the page). This
+// gives the new SW a chance to take over even if its install handler
+// somehow didn't call skipWaiting.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "PXB_SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {
