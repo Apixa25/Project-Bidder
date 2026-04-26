@@ -136,7 +136,7 @@ export default async function PublicProfilePage({
   const { data: reviewerProfiles } = reviewerIds.length
     ? await supabase
         .from("profiles")
-        .select("user_id, full_name, role")
+        .select("user_id, full_name, role, avatar_url")
         .in("user_id", reviewerIds)
     : { data: [] };
 

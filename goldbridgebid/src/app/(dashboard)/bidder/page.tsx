@@ -257,6 +257,17 @@ export default async function BidderDashboard() {
         </div>
       </div>
 
+      <div className="mb-8">
+        <Link
+          href="/bidder/projects"
+          className="flex w-full items-center justify-center gap-3 rounded-xl bg-secondary px-6 py-5 text-base font-bold text-white shadow-lg shadow-secondary/20 transition-all hover:-translate-y-0.5 hover:bg-secondary-dark hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-secondary/30 sm:text-lg"
+        >
+          <FolderOpen className="h-5 w-5" />
+          Browse Projects
+          <ArrowRight className="h-5 w-5" />
+        </Link>
+      </div>
+
       {/* Recent Bids */}
       <div className="rounded-xl border border-border bg-surface shadow-sm">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">

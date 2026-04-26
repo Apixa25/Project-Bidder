@@ -25,8 +25,10 @@ type ReviewListItem = {
   would_work_again: boolean | null;
   created_at: string;
   reviewer: {
+    user_id: string;
     full_name: string;
     role: string;
+    avatar_url: string | null;
   } | null;
   photos?: ReviewPhoto[];
   response?: ReviewResponse | null;
@@ -64,25 +66,59 @@ export default function ProfileReviewsList({
           key={review.id}
           className="rounded-xl border border-border bg-bg-warm px-5 py-4"
         >
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                review.review_type === "verified_platform"
-                  ? "bg-secondary/15 text-secondary"
-                  : "bg-primary/10 text-primary"
-              }`}
-            >
-              {review.review_type === "verified_platform"
-                ? "Verified Project Review"
-                : "Community Review"}
-            </span>
-            <span className="text-sm font-semibold text-text-primary">
-              {review.rating_overall}/5
-            </span>
-            <span className="text-xs text-text-muted">
-              {new Date(review.created_at).toLocaleDateString()}
-            </span>
-            {canReport && <ReportReviewButton reviewId={review.id} />}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              {review.reviewer?.avatar_url ? (
+                <Image
+                  src={review.reviewer.avatar_url}
+                  alt={review.reviewer.full_name}
+                  width={44}
+                  height={44}
+                  className="h-11 w-11 shrink-0 rounded-full border-2 border-white object-cover shadow-sm"
+                />
+              ) : (
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-white bg-primary/10 text-sm font-semibold text-primary shadow-sm">
+                  {(review.reviewer?.full_name || "Community member")
+                    .split(" ")
+                    .map((namePart) => namePart[0])
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 2)}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-text-primary">
+                  {review.reviewer?.full_name || "Community member"}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      review.review_type === "verified_platform"
+                        ? "bg-secondary/15 text-secondary"
+                        : "bg-primary/10 text-primary"
+                    }`}
+                  >
+                    {review.review_type === "verified_platform"
+                      ? "Verified Project Review"
+                      : "Public Review"}
+                  </span>
+                  {review.reviewer?.role && (
+                    <span className="text-xs capitalize text-text-muted">
+                      {review.reviewer.role}
+                    </span>
+                  )}
+                  <span className="text-xs text-text-muted">
+                    {new Date(review.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-3 sm:justify-end">
+              <span className="text-sm font-semibold text-text-primary">
+                {review.rating_overall}/5
+              </span>
+              {canReport && <ReportReviewButton reviewId={review.id} />}
+            </div>
           </div>
 
           {review.review_title && (
@@ -120,10 +156,6 @@ export default function ProfileReviewsList({
           )}
 
           <div className="mt-3 flex flex-wrap gap-3 text-xs text-text-muted">
-            <span>
-              By {review.reviewer?.full_name || "Community member"}
-              {review.reviewer?.role ? ` • ${review.reviewer.role}` : ""}
-            </span>
             {review.relationship_context && <span>{review.relationship_context}</span>}
             {review.would_work_again !== null && (
               <span>{review.would_work_again ? "Would work again" : "Would not work again"}</span>
