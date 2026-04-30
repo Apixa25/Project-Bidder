@@ -189,6 +189,42 @@ export default function NewProjectPage() {
     [draftClarificationPayload]
   );
 
+  const draftScopeItemClarificationPayload = useMemo(() => {
+    return draftScopeItems
+      .filter(
+        (item) =>
+          item.required_status !== "required" &&
+          (draftConfirmedKeys.has(item.item_key) ||
+            draftExcludedKeys.has(item.item_key))
+      )
+      .map((item, index) => {
+        const isIncluded = draftConfirmedKeys.has(item.item_key);
+
+        return {
+          question_key: `scope_item__${item.item_key}__include`,
+          question_text: `Do you want to include "${item.item_label}" in your project scope?`,
+          question_type: "single_select" as const,
+          help_text:
+            item.why_it_may_apply ||
+            "This is a standard requirement for your project type.",
+          placeholder: null,
+          options: [
+            { id: "yes", label: "Yes, include this" },
+            { id: "no", label: "No, exclude this" },
+            { id: "not_sure", label: "Not sure yet" },
+          ],
+          answer_value_json: isIncluded ? "yes" : "no",
+          status: "answered" as const,
+          display_order: index,
+        };
+      });
+  }, [draftConfirmedKeys, draftExcludedKeys, draftScopeItems]);
+
+  const serializedDraftScopeItemClarifications = useMemo(
+    () => JSON.stringify(draftScopeItemClarificationPayload),
+    [draftScopeItemClarificationPayload]
+  );
+
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
@@ -258,7 +294,13 @@ export default function NewProjectPage() {
         question_key: clarification.question_key,
         answer_value_json: clarification.answer_value_json,
         status: clarification.status as "pending" | "answered",
-      })),
+      })).concat(
+        draftScopeItemClarificationPayload.map((clarification) => ({
+          question_key: clarification.question_key,
+          answer_value_json: clarification.answer_value_json,
+          status: clarification.status,
+        }))
+      ),
     });
 
     if (result.error) {
@@ -438,6 +480,11 @@ export default function NewProjectPage() {
           type="hidden"
           name="draftAiClarifications"
           value={serializedDraftClarifications}
+        />
+        <input
+          type="hidden"
+          name="draftAiItemClarifications"
+          value={serializedDraftScopeItemClarifications}
         />
         {/* Project Basics */}
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
@@ -721,14 +768,13 @@ export default function NewProjectPage() {
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary" />
                 <h2 className="text-lg font-semibold text-text-primary">
-                  AI Scope Check
+                  Build Your Bid-Ready Scope
                 </h2>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                This supports the project vision by helping customers define a
-                clearer scope before bidding starts. Run it any time while filling
-                out the form to see missing details, estimate readiness, and a
-                planning baseline range.
+                Before contractors bid, ProjectXBidX helps turn your description
+                into a clear scope checklist. This gives you a planning reference
+                and gives contractors a cleaner list of items to price.
               </p>
             </div>
 
@@ -741,15 +787,59 @@ export default function NewProjectPage() {
               {aiLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Running AI Scope Check...
+                  Building scope checklist...
                 </>
               ) : (
                 <>
                   <Sparkles className="h-4 w-4" />
-                  Run AI Scope Check
+                  Build My Scope Checklist
                 </>
               )}
             </button>
+          </div>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-border bg-bg-warm px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Step 1
+              </p>
+              <p className="mt-1 text-sm font-semibold text-text-primary">
+                Identify the project type
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                The AI reads your description, location, timing, budget, and
+                files to understand what kind of work this is.
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-bg-warm px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Step 2
+              </p>
+              <p className="mt-1 text-sm font-semibold text-text-primary">
+                Create a scope checklist
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                Standard items for this project type are suggested so important
+                work does not get missed before bidding starts.
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-bg-warm px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Step 3
+              </p>
+              <p className="mt-1 text-sm font-semibold text-text-primary">
+                You stay in control
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                Include what applies, skip what does not, and use the result as
+                a planning guide against real contractor bids.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
+            This is not a final contractor price. It is a scope-building tool
+            that helps you define the work clearly before sealed bids come in.
           </div>
 
           {aiError && (
@@ -765,12 +855,13 @@ export default function NewProjectPage() {
               {draftScopeItems.length > 0 && (
                 <div className="mt-5 rounded-xl border border-border bg-bg-warm/60 p-5">
                   <h3 className="text-base font-semibold text-text-primary">
-                    Potential Scope Items
+                    Review Suggested Scope Items
                   </h3>
                   <p className="mt-1 text-sm text-text-secondary">
-                    The AI identified these items as likely needed for your project.
-                    Confirm the ones that apply — after you post the project, the AI
-                    will price each confirmed item using published cost data.
+                    These are common work items for this project type. Include
+                    the items that belong in your project and skip anything that
+                    does not apply. Your choices are saved with the project so
+                    the scope can guide real contractor bids.
                   </p>
 
                   <div className="mt-4 space-y-2">
@@ -790,9 +881,8 @@ export default function NewProjectPage() {
                             >
                               <div className="min-w-0 flex-1">
                                 <p className="text-sm font-medium text-text-primary">
-                                  Based on your project, you may need:{" "}
+                                  Should this be part of the contractor bid scope?{" "}
                                   <span className="font-semibold">{item.item_label.toLowerCase()}</span>.
-                                  Would you like to include this?
                                 </p>
                                 {item.why_it_may_apply && (
                                   <p className="mt-1 text-xs text-text-secondary">
@@ -866,7 +956,7 @@ export default function NewProjectPage() {
                                 }}
                                 className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
                               >
-                                Remove
+                                Skip
                               </button>
                             )}
                           </div>
@@ -904,12 +994,16 @@ export default function NewProjectPage() {
                 </div>
               )}
 
-              {/* Clarification questions and re-run button commented out — rebuilding from the bottom up */}
+              <div className="mt-4 rounded-lg border border-border bg-surface px-4 py-3 text-sm leading-relaxed text-text-secondary">
+                After you post the project, contractors can use the approved
+                scope as a starting point for their real bid. They still control
+                their own quantities, labor, material prices, and final proposal.
+              </div>
             </div>
           ) : (
             <div className="mt-5 rounded-lg border border-border bg-bg-warm px-4 py-4 text-sm text-text-secondary">
-              No AI analysis yet. Fill in the main project details, then run the
-              scope check to see what information is still missing.
+              No scope checklist yet. Fill in the main project details, then let
+              AI build a first-pass checklist before you post the project.
             </div>
           )}
         </section>

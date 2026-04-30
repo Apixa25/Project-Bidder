@@ -1441,6 +1441,9 @@ export async function createProject(formData: FormData) {
   const draftAiClarifications = parseDraftProjectAiClarifications(
     formData.get("draftAiClarifications")
   );
+  const draftAiItemClarifications = parseDraftProjectAiClarifications(
+    formData.get("draftAiItemClarifications")
+  );
 
   const expertiseLevel = (["licensed_contractor", "handyman", "general_labor"].includes(expertiseLevelRaw)
     ? expertiseLevelRaw
@@ -1469,6 +1472,7 @@ export async function createProject(formData: FormData) {
     filter: formData.get("filter"),
     fileCount: formData.getAll("files").filter((file) => file instanceof File && file.size > 0).length,
     draftAiClarificationCount: draftAiClarifications.length,
+    draftAiItemClarificationCount: draftAiItemClarifications.length,
   });
 
   if (
@@ -1668,7 +1672,16 @@ export async function createProject(formData: FormData) {
             ? clarification.answer_value_json
             : null,
         status: clarification.status,
-      })),
+      })).concat(
+        draftAiItemClarifications.map((clarification) => ({
+          question_key: clarification.question_key,
+          answer_value_json:
+            clarification.status === "answered"
+              ? clarification.answer_value_json
+              : null,
+          status: clarification.status,
+        }))
+      ),
     },
     triggerType: "create",
   });
