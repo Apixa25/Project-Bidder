@@ -33,7 +33,6 @@ import {
   PROJECT_DOCUMENT_FILE_ACCEPT,
 } from "@/lib/file-uploads";
 import { PAID_ESTIMATE_FILTER_LABELS } from "@/lib/paid-estimates/eligibility";
-import AiEstimateSummary from "@/components/ai/AiEstimateSummary";
 import type {
   ProjectAiAnalysisResult,
   ProjectAiRecommendedQuestion,
@@ -41,6 +40,11 @@ import type {
 
 type DraftAiAnalysis = ProjectAiAnalysisResult & {
   model_name?: string | null;
+};
+
+type DraftCustomScopeItem = {
+  id: string;
+  label: string;
 };
 
 const US_STATES = [
@@ -91,6 +95,11 @@ export default function NewProjectPage() {
   const [draftScopeItems, setDraftScopeItems] = useState<ProjectAiScopeItemDraft[]>([]);
   const [draftExcludedKeys, setDraftExcludedKeys] = useState<Set<string>>(new Set());
   const [draftConfirmedKeys, setDraftConfirmedKeys] = useState<Set<string>>(new Set());
+  const [draftCustomScopeItems, setDraftCustomScopeItems] = useState<
+    DraftCustomScopeItem[]
+  >([]);
+  const [showDraftCustomItemForm, setShowDraftCustomItemForm] = useState(false);
+  const [draftCustomItemLabel, setDraftCustomItemLabel] = useState("");
   const [draftClarificationAnswers, setDraftClarificationAnswers] = useState<
     Record<string, string[]>
   >({});
@@ -193,9 +202,8 @@ export default function NewProjectPage() {
     return draftScopeItems
       .filter(
         (item) =>
-          item.required_status !== "required" &&
-          (draftConfirmedKeys.has(item.item_key) ||
-            draftExcludedKeys.has(item.item_key))
+          draftConfirmedKeys.has(item.item_key) ||
+          draftExcludedKeys.has(item.item_key)
       )
       .map((item, index) => {
         const isIncluded = draftConfirmedKeys.has(item.item_key);
@@ -225,6 +233,11 @@ export default function NewProjectPage() {
     [draftScopeItemClarificationPayload]
   );
 
+  const serializedDraftCustomScopeItems = useMemo(
+    () => JSON.stringify(draftCustomScopeItems),
+    [draftCustomScopeItems]
+  );
+
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
@@ -238,25 +251,21 @@ export default function NewProjectPage() {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function setDraftSingleValue(questionKey: string, value: string) {
-    setDraftClarificationAnswers((prev) => ({
+  function addDraftCustomScopeItem() {
+    const label = draftCustomItemLabel.trim();
+    if (!label) {
+      return;
+    }
+
+    setDraftCustomScopeItems((prev) => [
       ...prev,
-      [questionKey]: [value],
-    }));
-  }
-
-  function toggleDraftMultiValue(questionKey: string, optionId: string) {
-    setDraftClarificationAnswers((prev) => {
-      const existing = prev[questionKey] || [];
-      const nextValues = existing.includes(optionId)
-        ? existing.filter((value) => value !== optionId)
-        : [...existing, optionId];
-
-      return {
-        ...prev,
-        [questionKey]: nextValues,
-      };
-    });
+      {
+        id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        label,
+      },
+    ]);
+    setDraftCustomItemLabel("");
+    setShowDraftCustomItemForm(false);
   }
 
   async function handleAiScopeCheck() {
@@ -485,6 +494,11 @@ export default function NewProjectPage() {
           type="hidden"
           name="draftAiItemClarifications"
           value={serializedDraftScopeItemClarifications}
+        />
+        <input
+          type="hidden"
+          name="draftCustomScopeItems"
+          value={serializedDraftCustomScopeItems}
         />
         {/* Project Basics */}
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
@@ -850,8 +864,6 @@ export default function NewProjectPage() {
 
           {aiAnalysis ? (
             <div className="mt-5">
-              {/* AiEstimateSummary commented out — rebuilding from the bottom up */}
-
               {draftScopeItems.length > 0 && (
                 <div className="mt-5 rounded-xl border border-border bg-bg-warm/60 p-5">
                   <h3 className="text-base font-semibold text-text-primary">
@@ -869,7 +881,7 @@ export default function NewProjectPage() {
                       .filter((item) => !draftExcludedKeys.has(item.item_key))
                       .map((item) => {
                         const isConfirmed =
-                          item.required_status === "required" ||
+                          item.customer_inclusion === "yes" ||
                           draftConfirmedKeys.has(item.item_key);
                         const isProposed = !isConfirmed;
 
@@ -880,10 +892,14 @@ export default function NewProjectPage() {
                               className="flex items-start justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3"
                             >
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-text-primary">
-                                  Should this be part of the contractor bid scope?{" "}
-                                  <span className="font-semibold">{item.item_label.toLowerCase()}</span>.
+                                <p className="text-sm font-semibold text-text-primary">
+                                  {item.item_label}
                                 </p>
+                                {item.required_status === "required" && (
+                                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-primary">
+                                    AI strongly recommends reviewing this item
+                                  </p>
+                                )}
                                 {item.why_it_may_apply && (
                                   <p className="mt-1 text-xs text-text-secondary">
                                     {item.why_it_may_apply}
@@ -931,7 +947,7 @@ export default function NewProjectPage() {
                                 <p className="text-sm font-medium text-emerald-800">
                                   {item.item_label}
                                   {item.required_status === "required" && (
-                                    <span className="ml-2 text-[11px] font-semibold uppercase text-emerald-600">Required</span>
+                                    <span className="ml-2 text-[11px] font-semibold uppercase text-emerald-600">AI recommended</span>
                                   )}
                                 </p>
                                 {item.description && (
@@ -941,24 +957,22 @@ export default function NewProjectPage() {
                                 )}
                               </div>
                             </div>
-                            {item.required_status !== "required" && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDraftConfirmedKeys((prev) => {
-                                    const next = new Set(prev);
-                                    next.delete(item.item_key);
-                                    return next;
-                                  });
-                                  setDraftExcludedKeys((prev) =>
-                                    new Set(prev).add(item.item_key)
-                                  );
-                                }}
-                                className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
-                              >
-                                Skip
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDraftConfirmedKeys((prev) => {
+                                  const next = new Set(prev);
+                                  next.delete(item.item_key);
+                                  return next;
+                                });
+                                setDraftExcludedKeys((prev) =>
+                                  new Set(prev).add(item.item_key)
+                                );
+                              }}
+                              className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                            >
+                              Skip
+                            </button>
                           </div>
                         );
                       })}
@@ -991,6 +1005,81 @@ export default function NewProjectPage() {
                       </div>
                     </div>
                   )}
+
+                  <div className="mt-4 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
+                    <p className="text-sm font-semibold text-text-primary">
+                      Add anything else you want contractors to include
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                      This can be unrelated to the AI&apos;s project type, like
+                      &quot;pick up trash in the driveway before leaving.&quot;
+                    </p>
+
+                    {draftCustomScopeItems.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {draftCustomScopeItems.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() =>
+                              setDraftCustomScopeItems((prev) =>
+                                prev.filter((current) => current.id !== item.id)
+                              )
+                            }
+                            className="rounded-full border border-primary/20 bg-white px-3 py-1 text-xs font-medium text-text-primary hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                          >
+                            {item.label} — Remove
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {showDraftCustomItemForm ? (
+                      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                        <input
+                          type="text"
+                          value={draftCustomItemLabel}
+                          onChange={(event) =>
+                            setDraftCustomItemLabel(event.target.value)
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              addDraftCustomScopeItem();
+                            }
+                          }}
+                          placeholder="e.g., Pick up trash in the driveway"
+                          className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                        <button
+                          type="button"
+                          onClick={addDraftCustomScopeItem}
+                          disabled={!draftCustomItemLabel.trim()}
+                          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-primary-dark disabled:opacity-50"
+                        >
+                          Add Item
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowDraftCustomItemForm(false);
+                            setDraftCustomItemLabel("");
+                          }}
+                          className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-warm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowDraftCustomItemForm(true)}
+                        className="mt-3 rounded-lg border border-dashed border-primary/40 bg-white px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/10"
+                      >
+                        Add Custom Scope Item
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 

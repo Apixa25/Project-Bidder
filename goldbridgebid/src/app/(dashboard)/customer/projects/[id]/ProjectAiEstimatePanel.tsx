@@ -1,16 +1,15 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   RefreshCw,
-  UploadCloud,
   Eye,
   EyeOff,
   Sparkles,
-  Loader2,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
-import AiEstimateSummary from "@/components/ai/AiEstimateSummary";
 import type {
   ProjectAiRecommendedQuestion,
   ProjectAiTradeBreakdownItem,
@@ -140,7 +139,6 @@ function getInitialAnswers(clarifications: Array<ClarificationRow | ItemClarific
 export default function ProjectAiEstimatePanel({
   projectId,
   estimate,
-  latestRunModelName = null,
   clarifications,
   itemClarifications,
   scopeItems,
@@ -259,8 +257,7 @@ export default function ProjectAiEstimatePanel({
       scopeItems.filter(
         (item) =>
           !excludedItemIds.has(item.id) &&
-          (item.required_status === "required" ||
-            item.item_key === "unified_project_package" ||
+          (item.item_key === "unified_project_package" ||
             confirmedItemIds.has(item.id))
       ),
     [scopeItems, excludedItemIds, confirmedItemIds]
@@ -342,17 +339,21 @@ export default function ProjectAiEstimatePanel({
       setFeedback(
         nextPublished
           ? "The project update is now visible to bidders."
-          : "AI baseline is hidden from bidders."
+          : "Scope checklist is hidden from bidders."
       );
       router.refresh();
     });
   }
 
-  function handleSaveAndShare() {
+  function handleSaveReview(options: { publishToBidders: boolean }) {
     setError(null);
     setFeedback(null);
     setAdvisory(null);
-    setPendingLabel("Saving answers and updating bidder view...");
+    setPendingLabel(
+      options.publishToBidders
+        ? "Saving scope and sharing with bidders..."
+        : "Saving scope review draft..."
+    );
     startTransition(async () => {
       const result = await saveProjectAiClarificationsAndShare(
         projectId,
@@ -381,6 +382,7 @@ export default function ProjectAiEstimatePanel({
           quantityOverrides,
           modeOverrides,
           customLineItems,
+          publishToBidders: options.publishToBidders,
         }
       );
 
@@ -394,15 +396,55 @@ export default function ProjectAiEstimatePanel({
         setAdvisory(result.advisory);
       }
       setFeedback(
-        estimate?.published_to_bidders
-          ? "Answers saved and bidder-facing project details updated."
-          : "Answers saved and bidder-facing project details shared."
+        options.publishToBidders
+          ? estimate?.published_to_bidders
+            ? "Scope saved and bidder-facing project details updated."
+            : "Scope saved and shared with bidders."
+          : "Scope review draft saved. Bidders will not see it until you share."
       );
       router.refresh();
     });
   }
 
   const showLoadingState = isPending && pendingLabel;
+  const includedCount = summaryItems.length + customLineItems.length;
+  const skippedCount = excludedItemIds.size;
+  const unreviewedCount = scopeItems.filter(
+    (item) =>
+      item.item_key !== "unified_project_package" &&
+      !confirmedItemIds.has(item.id) &&
+      !excludedItemIds.has(item.id)
+  ).length;
+  const unansweredQuestionCount = [
+    ...actionableClarifications,
+    ...actionableItemClarifications,
+  ].filter((item) => item.status !== "answered").length;
+  const needsReviewCount = unreviewedCount + unansweredQuestionCount;
+  const readiness =
+    !estimate
+      ? {
+          label: "Draft",
+          tone: "bg-slate-100 text-slate-700 border-slate-200",
+          icon: AlertCircle,
+          summary: "Run the AI estimate to create the first scope checklist.",
+        }
+      : needsReviewCount > 0
+        ? {
+            label: "Needs Review",
+            tone: "bg-amber-50 text-amber-800 border-amber-200",
+            icon: AlertCircle,
+            summary:
+              "Review the remaining scope items before sharing with bidders.",
+          }
+        : {
+            label: estimate.published_to_bidders ? "Shared With Bidders" : "Ready to Share",
+            tone: "bg-emerald-50 text-emerald-800 border-emerald-200",
+            icon: CheckCircle2,
+            summary: estimate.published_to_bidders
+              ? "Bidders can use this scope checklist as a bid starting point."
+              : "The reviewed scope is ready to share with bidders.",
+          };
+  const ReadinessIcon = readiness.icon;
 
   return (
     <section className="relative rounded-xl border border-border bg-surface p-6 shadow-sm">
@@ -411,13 +453,13 @@ export default function ProjectAiEstimatePanel({
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold text-text-primary">
-              AI Scope & Estimate Assistant
+              Scope Review Center
             </h2>
           </div>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-text-secondary">
-            This follows the platform vision of clearer scopes, explicit completion
-            criteria, and higher bidder confidence before pricing starts. The AI
-            baseline is a planning tool, not a contractor quote.
+            Review the AI-built checklist before contractors bid. ProjectXBidX
+            uses this to help customers create clearer project details while
+            keeping contractor bids sealed and independent.
           </p>
           {estimate?.last_analyzed_at && (
             <p className="mt-2 text-xs text-text-muted">
@@ -437,8 +479,7 @@ export default function ProjectAiEstimatePanel({
             Refresh AI Estimate
           </button>
 
-          {estimate &&
-            (!actionableClarifications.length || estimate.published_to_bidders) && (
+          {estimate?.published_to_bidders && (
             <button
               type="button"
               onClick={() =>
@@ -447,17 +488,8 @@ export default function ProjectAiEstimatePanel({
               disabled={isPending}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-primary-dark disabled:opacity-60"
             >
-              {estimate.published_to_bidders ? (
-                <>
-                  <EyeOff className="h-4 w-4" />
-                  Hide From Bidders
-                </>
-              ) : (
-                <>
-                  <Eye className="h-4 w-4" />
-                  Share With Bidders
-                </>
-              )}
+              <EyeOff className="h-4 w-4" />
+              Hide Scope From Bidders
             </button>
           )}
         </div>
@@ -503,6 +535,49 @@ export default function ProjectAiEstimatePanel({
 
       {!showLoadingState && estimate ? (
         <div className="mt-5 space-y-5">
+          <div className={`rounded-xl border px-5 py-4 ${readiness.tone}`}>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex gap-3">
+                <ReadinessIcon className="mt-0.5 h-5 w-5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold">
+                    Scope Status: {readiness.label}
+                  </p>
+                  <p className="mt-1 max-w-2xl text-sm leading-relaxed">
+                    {readiness.summary}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="rounded-lg bg-white/70 px-3 py-2">
+                  <p className="font-bold text-text-primary">{includedCount}</p>
+                  <p className="text-text-muted">Included</p>
+                </div>
+                <div className="rounded-lg bg-white/70 px-3 py-2">
+                  <p className="font-bold text-text-primary">{skippedCount}</p>
+                  <p className="text-text-muted">Skipped</p>
+                </div>
+                <div className="rounded-lg bg-white/70 px-3 py-2">
+                  <p className="font-bold text-text-primary">{needsReviewCount}</p>
+                  <p className="text-text-muted">To Review</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
+            <h3 className="text-sm font-semibold text-text-primary">
+              What contractors will see
+            </h3>
+            <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+              When you share this scope, bidders see the included checklist
+              items as a starting point for their bid worksheet. They do not
+              receive a guaranteed price from the AI. Each contractor still
+              controls their own quantities, labor, material pricing, schedule,
+              notes, and final sealed bid.
+            </p>
+          </div>
+
           <ProjectAiScopeItemsSection
             items={scopeItems}
             itemClarifications={[]}
@@ -515,38 +590,48 @@ export default function ProjectAiEstimatePanel({
             onConfirmItem={handleConfirmItem}
           />
 
-          {summaryItems.length > 0 && (
-            <ProjectAiEstimateSummaryTable
-              items={summaryItems}
-              costOverrides={costOverrides}
-              quantityOverrides={quantityOverrides}
-              modeOverrides={modeOverrides}
-              customLineItems={customLineItems}
-              onCostOverride={handleCostOverride}
-              onQuantityOverride={handleQuantityOverride}
-              onModeOverride={handleModeOverride}
-              onAddCustomItem={handleAddCustomItem}
-              onRemoveCustomItem={handleRemoveCustomItem}
-            />
-          )}
+          <ProjectAiEstimateSummaryTable
+            items={summaryItems}
+            costOverrides={costOverrides}
+            quantityOverrides={quantityOverrides}
+            modeOverrides={modeOverrides}
+            customLineItems={customLineItems}
+            onCostOverride={handleCostOverride}
+            onQuantityOverride={handleQuantityOverride}
+            onModeOverride={handleModeOverride}
+            onAddCustomItem={handleAddCustomItem}
+            onRemoveCustomItem={handleRemoveCustomItem}
+          />
 
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-bg-warm px-4 py-4">
             <p className="text-sm text-text-secondary">
-              {summaryItems.length > 0
-                ? "Adjust quantities and prices above, then save to update what bidders see."
-                : "Confirm the items above, then save to update what bidders see."}
+              Save a draft if you are still reviewing. Share only when this is
+              the checklist you want contractors to use as their bid starting
+              point.
             </p>
-            <button
-              type="button"
-              onClick={handleSaveAndShare}
-              disabled={isPending}
-              className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
-            >
-              <Eye className="h-4 w-4" />
-              {estimate?.published_to_bidders
-                ? "Save and Update Bidder View"
-                : "Save and Share With Bidders"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {!estimate.published_to_bidders && (
+                <button
+                  type="button"
+                  onClick={() => handleSaveReview({ publishToBidders: false })}
+                  disabled={isPending}
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-primary transition-colors hover:bg-white disabled:opacity-60"
+                >
+                  Save Review Draft
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleSaveReview({ publishToBidders: true })}
+                disabled={isPending}
+                className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-60"
+              >
+                <Eye className="h-4 w-4" />
+                {estimate?.published_to_bidders
+                  ? "Save and Update Bidder View"
+                  : "Save and Share With Bidders"}
+              </button>
+            </div>
           </div>
         </div>
       ) : !showLoadingState ? (

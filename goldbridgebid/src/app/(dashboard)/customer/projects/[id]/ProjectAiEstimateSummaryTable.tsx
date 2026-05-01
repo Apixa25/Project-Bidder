@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, AlertTriangle, BookOpen, Sparkles } from "lucide-react";
 import type { ProjectAiScopeItem } from "@/lib/ai-scope-items";
 
@@ -27,22 +27,21 @@ function MoneyInput({
 }: MoneyInputProps) {
   const [localValue, setLocalValue] = useState<string>(formatNum(value));
   const [isFocused, setIsFocused] = useState(false);
-
-  useEffect(() => {
-    if (!isFocused) setLocalValue(formatNum(value));
-  }, [value, isFocused]);
+  const displayValue = isFocused ? localValue : formatNum(value);
 
   return (
     <input
       type="text"
       inputMode="decimal"
       aria-label={ariaLabel}
-      value={localValue}
+      value={displayValue}
       placeholder={placeholder}
-      onFocus={() => setIsFocused(true)}
+      onFocus={() => {
+        setLocalValue(formatNum(value));
+        setIsFocused(true);
+      }}
       onBlur={() => {
         setIsFocused(false);
-        setLocalValue(formatNum(value));
       }}
       onChange={(e) => {
         const raw = e.target.value;
@@ -78,21 +77,20 @@ interface QtyInputProps {
 function QtyInput({ value, onChange, className = "" }: QtyInputProps) {
   const [localValue, setLocalValue] = useState<string>(formatNum(value));
   const [isFocused, setIsFocused] = useState(false);
-
-  useEffect(() => {
-    if (!isFocused) setLocalValue(formatNum(value));
-  }, [value, isFocused]);
+  const displayValue = isFocused ? localValue : formatNum(value);
 
   return (
     <input
       type="text"
       inputMode="decimal"
-      value={localValue}
+      value={displayValue}
       placeholder="0"
-      onFocus={() => setIsFocused(true)}
+      onFocus={() => {
+        setLocalValue(formatNum(value));
+        setIsFocused(true);
+      }}
       onBlur={() => {
         setIsFocused(false);
-        setLocalValue(formatNum(value));
       }}
       onChange={(e) => {
         const raw = e.target.value;
@@ -344,22 +342,17 @@ export default function ProjectAiEstimateSummaryTable({
     setShowAddForm(false);
   }
 
-  if (items.length === 0 && customLineItems.length === 0) {
-    return null;
-  }
-
   return (
     <section className="rounded-xl border border-border bg-surface p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-text-primary">
-            Line-Item Estimate Worksheet
+            Scope Pricing Worksheet
           </h3>
           <p className="mt-1 max-w-2xl text-sm text-text-secondary">
-            Every cell is editable. Use the dropdown next to each price to
-            specify whether it&apos;s a <strong>per-unit cost</strong> (× Qty)
-            or a <strong>flat fee</strong> (+ added once). Example: gravel at
-            $47/ton × 10 tons + $200 flat labor = $670 total.
+            Review the included scope items, adjust planning quantities or
+            baseline numbers if you know better, and add anything the AI missed.
+            Contractors still submit their own sealed prices.
           </p>
         </div>
         <div className="rounded-lg bg-gradient-to-r from-primary/10 to-secondary/10 px-4 py-2 text-right">
@@ -397,6 +390,17 @@ export default function ProjectAiEstimateSummaryTable({
             </tr>
           </thead>
           <tbody>
+            {rows.length === 0 && customLineItems.length === 0 && (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="rounded-lg bg-bg-warm px-4 py-5 text-center text-sm text-text-secondary"
+                >
+                  No included scope items yet. Confirm suggested items above or
+                  add a custom scope item below.
+                </td>
+              </tr>
+            )}
             {rows.map((row) => {
               const overrideMaterial = costOverrides[row.id]?.material;
               const overrideLabor = costOverrides[row.id]?.labor;
@@ -596,7 +600,7 @@ export default function ProjectAiEstimateSummaryTable({
       {showAddForm ? (
         <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-4">
           <p className="mb-3 text-sm font-semibold text-text-primary">
-            Add Custom Line Item
+            Add Custom Scope Item
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <div className="col-span-2 sm:col-span-1">
@@ -686,7 +690,7 @@ export default function ProjectAiEstimateSummaryTable({
           className="mt-4 inline-flex items-center gap-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
         >
           <Plus className="h-4 w-4" />
-          Add Custom Line Item
+          Add Custom Scope Item
         </button>
       )}
     </section>

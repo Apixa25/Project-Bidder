@@ -13,7 +13,6 @@ import {
   findCraftsmanCostsForScopeItem,
   formatCraftsmanAsQuantityDrivers,
 } from "@/lib/craftsman-lookup";
-import { TRADE_LABELS, type TradeCategory } from "@/types/database";
 import type {
   ProjectAiClassifyOutput,
   ProjectAiClassifyRequirement,
@@ -217,12 +216,10 @@ function mapCostSignificanceToConfidence(
 function buildScopeItemFromRequirement(params: {
   requirement: ProjectAiClassifyRequirement;
   index: number;
-  input: ProjectAiAnalysisInput;
-  analysis: ProjectAiAnalysisResult;
   wageEntry: TradeWageEntry;
   sector?: "residential" | "commercial" | "industrial" | "infrastructure" | "mixed";
 }): ProjectAiScopeItemDraft {
-  const { requirement, index, input, analysis, wageEntry, sector } = params;
+  const { requirement, index, wageEntry, sector } = params;
 
   const requiredStatus = mapInclusionToRequiredStatus(
     requirement.recommended_inclusion
@@ -517,8 +514,6 @@ export function buildProjectAiScopeItems(params: {
     buildScopeItemFromRequirement({
       requirement,
       index,
-      input,
-      analysis,
       wageEntry,
       sector,
     })
@@ -539,6 +534,11 @@ export function buildProjectAiItemClarifications(params: {
   const clarificationAnswers = input.clarificationAnswers || [];
 
   return items.flatMap((item) => {
+    const inclusionQuestionKey = `scope_item__${item.item_key}__include`;
+    const inclusionAnswer = getClarificationAnswer(
+      clarificationAnswers,
+      inclusionQuestionKey
+    );
     const blueprints: Array<{
       question_key: string;
       question_text: string;
@@ -549,12 +549,9 @@ export function buildProjectAiItemClarifications(params: {
     }> = [];
 
     // If the customer hasn't confirmed this item, ask if they want to include it
-    if (
-      item.customer_inclusion === null &&
-      item.required_status !== "required"
-    ) {
+    if (item.customer_inclusion === null || inclusionAnswer) {
       blueprints.push({
-        question_key: `scope_item__${item.item_key}__include`,
+        question_key: inclusionQuestionKey,
         question_text: `Do you want to include "${item.item_label}" in your project scope?`,
         question_type: "single_select",
         help_text:

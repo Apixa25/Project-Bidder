@@ -219,7 +219,7 @@ export default async function BidderProjectDetailPage({
       .from("project_ai_scope_items")
       .select("id, item_label, description, item_category, quantity_drivers_json, display_order")
       .eq("project_id", id)
-      .or("customer_inclusion.eq.yes,required_status.eq.required")
+      .eq("customer_inclusion", "yes")
       .order("display_order", { ascending: true });
 
     publishedScopeItems = scopeRows || [];

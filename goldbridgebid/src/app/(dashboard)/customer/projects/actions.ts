@@ -30,7 +30,6 @@ import {
 } from "@/lib/ai-scope-items";
 import { analyzeProjectAiHybrid } from "@/lib/ai/project-ai-hybrid";
 import { enrichProjectAiFileSignals } from "@/lib/ai-upload-intelligence";
-import type { ProjectAiClassifyOutput } from "@/lib/ai/project-ai-classify-schema";
 
 interface CreateProjectResult {
   error: string | null;
@@ -52,6 +51,11 @@ interface DraftProjectAiClarificationSubmission {
   answer_value_json: string | string[];
   status: "pending" | "answered";
   display_order: number;
+}
+
+interface DraftCustomScopeItemSubmission {
+  id: string;
+  label: string;
 }
 
 function getNormalizedProjectFileOrder(
@@ -278,6 +282,48 @@ function parseDraftProjectAiClarifications(
       );
   } catch (error) {
     console.error("Failed to parse draft AI clarifications:", error);
+    return [];
+  }
+}
+
+function parseDraftCustomScopeItems(
+  rawValue: FormDataEntryValue | null
+): DraftCustomScopeItemSubmission[] {
+  if (typeof rawValue !== "string" || rawValue.trim().length === 0) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((entry, index) => {
+        if (!entry || typeof entry !== "object") {
+          return null;
+        }
+
+        const rawId = typeof entry.id === "string" ? entry.id.trim() : "";
+        const label = typeof entry.label === "string" ? entry.label.trim() : "";
+
+        if (!label) {
+          return null;
+        }
+
+        return {
+          id:
+            rawId && /^[a-zA-Z0-9_-]+$/.test(rawId)
+              ? rawId
+              : `custom_${index}`,
+          label: label.slice(0, 160),
+        };
+      })
+      .filter(
+        (entry): entry is DraftCustomScopeItemSubmission => entry !== null
+      );
+  } catch {
     return [];
   }
 }
@@ -1008,6 +1054,7 @@ export async function saveProjectAiClarificationsAndShare(
       material: number;
       labor: number;
     }>;
+    publishToBidders?: boolean;
   }
 ) {
   const supabase = await createClient();
@@ -1298,11 +1345,11 @@ export async function saveProjectAiClarificationsAndShare(
   // That function wipes all scope items and re-runs the LLM, which would destroy
   // every confirmation, exclusion, cost override, quantity override, and custom
   // line item the user just saved. The user has finalized their decisions —
-  // just publish the current state to bidders.
+  // just save or publish the current state.
   const { error: publishError } = await supabase
     .from("project_ai_estimates")
     .update({
-      published_to_bidders: true,
+      published_to_bidders: answers.publishToBidders ?? true,
       stale_after_edit: false,
     })
     .eq("project_id", projectId);
@@ -1444,6 +1491,9 @@ export async function createProject(formData: FormData) {
   const draftAiItemClarifications = parseDraftProjectAiClarifications(
     formData.get("draftAiItemClarifications")
   );
+  const draftCustomScopeItems = parseDraftCustomScopeItems(
+    formData.get("draftCustomScopeItems")
+  );
 
   const expertiseLevel = (["licensed_contractor", "handyman", "general_labor"].includes(expertiseLevelRaw)
     ? expertiseLevelRaw
@@ -1473,6 +1523,7 @@ export async function createProject(formData: FormData) {
     fileCount: formData.getAll("files").filter((file) => file instanceof File && file.size > 0).length,
     draftAiClarificationCount: draftAiClarifications.length,
     draftAiItemClarificationCount: draftAiItemClarifications.length,
+    draftCustomScopeItemCount: draftCustomScopeItems.length,
   });
 
   if (
@@ -1685,6 +1736,35 @@ export async function createProject(formData: FormData) {
     },
     triggerType: "create",
   });
+
+  if (draftCustomScopeItems.length > 0) {
+    const { error: customScopeError } = await supabase
+      .from("project_ai_scope_items")
+      .upsert(
+        draftCustomScopeItems.map((item, index) => ({
+          project_id: project.id,
+          item_key: item.id,
+          item_label: item.label,
+          item_category: "other",
+          required_status: "likely",
+          confidence_level: "high",
+          description: "Custom scope item added by the customer before posting.",
+          why_it_may_apply:
+            "The customer manually added this item to the contractor bid scope.",
+          confidence_reason:
+            "Customer-added items are included because the project owner requested them.",
+          source_method: "manual_review",
+          needs_clarification: false,
+          customer_inclusion: "yes",
+          display_order: 10000 + index,
+        })),
+        { onConflict: "project_id,item_key" }
+      );
+
+    if (customScopeError) {
+      console.error("Draft custom scope item seed error:", customScopeError);
+    }
+  }
 
   const shouldCreatePaidEstimate =
     formData.get("enablePaidEstimate") === "true";
