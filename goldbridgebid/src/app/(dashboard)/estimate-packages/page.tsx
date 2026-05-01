@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { LibraryBig, LockKeyhole, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -90,8 +91,9 @@ export default async function EstimatePackageMarketplacePage() {
             const estimator = estimatorMap.get(packageRow.estimator_id);
 
             return (
-              <article
+              <Link
                 key={packageRow.id}
+                href={`/estimate-packages/${packageRow.id}`}
                 className="rounded-xl border border-border bg-surface p-6 shadow-sm"
               >
                 <div className="mb-4 flex items-start justify-between gap-4">
@@ -120,7 +122,7 @@ export default async function EstimatePackageMarketplacePage() {
                     </span>
                   ))}
                 </div>
-              </article>
+              </Link>
             );
           })}
         </div>

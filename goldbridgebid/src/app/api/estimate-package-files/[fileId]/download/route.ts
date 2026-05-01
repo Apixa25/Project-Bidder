@@ -50,8 +50,6 @@ export async function GET(
 
   const isOwner = packageRow.estimator_id === user.id;
   const isAdmin = await userHasRole(user.id, "admin");
-  const isFreePublished =
-    packageRow.status === "published" && Number(packageRow.price_cents) === 0;
 
   const [{ data: purchase }, { data: grant }] = await Promise.all([
     admin
@@ -70,8 +68,7 @@ export async function GET(
       .maybeSingle(),
   ]);
 
-  const canAccess =
-    isOwner || isAdmin || isFreePublished || Boolean(purchase) || Boolean(grant);
+  const canAccess = isOwner || isAdmin || Boolean(purchase) || Boolean(grant);
 
   if (!canAccess) {
     return NextResponse.json(
