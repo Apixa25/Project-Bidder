@@ -447,7 +447,6 @@ export function analyzeProjectAiEstimate(
 ): ProjectAiAnalysisResult {
   const title = normalizeText(input.title);
   const description = normalizeText(input.description);
-  const completionCriteria = normalizeText(input.completionCriteria);
   const locationAddress = normalizeText(input.locationAddress);
   const locationCity = normalizeText(input.locationCity);
   const locationState = normalizeText(input.locationState);
@@ -670,7 +669,14 @@ export function analyzeProjectAiEstimate(
     assumptions,
     exclusions,
     missing_items: missingItems,
-    recommended_questions: candidateQuestions.map(({ priority, ...question }) => question),
+    recommended_questions: candidateQuestions.map((question) => ({
+      question_key: question.question_key,
+      question_text: question.question_text,
+      question_type: question.question_type,
+      options: question.options,
+      help_text: question.help_text,
+      placeholder: question.placeholder,
+    })),
     baseline_low: baselineLow,
     baseline_high: baselineHigh,
     trade_breakdown: tradeBreakdown,

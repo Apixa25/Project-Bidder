@@ -126,6 +126,66 @@ export async function deleteUser(userId: string) {
   return { success: true };
 }
 
+export async function enableEstimatorRole(userId: string) {
+  const { supabase, adminUserId } = await requireAdmin();
+  const adminClient = createAdminClient();
+
+  const { data: target, error: targetError } = await adminClient
+    .from("profiles")
+    .select("full_name, business_name, email")
+    .eq("user_id", userId)
+    .single();
+
+  if (targetError || !target) {
+    return { error: "User profile could not be found." };
+  }
+
+  const { error: roleError } = await adminClient.from("user_roles").upsert(
+    {
+      user_id: userId,
+      role: "estimator",
+    },
+    { onConflict: "user_id,role", ignoreDuplicates: true }
+  );
+
+  if (roleError) {
+    console.error("Enable estimator role error:", roleError);
+    return { error: "Unable to enable estimator mode for this user." };
+  }
+
+  const displayName =
+    target.business_name?.trim() || target.full_name?.trim() || target.email;
+
+  const { error: profileError } = await adminClient
+    .from("estimator_profiles")
+    .upsert(
+      {
+        user_id: userId,
+        display_name: displayName,
+      },
+      { onConflict: "user_id", ignoreDuplicates: true }
+    );
+
+  if (profileError) {
+    console.error("Estimator profile bootstrap error:", profileError);
+    return {
+      error:
+        "Estimator mode was enabled, but estimator profile setup failed.",
+    };
+  }
+
+  await logAudit(supabase, adminUserId, "enable_estimator_role", "user", userId, {
+    user_name: target.full_name,
+    user_email: target.email,
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
+  revalidatePath("/admin/estimate-packages");
+
+  return { success: true };
+}
+
 export async function deleteProject(projectId: string) {
   const { supabase, adminUserId } = await requireAdmin();
 

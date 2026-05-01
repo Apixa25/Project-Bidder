@@ -229,7 +229,6 @@ export default function FlaggedContentList({
           </h2>
           <div className="space-y-2">
             {resolved.map((flag) => {
-              const reporter = reporterMap[flag.reporter_id];
               return (
                 <div
                   key={flag.id}

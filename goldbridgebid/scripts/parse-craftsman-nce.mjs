@@ -32,9 +32,6 @@ const DASH_CRAFT_RE =
 // Matches a percentage-based add/deduct line: "—  %  -10  —  —"
 const PCT_LINE_RE = /^(.+?)\s{2,}(?:—|ï)\s+%/;
 
-// Extract cost values: numbers with optional commas and decimals, or "—"
-const COST_VALUE_RE = /[\d,]+\.\d{2}|—|ï/g;
-
 // Column header line for detecting Equipment column presence
 const COLUMN_HEADER_RE = /Craft@Hrs\s+Unit\s+Material\s+Labor/i;
 const HAS_EQUIPMENT_RE = /Equipment/i;

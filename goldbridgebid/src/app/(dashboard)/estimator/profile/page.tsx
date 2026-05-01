@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { userHasRole } from "@/lib/auth/roles";
+import EstimatorProfileForm from "./EstimatorProfileForm";
 
 export default async function EstimatorProfilePage() {
   const supabase = await createClient();
@@ -24,6 +25,8 @@ export default async function EstimatorProfilePage() {
       .eq("user_id", user.id)
       .maybeSingle(),
   ]);
+
+  if (!profile) redirect("/login");
 
   return (
     <div>
@@ -59,6 +62,20 @@ export default async function EstimatorProfilePage() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="mt-8 rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-2 text-lg font-semibold text-text-primary">
+          Edit Marketplace Profile
+        </h2>
+        <p className="mb-6 text-sm leading-relaxed text-text-secondary">
+          Keep this profile clear and specific. Estimate buyers will use it to
+          judge whether your packages are trustworthy enough to buy.
+        </p>
+        <EstimatorProfileForm
+          profile={profile}
+          estimatorProfile={estimatorProfile || null}
+        />
       </section>
     </div>
   );

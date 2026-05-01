@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { LibraryBig, PackagePlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { userHasRole } from "@/lib/auth/roles";
 import type { EstimatePackage } from "@/types/database";
+import PublishPackageButton from "./PublishPackageButton";
 
 function formatPrice(packageRow: Pick<EstimatePackage, "price_cents" | "currency">) {
   if (packageRow.price_cents === 0) return "Free";
@@ -37,15 +39,13 @@ export default async function EstimatorPackagesPage() {
             Draft, publish, and maintain marketplace estimate packages.
           </p>
         </div>
-        <button
-          type="button"
-          disabled
-          className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-accent-light/70 px-5 py-2.5 text-sm font-semibold text-white shadow-sm"
-          title="Package creation is coming in the next build slice."
+        <Link
+          href="/estimator/packages/new"
+          className="inline-flex items-center gap-2 rounded-lg bg-accent-light px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-110"
         >
           <PackagePlus className="h-4 w-4" />
-          New Package Soon
-        </button>
+          New Package
+        </Link>
       </div>
 
       <div className="rounded-xl border border-border bg-surface shadow-sm">
@@ -59,10 +59,17 @@ export default async function EstimatorPackagesPage() {
               No packages yet
             </h3>
             <p className="mx-auto mt-2 max-w-xl text-sm text-text-secondary">
-              This first slice establishes the marketplace foundation. The next
-              step is adding a package creation form with version snapshots and
-              file uploads.
+              Create your first draft package. A version 1 snapshot will be
+              saved immediately so buyers can later access a stable package
+              version.
             </p>
+            <Link
+              href="/estimator/packages/new"
+              className="mt-5 inline-flex items-center gap-2 rounded-lg bg-accent-light px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-110"
+            >
+              <PackagePlus className="h-4 w-4" />
+              Create Package
+            </Link>
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -84,6 +91,9 @@ export default async function EstimatorPackagesPage() {
                   <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                     {formatPrice(packageRow)}
                   </span>
+                  {packageRow.status === "draft" && (
+                    <PublishPackageButton packageId={packageRow.id} />
+                  )}
                 </div>
               </div>
             ))}

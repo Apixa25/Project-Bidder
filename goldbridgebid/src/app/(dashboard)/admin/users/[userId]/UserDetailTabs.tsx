@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   banUser,
   unbanUser,
   deleteUser,
+  enableEstimatorRole,
 } from "@/app/(dashboard)/admin/actions";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, Sparkles, XCircle } from "lucide-react";
 import {
   BIDDER_PAYOUT_READINESS_LABELS,
   getBidderPayoutReadiness,
@@ -76,13 +78,30 @@ export default function UserDetailTabs({
   bids,
   messageCount,
 }: Props) {
+  const router = useRouter();
   const [tab, setTab] = useState<
     "profile" | "activity" | "credentials" | "payouts"
   >("profile");
   const [showBan, setShowBan] = useState(false);
   const [showUnban, setShowUnban] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [enablingEstimator, setEnablingEstimator] = useState(false);
+  const [estimatorError, setEstimatorError] = useState<string | null>(null);
   const payoutReadiness = getBidderPayoutReadiness(payoutAccount);
+
+  async function handleEnableEstimator() {
+    setEnablingEstimator(true);
+    setEstimatorError(null);
+    const result = await enableEstimatorRole(profile.user_id);
+
+    if (result?.error) {
+      setEstimatorError(result.error);
+      setEnablingEstimator(false);
+      return;
+    }
+
+    router.refresh();
+  }
 
   const tabs = [
     { id: "profile" as const, label: "Profile" },
@@ -193,21 +212,55 @@ export default function UserDetailTabs({
             <h3 className="mb-3 text-lg font-semibold text-text-primary">
               Role Memberships
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {roles.map((role) => (
-                <span
-                  key={role}
-                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
-                    role === "admin"
-                      ? "bg-purple-100 text-purple-700"
-                      : role === "customer"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-secondary/10 text-secondary"
-                  }`}
-                >
-                  {role.charAt(0).toUpperCase() + role.slice(1)}
-                </span>
-              ))}
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap gap-2">
+                {roles.map((role) => (
+                  <span
+                    key={role}
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                      role === "admin"
+                        ? "bg-purple-100 text-purple-700"
+                        : role === "customer"
+                          ? "bg-blue-100 text-blue-700"
+                          : role === "estimator"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-secondary/10 text-secondary"
+                    }`}
+                  >
+                    {role.charAt(0).toUpperCase() + role.slice(1)}
+                  </span>
+                ))}
+              </div>
+              {!roles.includes("estimator") && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-amber-900">
+                        Enable estimator mode
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-amber-800">
+                        Grants this user access to the Professional Estimator
+                        Marketplace workspace and creates their estimator
+                        profile shell.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleEnableEstimator}
+                      disabled={enablingEstimator}
+                      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      {enablingEstimator ? "Enabling..." : "Enable Estimator"}
+                    </button>
+                  </div>
+                  {estimatorError && (
+                    <p className="mt-3 text-xs font-medium text-red-700">
+                      {estimatorError}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -671,10 +671,8 @@ export default function PortfolioGallery({
             const isExpanded = expandedItem === item.id;
             const isBeforeAfter = item.item_type === "before_after";
 
-            // For before/after items, get sorted media (display_order 0=before, 1=after)
-            const sortedMedia = [...(item.media || [])].sort(
-              (a, b) => 0 // maintain insertion order which is display_order
-            );
+            // Media is already ordered by the profile page query.
+            const sortedMedia = item.media || [];
             const beforeMedia = sortedMedia[0];
             const afterMedia = sortedMedia[1];
 

@@ -25,7 +25,6 @@ import {
   BarChart3,
   MessageSquare,
   Flag,
-  TrendingUp,
   Star,
 } from "lucide-react";
 import AdminStatCard from "@/components/admin/AdminStatCard";

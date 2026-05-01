@@ -1,0 +1,14 @@
+---
+description: Always end work reports with a clear recommended next step
+alwaysApply: true
+---
+
+# Final Work Reports
+
+When reporting completed work, include a concise recommended next step so the project can keep moving.
+
+- Summarize what changed and what was verified.
+- Call out any remaining risks or blockers.
+- End with a short "Recommended next step" that names the next concrete task.
+- If the work followed a project plan document, reference the relevant plan or milestone.
+
