@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { LibraryBig, LockKeyhole, Sparkles } from "lucide-react";
+import { LibraryBig, LockKeyhole, ReceiptText, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import {
   TRADE_LABELS,
@@ -57,9 +57,18 @@ export default async function EstimatePackageMarketplacePage() {
             and plan reviews from marketplace estimators.
           </p>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800">
-          <Sparkles className="h-4 w-4" />
-          Reputation-led quality
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/estimate-packages/purchases"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-text-primary"
+          >
+            <ReceiptText className="h-4 w-4" />
+            My Estimate Packages
+          </Link>
+          <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800">
+            <Sparkles className="h-4 w-4" />
+            Reputation-led quality
+          </div>
         </div>
       </div>
 

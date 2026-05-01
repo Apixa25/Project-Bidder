@@ -77,9 +77,7 @@ export default async function EstimatePackageDetailPage({
 
   const currentPackage = packageRow as EstimatePackage;
   const isOwner = currentPackage.estimator_id === user.id;
-  if (currentPackage.status !== "published" && !isOwner && !isAdmin) {
-    notFound();
-  }
+  const nowIso = new Date().toISOString();
 
   if (
     resolvedSearchParams.packageCheckout === "success" &&
@@ -99,24 +97,9 @@ export default async function EstimatePackageDetailPage({
   }
 
   const [
-    { data: estimatorProfile },
-    { data: versionRow },
     { data: purchase },
     { data: grant },
-    { data: reviews },
   ] = await Promise.all([
-    admin
-      .from("estimator_profiles")
-      .select("display_name, headline, bio, service_area, website_url, verification_status")
-      .eq("user_id", currentPackage.estimator_id)
-      .maybeSingle(),
-    currentPackage.current_version_id
-      ? admin
-          .from("estimate_package_versions")
-          .select("*")
-          .eq("id", currentPackage.current_version_id)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
     currentPackage.current_version_id
       ? admin
           .from("estimate_package_purchases")
@@ -135,14 +118,40 @@ export default async function EstimatePackageDetailPage({
           ? `package_version_id.is.null,package_version_id.eq.${currentPackage.current_version_id}`
           : "package_version_id.is.null"
       )
-      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
       .maybeSingle(),
+  ]);
+
+  if (
+    currentPackage.status !== "published" &&
+    !isOwner &&
+    !isAdmin &&
+    !purchase &&
+    !grant
+  ) {
+    notFound();
+  }
+
+  const [{ data: estimatorProfile }, { data: versionRow }, { data: reviews }] =
+    await Promise.all([
+      admin
+        .from("estimator_profiles")
+        .select("display_name, headline, bio, service_area, website_url, verification_status")
+        .eq("user_id", currentPackage.estimator_id)
+        .maybeSingle(),
+      currentPackage.current_version_id
+        ? admin
+            .from("estimate_package_versions")
+            .select("*")
+            .eq("id", currentPackage.current_version_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
     admin
       .from("estimate_package_reviews")
       .select("rating_overall")
       .eq("package_id", currentPackage.id)
       .eq("status", "published"),
-  ]);
+    ]);
 
   const version = (versionRow || null) as EstimatePackageVersion | null;
   const hasAccess = isOwner || isAdmin || Boolean(purchase) || Boolean(grant);

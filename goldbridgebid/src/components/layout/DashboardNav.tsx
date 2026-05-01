@@ -24,6 +24,7 @@ import {
   CreditCard,
   LibraryBig,
   PackagePlus,
+  ReceiptText,
 } from "lucide-react";
 import { signOut } from "@/app/(auth)/actions";
 import type { UserRole } from "@/types/database";
@@ -47,6 +48,7 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
     { href: "/customer/bids", label: "My Bids", icon: ClipboardList },
     { href: "/customer/contractors", label: "Find Contractors", icon: Users },
     { href: "/estimate-packages", label: "Estimate Library", icon: LibraryBig },
+    { href: "/estimate-packages/purchases", label: "My Estimate Packages", icon: ReceiptText },
     { href: "/customer/messages", label: "Messages", icon: MessageSquare },
     { href: "/customer/profile", label: "Profile", icon: User },
   ],
@@ -55,6 +57,7 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
     { href: "/bidder/bids", label: "My Bids", icon: ClipboardList },
     { href: "/bidder/projects", label: "Browse Projects", icon: FolderOpen },
     { href: "/estimate-packages", label: "Estimate Library", icon: LibraryBig },
+    { href: "/estimate-packages/purchases", label: "My Estimate Packages", icon: ReceiptText },
     { href: "/bidder/payouts", label: "Payouts", icon: WalletCards },
     { href: "/bidder/messages", label: "Messages", icon: MessageSquare },
     { href: "/bidder/credentials", label: "Credentials", icon: Shield },
@@ -63,6 +66,7 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
   estimator: [
     { href: "/estimator", label: "Dashboard", icon: LayoutDashboard },
     { href: "/estimator/packages", label: "My Packages", icon: LibraryBig },
+    { href: "/estimate-packages/purchases", label: "My Purchases", icon: ReceiptText },
     { href: "/estimator/requests", label: "Estimate Requests", icon: PackagePlus },
     { href: "/estimator/messages", label: "Messages", icon: MessageSquare },
     { href: "/estimator/profile", label: "Profile", icon: User },
