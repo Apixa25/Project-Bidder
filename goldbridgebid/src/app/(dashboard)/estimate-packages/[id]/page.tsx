@@ -11,6 +11,8 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { userHasRole } from "@/lib/auth/roles";
+import { getStripeServerClient } from "@/lib/stripe/server";
+import { reconcileEstimatePackagePurchaseFromCheckoutSession } from "@/lib/estimate-packages/purchases";
 import {
   TRADE_LABELS,
   type EstimatePackage,
@@ -19,6 +21,7 @@ import {
   type TradeCategory,
 } from "@/types/database";
 import UnlockFreePackageButton from "./UnlockFreePackageButton";
+import BuyPackageButton from "./BuyPackageButton";
 
 function formatPrice(packageRow: Pick<EstimatePackage, "price_cents" | "currency">) {
   if (packageRow.price_cents === 0) return "Free";
@@ -45,10 +48,16 @@ function formatPackageType(value: string) {
 
 export default async function EstimatePackageDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{
+    packageCheckout?: string;
+    session_id?: string;
+  }>;
 }) {
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
   const supabase = await createClient();
   const admin = createAdminClient();
   const {
@@ -70,6 +79,23 @@ export default async function EstimatePackageDetailPage({
   const isOwner = currentPackage.estimator_id === user.id;
   if (currentPackage.status !== "published" && !isOwner && !isAdmin) {
     notFound();
+  }
+
+  if (
+    resolvedSearchParams.packageCheckout === "success" &&
+    resolvedSearchParams.session_id
+  ) {
+    try {
+      await reconcileEstimatePackagePurchaseFromCheckoutSession({
+        admin,
+        stripe: getStripeServerClient(),
+        sessionId: resolvedSearchParams.session_id,
+        packageId: currentPackage.id,
+        buyerId: user.id,
+      });
+    } catch (error) {
+      console.error("Estimate package checkout reconciliation error:", error);
+    }
   }
 
   const [
@@ -124,6 +150,11 @@ export default async function EstimatePackageDetailPage({
     currentPackage.status === "published" &&
     currentPackage.price_cents === 0 &&
     !hasAccess;
+  const canBuyPackage =
+    currentPackage.status === "published" &&
+    currentPackage.price_cents > 0 &&
+    !hasAccess &&
+    !isOwner;
 
   const { data: packageFiles } =
     hasAccess && currentPackage.current_version_id
@@ -310,17 +341,35 @@ export default async function EstimatePackageDetailPage({
               <div className="mt-5">
                 <UnlockFreePackageButton packageId={currentPackage.id} />
               </div>
+            ) : canBuyPackage ? (
+              <div className="mt-5">
+                {resolvedSearchParams.packageCheckout === "cancelled" && (
+                  <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    Checkout was cancelled. You can restart whenever you are
+                    ready.
+                  </p>
+                )}
+                <BuyPackageButton
+                  packageId={currentPackage.id}
+                  priceLabel={formatPrice(currentPackage)}
+                />
+                <p className="mt-3 text-xs leading-relaxed text-text-muted">
+                  Files unlock after Stripe confirms payment. No dispute flow is
+                  attached to package purchases; quality is handled through
+                  reputation and reviews.
+                </p>
+              </div>
             ) : (
               <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
                 <div className="flex items-start gap-3">
                   <LockKeyhole className="mt-0.5 h-5 w-5 text-amber-700" />
                   <div>
                     <p className="text-sm font-semibold text-amber-900">
-                      Paid checkout coming soon
+                      Access required
                     </p>
                     <p className="mt-1 text-sm leading-relaxed text-amber-800">
-                      This package requires payment before files unlock. Stripe
-                      checkout will be connected in the paid access milestone.
+                      This package requires a purchase or direct access grant
+                      before files unlock.
                     </p>
                   </div>
                 </div>

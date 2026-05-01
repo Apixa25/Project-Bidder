@@ -7,6 +7,7 @@ import {
 } from "@/lib/stripe/server";
 import { syncBidderPayoutAccountFromStripe } from "@/lib/stripe/connect";
 import { markPaidEstimatePoolFunded } from "@/lib/paid-estimates/funding";
+import { markEstimatePackagePurchased } from "@/lib/estimate-packages/purchases";
 
 export async function POST(request: Request) {
   const stripe = getStripeServerClient();
@@ -60,36 +61,57 @@ export async function POST(request: Request) {
         const session = event.data.object as Stripe.Checkout.Session;
 
         if (session.payment_status === "paid") {
-          await markPaidEstimatePoolFunded({
-            admin: createAdminClient(),
-            metadata: {
-              projectId: session.metadata?.projectId,
-              customerId: session.metadata?.customerId,
-            },
-            stripeIds: {
-              paymentIntentId:
-                typeof session.payment_intent === "string"
-                  ? session.payment_intent
-                  : null,
-              checkoutSessionId: session.id,
-            },
-          });
+          const admin = createAdminClient();
+          const stripeIds = {
+            paymentIntentId:
+              typeof session.payment_intent === "string"
+                ? session.payment_intent
+                : null,
+            checkoutSessionId: session.id,
+          };
+
+          if (session.metadata?.kind === "estimate_package_purchase") {
+            await markEstimatePackagePurchased({
+              admin,
+              metadata: session.metadata,
+              stripeIds,
+            });
+          } else {
+            await markPaidEstimatePoolFunded({
+              admin,
+              metadata: {
+                projectId: session.metadata?.projectId,
+                customerId: session.metadata?.customerId,
+              },
+              stripeIds,
+            });
+          }
         }
         break;
       }
       case "payment_intent.succeeded": {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
-        await markPaidEstimatePoolFunded({
-          admin: createAdminClient(),
-          metadata: {
-            projectId: paymentIntent.metadata?.projectId,
-            customerId: paymentIntent.metadata?.customerId,
-          },
-          stripeIds: {
-            paymentIntentId: paymentIntent.id,
-          },
-        });
+        if (paymentIntent.metadata?.kind === "estimate_package_purchase") {
+          await markEstimatePackagePurchased({
+            admin: createAdminClient(),
+            metadata: paymentIntent.metadata,
+            stripeIds: {
+              paymentIntentId: paymentIntent.id,
+            },
+          });
+        } else {
+          await markPaidEstimatePoolFunded({
+            admin: createAdminClient(),
+            metadata: {
+              projectId: paymentIntent.metadata?.projectId,
+              customerId: paymentIntent.metadata?.customerId,
+            },
+            stripeIds: {
+              paymentIntentId: paymentIntent.id,
+            },
+          });
+        }
         break;
       }
       case "account.updated": {
