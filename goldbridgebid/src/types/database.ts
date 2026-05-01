@@ -1,4 +1,4 @@
-export type UserRole = "customer" | "bidder" | "admin";
+export type UserRole = "customer" | "bidder" | "admin" | "estimator";
 
 export type ProjectStatus = "open" | "awarded" | "completed" | "closed";
 
@@ -34,6 +34,23 @@ export type PaidEstimateDisputeReviewStatus =
   | "open"
   | "resolved_paid"
   | "resolved_denied";
+
+export type EstimatorVerificationStatus = "pending" | "verified" | "rejected";
+
+export type EstimatePackageStatus = "draft" | "published" | "archived";
+
+export type EstimatePackageType =
+  | "material_takeoff"
+  | "bid_ready_scope"
+  | "estimate_worksheet"
+  | "plan_review"
+  | "other";
+
+export type EstimateRequestStatus =
+  | "open"
+  | "assigned"
+  | "completed"
+  | "cancelled";
 
 export type TradeCategory =
   // Legacy values (kept for backward compatibility with existing data)
@@ -398,6 +415,120 @@ export interface UserReview {
   review_body: string;
   relationship_context: string | null;
   would_work_again: boolean | null;
+  status: "published" | "flagged" | "hidden";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EstimatorProfile {
+  user_id: string;
+  display_name: string;
+  headline: string | null;
+  bio: string | null;
+  service_area: string | null;
+  website_url: string | null;
+  verification_status: EstimatorVerificationStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EstimatePackage {
+  id: string;
+  estimator_id: string;
+  title: string;
+  summary: string;
+  package_type: EstimatePackageType;
+  trades: TradeCategory[];
+  price_cents: number;
+  currency: string;
+  status: EstimatePackageStatus;
+  current_version_id: string | null;
+  published_at: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EstimatePackageVersion {
+  id: string;
+  package_id: string;
+  version_number: number;
+  title_snapshot: string;
+  summary_snapshot: string;
+  scope_overview: string | null;
+  assumptions_json: string[];
+  exclusions_json: string[];
+  line_items_json: Array<Record<string, unknown>>;
+  price_cents_snapshot: number;
+  currency_snapshot: string;
+  published_at: string | null;
+  created_at: string;
+}
+
+export interface EstimatePackageFile {
+  id: string;
+  package_id: string;
+  package_version_id: string;
+  storage_path: string;
+  file_name: string;
+  file_type: string;
+  file_size_bytes: number | null;
+  display_order: number;
+  uploaded_at: string;
+}
+
+export interface EstimatePackagePurchase {
+  id: string;
+  package_id: string;
+  package_version_id: string;
+  buyer_id: string;
+  seller_id: string;
+  price_cents: number;
+  currency: string;
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  purchased_at: string;
+  created_at: string;
+}
+
+export interface EstimatePackageAccessGrant {
+  id: string;
+  package_id: string;
+  package_version_id: string | null;
+  grantee_user_id: string;
+  granted_by: string | null;
+  reason: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
+
+export interface EstimateRequest {
+  id: string;
+  requester_id: string;
+  assigned_estimator_id: string | null;
+  title: string;
+  description: string;
+  trades: TradeCategory[];
+  location_city: string | null;
+  location_state: string | null;
+  target_budget_cents: number | null;
+  requested_due_date: string | null;
+  status: EstimateRequestStatus;
+  public_to_estimators: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EstimatePackageReview {
+  id: string;
+  package_id: string;
+  package_version_id: string | null;
+  purchase_id: string | null;
+  reviewer_user_id: string;
+  estimator_id: string;
+  rating_overall: number;
+  review_title: string | null;
+  review_body: string;
   status: "published" | "flagged" | "hidden";
   created_at: string;
   updated_at: string;
@@ -1131,6 +1262,101 @@ type UserReviewInsert = {
   status?: "published" | "flagged" | "hidden";
 };
 
+type EstimatorProfileInsert = {
+  user_id: string;
+  display_name: string;
+  headline?: string | null;
+  bio?: string | null;
+  service_area?: string | null;
+  website_url?: string | null;
+  verification_status?: EstimatorVerificationStatus;
+};
+
+type EstimatePackageInsert = {
+  estimator_id: string;
+  title: string;
+  summary: string;
+  package_type: EstimatePackageType;
+  trades?: TradeCategory[];
+  price_cents?: number;
+  currency?: string;
+  status?: EstimatePackageStatus;
+  current_version_id?: string | null;
+  published_at?: string | null;
+  archived_at?: string | null;
+};
+
+type EstimatePackageVersionInsert = {
+  package_id: string;
+  version_number: number;
+  title_snapshot: string;
+  summary_snapshot: string;
+  scope_overview?: string | null;
+  assumptions_json?: string[];
+  exclusions_json?: string[];
+  line_items_json?: Array<Record<string, unknown>>;
+  price_cents_snapshot?: number;
+  currency_snapshot?: string;
+  published_at?: string | null;
+};
+
+type EstimatePackageFileInsert = {
+  package_id: string;
+  package_version_id: string;
+  storage_path: string;
+  file_name: string;
+  file_type: string;
+  file_size_bytes?: number | null;
+  display_order?: number;
+};
+
+type EstimatePackagePurchaseInsert = {
+  package_id: string;
+  package_version_id: string;
+  buyer_id: string;
+  seller_id: string;
+  price_cents: number;
+  currency?: string;
+  stripe_checkout_session_id?: string | null;
+  stripe_payment_intent_id?: string | null;
+  purchased_at?: string;
+};
+
+type EstimatePackageAccessGrantInsert = {
+  package_id: string;
+  package_version_id?: string | null;
+  grantee_user_id: string;
+  granted_by?: string | null;
+  reason?: string | null;
+  expires_at?: string | null;
+};
+
+type EstimateRequestInsert = {
+  requester_id: string;
+  assigned_estimator_id?: string | null;
+  title: string;
+  description: string;
+  trades?: TradeCategory[];
+  location_city?: string | null;
+  location_state?: string | null;
+  target_budget_cents?: number | null;
+  requested_due_date?: string | null;
+  status?: EstimateRequestStatus;
+  public_to_estimators?: boolean;
+};
+
+type EstimatePackageReviewInsert = {
+  package_id: string;
+  package_version_id?: string | null;
+  purchase_id?: string | null;
+  reviewer_user_id: string;
+  estimator_id: string;
+  rating_overall: number;
+  review_body: string;
+  review_title?: string | null;
+  status?: "published" | "flagged" | "hidden";
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -1174,6 +1400,69 @@ export interface Database {
         Row: ProjectPaidEstimatePool;
         Insert: ProjectPaidEstimatePoolInsert;
         Update: Partial<Omit<ProjectPaidEstimatePoolInsert, "project_id">>;
+        Relationships: [];
+      };
+      estimator_profiles: {
+        Row: EstimatorProfile;
+        Insert: EstimatorProfileInsert;
+        Update: Partial<Omit<EstimatorProfileInsert, "user_id">>;
+        Relationships: [];
+      };
+      estimate_packages: {
+        Row: EstimatePackage;
+        Insert: EstimatePackageInsert;
+        Update: Partial<Omit<EstimatePackageInsert, "estimator_id">>;
+        Relationships: [];
+      };
+      estimate_package_versions: {
+        Row: EstimatePackageVersion;
+        Insert: EstimatePackageVersionInsert;
+        Update: Partial<Omit<EstimatePackageVersionInsert, "package_id" | "version_number">>;
+        Relationships: [];
+      };
+      estimate_package_files: {
+        Row: EstimatePackageFile;
+        Insert: EstimatePackageFileInsert;
+        Update: Partial<Omit<EstimatePackageFileInsert, "package_id" | "package_version_id">>;
+        Relationships: [];
+      };
+      estimate_package_purchases: {
+        Row: EstimatePackagePurchase;
+        Insert: EstimatePackagePurchaseInsert;
+        Update: Partial<
+          Omit<
+            EstimatePackagePurchaseInsert,
+            "package_id" | "package_version_id" | "buyer_id" | "seller_id"
+          >
+        >;
+        Relationships: [];
+      };
+      estimate_package_access_grants: {
+        Row: EstimatePackageAccessGrant;
+        Insert: EstimatePackageAccessGrantInsert;
+        Update: Partial<
+          Omit<
+            EstimatePackageAccessGrantInsert,
+            "package_id" | "package_version_id" | "grantee_user_id"
+          >
+        >;
+        Relationships: [];
+      };
+      estimate_requests: {
+        Row: EstimateRequest;
+        Insert: EstimateRequestInsert;
+        Update: Partial<Omit<EstimateRequestInsert, "requester_id">>;
+        Relationships: [];
+      };
+      estimate_package_reviews: {
+        Row: EstimatePackageReview;
+        Insert: EstimatePackageReviewInsert;
+        Update: Partial<
+          Omit<
+            EstimatePackageReviewInsert,
+            "package_id" | "purchase_id" | "reviewer_user_id" | "estimator_id"
+          >
+        >;
         Relationships: [];
       };
       user_roles: {

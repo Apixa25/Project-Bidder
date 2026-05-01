@@ -73,7 +73,7 @@ export default async function AdminBidsPage({ searchParams }: Props) {
 
   const searchTerm = (params.q || "").toLowerCase();
 
-  let filtered = (allBids || []).filter((bid) => {
+  const filtered = (allBids || []).filter((bid) => {
     const project = bid.projects as unknown as {
       title: string;
       status: string;

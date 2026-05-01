@@ -1,19 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Bell, BellOff, Loader2 } from "lucide-react";
 
 export default function PushNotificationToggle() {
-  const [supported, setSupported] = useState(false);
-  const [permission, setPermission] = useState<NotificationPermission>("default");
+  const [supported] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      "serviceWorker" in navigator
+  );
+  const [permission, setPermission] = useState<NotificationPermission>(() =>
+    typeof window !== "undefined" && "Notification" in window
+      ? Notification.permission
+      : "default"
+  );
   const [requesting, setRequesting] = useState(false);
-
-  useEffect(() => {
-    if ("Notification" in window && "serviceWorker" in navigator) {
-      setSupported(true);
-      setPermission(Notification.permission);
-    }
-  }, []);
 
   async function handleEnable() {
     setRequesting(true);
@@ -45,7 +47,7 @@ export default function PushNotificationToggle() {
             Push notifications are enabled
           </p>
           <p className="text-xs text-green-700">
-            You'll receive browser notifications for new bids, messages, and
+            You&apos;ll receive browser notifications for new bids, messages, and
             project updates even when the tab is in the background.
           </p>
         </div>
@@ -62,7 +64,7 @@ export default function PushNotificationToggle() {
             Push notifications are blocked
           </p>
           <p className="text-xs text-red-700">
-            You'll need to enable notifications in your browser settings for
+            You&apos;ll need to enable notifications in your browser settings for
             this site.
           </p>
         </div>

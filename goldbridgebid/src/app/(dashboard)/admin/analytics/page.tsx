@@ -6,6 +6,7 @@ import AnalyticsDashboard from "./AnalyticsDashboard";
 
 export default async function AdminAnalyticsPage() {
   const supabase = await createClient();
+  const nowMs = new Date().getTime();
 
   const {
     data: { user },
@@ -20,7 +21,7 @@ export default async function AdminAnalyticsPage() {
   if (profile?.role !== "admin") redirect("/login");
 
   const thirtyDaysAgo = new Date(
-    Date.now() - 30 * 24 * 60 * 60 * 1000
+    nowMs - 30 * 24 * 60 * 60 * 1000
   ).toISOString();
 
   const [
@@ -119,7 +120,7 @@ export default async function AdminAnalyticsPage() {
   function dailyCounts(items: { created_at: string }[] | null) {
     const counts: Record<string, number> = {};
     for (let i = 29; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 86400000);
+      const d = new Date(nowMs - i * 86400000);
       counts[d.toISOString().slice(0, 10)] = 0;
     }
     for (const item of items || []) {
@@ -147,7 +148,7 @@ export default async function AdminAnalyticsPage() {
     (totalBidders || 0) -
     (recentRoleMemberships || []).filter((s) => s.role === "bidder").length;
   for (let i = 29; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86400000);
+    const d = new Date(nowMs - i * 86400000);
     const dateStr = d.toISOString().slice(0, 10);
     const daySignups = (recentRoleMemberships || []).filter(
       (s) => s.created_at.slice(0, 10) === dateStr

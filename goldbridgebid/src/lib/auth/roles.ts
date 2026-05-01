@@ -11,7 +11,13 @@ export async function getUserRoles(userId: string): Promise<UserRole[]> {
 
   const roles = (roleRows || [])
     .map((row) => row.role as UserRole)
-    .filter((role) => role === "customer" || role === "bidder" || role === "admin");
+    .filter(
+      (role) =>
+        role === "customer" ||
+        role === "bidder" ||
+        role === "admin" ||
+        role === "estimator"
+    );
 
   if (roles.length > 0) {
     return Array.from(new Set(roles));
@@ -41,6 +47,10 @@ export async function getProfileRevalidatePaths(userId: string) {
 
   if (roles.includes("bidder")) {
     paths.add("/bidder/profile");
+  }
+
+  if (roles.includes("estimator")) {
+    paths.add("/estimator/profile");
   }
 
   return [...paths];

@@ -32,13 +32,11 @@ export default function DashboardShell({
     ? "bidder"
     : pathname.startsWith("/admin")
       ? "admin"
-      : pathname.startsWith("/customer")
-        ? "customer"
-        : defaultRole;
-
-  useEffect(() => {
-    setIsMobileNavOpen(false);
-  }, [pathname]);
+      : pathname.startsWith("/estimator")
+        ? "estimator"
+        : pathname.startsWith("/customer")
+          ? "customer"
+          : defaultRole;
 
   useEffect(() => {
     if (!isMobileNavOpen) {

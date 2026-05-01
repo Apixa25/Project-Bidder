@@ -61,7 +61,7 @@ export default async function AdminProjectsPage({ searchParams }: Props) {
     (customerProfiles || []).map((p) => [p.user_id, p])
   );
 
-  let filtered = (allProjects || []).filter((p) => {
+  const filtered = (allProjects || []).filter((p) => {
     if (searchTerm) {
       const customer = customerMap.get(p.customer_id);
       const searchable = [

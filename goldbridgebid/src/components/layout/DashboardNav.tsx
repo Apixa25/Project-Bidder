@@ -22,6 +22,8 @@ import {
   Scale,
   WalletCards,
   CreditCard,
+  LibraryBig,
+  PackagePlus,
 } from "lucide-react";
 import { signOut } from "@/app/(auth)/actions";
 import type { UserRole } from "@/types/database";
@@ -44,6 +46,7 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
     { href: "/customer/projects", label: "My Projects", icon: FolderOpen },
     { href: "/customer/bids", label: "My Bids", icon: ClipboardList },
     { href: "/customer/contractors", label: "Find Contractors", icon: Users },
+    { href: "/estimate-packages", label: "Estimate Library", icon: LibraryBig },
     { href: "/customer/messages", label: "Messages", icon: MessageSquare },
     { href: "/customer/profile", label: "Profile", icon: User },
   ],
@@ -51,10 +54,18 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
     { href: "/bidder", label: "Dashboard", icon: LayoutDashboard },
     { href: "/bidder/bids", label: "My Bids", icon: ClipboardList },
     { href: "/bidder/projects", label: "Browse Projects", icon: FolderOpen },
+    { href: "/estimate-packages", label: "Estimate Library", icon: LibraryBig },
     { href: "/bidder/payouts", label: "Payouts", icon: WalletCards },
     { href: "/bidder/messages", label: "Messages", icon: MessageSquare },
     { href: "/bidder/credentials", label: "Credentials", icon: Shield },
     { href: "/bidder/profile", label: "Profile", icon: User },
+  ],
+  estimator: [
+    { href: "/estimator", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/estimator/packages", label: "My Packages", icon: LibraryBig },
+    { href: "/estimator/requests", label: "Estimate Requests", icon: PackagePlus },
+    { href: "/estimator/messages", label: "Messages", icon: MessageSquare },
+    { href: "/estimator/profile", label: "Profile", icon: User },
   ],
   admin: [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -65,6 +76,8 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
     { href: "/admin/flags", label: "Flagged Content", icon: Flag },
     { href: "/admin/reviews", label: "Reviews", icon: Star },
     { href: "/admin/paid-estimates", label: "Paid Estimates", icon: BadgeDollarSign },
+    { href: "/admin/estimate-packages", label: "Estimate Packages", icon: LibraryBig },
+    { href: "/admin/estimate-requests", label: "Estimate Requests", icon: PackagePlus },
     { href: "/admin/disputes", label: "Disputes", icon: Scale },
     { href: "/admin/stripe", label: "Stripe Readiness", icon: CreditCard },
     { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },

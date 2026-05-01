@@ -35,6 +35,8 @@ export async function GET(request: Request) {
         const redirectPath =
           storedRole === "admin"
             ? "/admin"
+            : storedRole === "estimator"
+              ? "/estimator"
             : storedRole === "bidder"
               ? "/bidder"
               : "/customer";

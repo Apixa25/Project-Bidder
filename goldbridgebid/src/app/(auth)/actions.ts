@@ -131,6 +131,8 @@ export async function login(formData: FormData) {
 
   if (profile?.role === "admin") {
     redirect("/admin");
+  } else if (profile?.role === "estimator") {
+    redirect("/estimator");
   } else if (profile?.role === "bidder") {
     redirect("/bidder");
   } else {

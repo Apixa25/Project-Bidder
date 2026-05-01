@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { enableRole } from "@/app/(dashboard)/role-actions";
 import type { UserRole } from "@/types/database";
 
@@ -15,6 +15,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   customer: "Customer",
   bidder: "Contractor",
   admin: "Admin",
+  estimator: "Estimator",
 };
 
 export default function RoleSwitcher({
@@ -22,6 +23,7 @@ export default function RoleSwitcher({
   currentRole,
 }: RoleSwitcherProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [savingRole, setSavingRole] = useState<UserRole | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +42,7 @@ export default function RoleSwitcher({
       return;
     }
 
-    window.location.href = `/${role}`;
+    router.push(`/${role}`);
   }
 
   return (

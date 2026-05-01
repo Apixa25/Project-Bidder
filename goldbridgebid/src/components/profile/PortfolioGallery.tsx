@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   addPortfolioItem,
   removePortfolioItem,
@@ -70,50 +70,73 @@ export default function PortfolioGallery({
   const [afterFile, setAfterFile] = useState<File | null>(null);
   const [beforePreview, setBeforePreview] = useState<string | null>(null);
   const [afterPreview, setAfterPreview] = useState<string | null>(null);
+  const photoPreviewUrlsRef = useRef<string[]>([]);
+  const beforePreviewUrlRef = useRef<string | null>(null);
+  const afterPreviewUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const urls = photoFiles.map((f) => URL.createObjectURL(f));
-    setPhotoPreviews(urls);
-    return () => urls.forEach((u) => URL.revokeObjectURL(u));
-  }, [photoFiles]);
+    return () => {
+      photoPreviewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      if (beforePreviewUrlRef.current) {
+        URL.revokeObjectURL(beforePreviewUrlRef.current);
+      }
+      if (afterPreviewUrlRef.current) {
+        URL.revokeObjectURL(afterPreviewUrlRef.current);
+      }
+    };
+  }, []);
 
-  useEffect(() => {
-    if (beforeFile) {
-      const url = URL.createObjectURL(beforeFile);
-      setBeforePreview(url);
-      return () => URL.revokeObjectURL(url);
-    } else {
-      setBeforePreview(null);
+  function revokePhotoPreviews() {
+    photoPreviewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    photoPreviewUrlsRef.current = [];
+    setPhotoPreviews([]);
+  }
+
+  function replaceBeforeFile(file: File | null) {
+    if (beforePreviewUrlRef.current) {
+      URL.revokeObjectURL(beforePreviewUrlRef.current);
+      beforePreviewUrlRef.current = null;
     }
-  }, [beforeFile]);
+    setBeforeFile(file);
+    const nextPreview = file ? URL.createObjectURL(file) : null;
+    beforePreviewUrlRef.current = nextPreview;
+    setBeforePreview(nextPreview);
+  }
 
-  useEffect(() => {
-    if (afterFile) {
-      const url = URL.createObjectURL(afterFile);
-      setAfterPreview(url);
-      return () => URL.revokeObjectURL(url);
-    } else {
-      setAfterPreview(null);
+  function replaceAfterFile(file: File | null) {
+    if (afterPreviewUrlRef.current) {
+      URL.revokeObjectURL(afterPreviewUrlRef.current);
+      afterPreviewUrlRef.current = null;
     }
-  }, [afterFile]);
+    setAfterFile(file);
+    const nextPreview = file ? URL.createObjectURL(file) : null;
+    afterPreviewUrlRef.current = nextPreview;
+    setAfterPreview(nextPreview);
+  }
 
   function resetForm() {
     setItemType("showcase");
+    revokePhotoPreviews();
     setPhotoFiles([]);
     setVideoFiles([]);
     setVideoUrls([""]);
-    setBeforeFile(null);
-    setAfterFile(null);
+    replaceBeforeFile(null);
+    replaceAfterFile(null);
     setError(null);
   }
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
       const added = Array.from(e.target.files);
-      setPhotoFiles((prev) => {
-        const combined = [...prev, ...added];
-        return combined.slice(0, 15);
-      });
+      const remainingSlots = Math.max(0, 15 - photoFiles.length);
+      const accepted = added.slice(0, remainingSlots);
+      const acceptedUrls = accepted.map((file) => URL.createObjectURL(file));
+      photoPreviewUrlsRef.current = [
+        ...photoPreviewUrlsRef.current,
+        ...acceptedUrls,
+      ];
+      setPhotoFiles([...photoFiles, ...accepted]);
+      setPhotoPreviews([...photoPreviews, ...acceptedUrls]);
     }
     e.target.value = "";
   }
@@ -130,7 +153,15 @@ export default function PortfolioGallery({
   }
 
   function removePhoto(idx: number) {
+    const removedPreview = photoPreviewUrlsRef.current[idx];
+    if (removedPreview) {
+      URL.revokeObjectURL(removedPreview);
+    }
+    photoPreviewUrlsRef.current = photoPreviewUrlsRef.current.filter(
+      (_, i) => i !== idx
+    );
     setPhotoFiles((prev) => prev.filter((_, i) => i !== idx));
+    setPhotoPreviews((prev) => prev.filter((_, i) => i !== idx));
   }
 
   function removeVideoFile(idx: number) {
@@ -363,7 +394,7 @@ export default function PortfolioGallery({
                     type="file"
                     accept="image/*"
                     onChange={(e) => {
-                      if (e.target.files?.[0]) setBeforeFile(e.target.files[0]);
+                      if (e.target.files?.[0]) replaceBeforeFile(e.target.files[0]);
                       e.target.value = "";
                     }}
                     className="hidden"
@@ -374,7 +405,7 @@ export default function PortfolioGallery({
                     <span className="truncate">{beforeFile.name}</span>
                     <button
                       type="button"
-                      onClick={() => setBeforeFile(null)}
+                      onClick={() => replaceBeforeFile(null)}
                       className="text-red-500 hover:text-red-700 ml-2"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -409,7 +440,7 @@ export default function PortfolioGallery({
                     type="file"
                     accept="image/*"
                     onChange={(e) => {
-                      if (e.target.files?.[0]) setAfterFile(e.target.files[0]);
+                      if (e.target.files?.[0]) replaceAfterFile(e.target.files[0]);
                       e.target.value = "";
                     }}
                     className="hidden"
@@ -420,7 +451,7 @@ export default function PortfolioGallery({
                     <span className="truncate">{afterFile.name}</span>
                     <button
                       type="button"
-                      onClick={() => setAfterFile(null)}
+                      onClick={() => replaceAfterFile(null)}
                       className="text-red-500 hover:text-red-700 ml-2"
                     >
                       <X className="h-3.5 w-3.5" />

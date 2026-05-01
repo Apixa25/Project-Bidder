@@ -71,7 +71,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
 
   const searchTerm = (params.q || "").toLowerCase();
 
-  let filtered = (allProfiles || []).filter((p) => {
+  const filtered = (allProfiles || []).filter((p) => {
     const roles = roleMap.get(p.user_id) || [p.role];
 
     if (params.role && !roles.includes(params.role)) return false;

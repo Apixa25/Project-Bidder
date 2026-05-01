@@ -6,7 +6,6 @@ import Link from "next/link";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import {
   ArrowLeft,
-  Upload,
   X,
   Loader2,
   ImageIcon,
@@ -61,7 +60,6 @@ export default function EditProjectPage() {
   const [project, setProject] = useState<ProjectData | null>(null);
   const [expertiseLevel, setExpertiseLevel] = useState<ExpertiseLevel | null>(null);
   const [newFiles, setNewFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<(string | null)[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [compressing, setCompressing] = useState(false);
@@ -114,18 +112,7 @@ export default function EditProjectPage() {
     }
 
     fetchProject();
-  }, [params.id]);
-
-  useEffect(() => {
-    const urls: (string | null)[] = newFiles.map((file) =>
-      file.type.startsWith("image/") ? URL.createObjectURL(file) : null
-    );
-    setPreviews(urls);
-    return () => {
-      urls.forEach((url) => url && URL.revokeObjectURL(url));
-    };
-  }, [newFiles]);
-
+  }, [params.id, router]);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
