@@ -2,6 +2,7 @@ import {
   isImageFileType,
   isVideoFileType,
   isAllowedBidAttachmentFile,
+  isAllowedEstimatePackageFile,
   isAllowedProjectFile,
 } from "@/lib/file-uploads";
 
@@ -13,6 +14,8 @@ export const MAX_PROJECT_VIDEO_BYTES = 75 * MB;
 export const MAX_PROJECT_VIDEO_COUNT = 2;
 export const MAX_BID_ATTACHMENT_IMAGE_BYTES = 12 * MB;
 export const MAX_BID_ATTACHMENT_DOCUMENT_BYTES = 50 * MB;
+export const MAX_ESTIMATE_PACKAGE_IMAGE_BYTES = 12 * MB;
+export const MAX_ESTIMATE_PACKAGE_DOCUMENT_BYTES = 50 * MB;
 
 function getLimitLabel(bytes: number) {
   return `${Math.round(bytes / MB)}MB`;
@@ -98,4 +101,25 @@ export function validateBidAttachmentFile(file: File) {
     imageLabel: "bid image",
     documentLabel: "bid attachment",
   });
+}
+
+export function validateEstimatePackageFile(file: File) {
+  return validateFile(file, {
+    allowFile: isAllowedEstimatePackageFile,
+    imageMaxBytes: MAX_ESTIMATE_PACKAGE_IMAGE_BYTES,
+    documentMaxBytes: MAX_ESTIMATE_PACKAGE_DOCUMENT_BYTES,
+    imageLabel: "estimate package image",
+    documentLabel: "estimate package file",
+  });
+}
+
+export function validateEstimatePackageFiles(files: File[]) {
+  for (const file of files) {
+    const validationError = validateEstimatePackageFile(file);
+    if (validationError) {
+      return validationError;
+    }
+  }
+
+  return null;
 }

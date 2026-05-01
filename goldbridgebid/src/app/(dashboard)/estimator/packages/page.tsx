@@ -79,7 +79,12 @@ export default async function EstimatorPackagesPage() {
                 className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
-                  <h3 className="font-semibold text-text-primary">{packageRow.title}</h3>
+                  <Link
+                    href={`/estimator/packages/${packageRow.id}`}
+                    className="font-semibold text-text-primary transition-colors hover:text-primary"
+                  >
+                    {packageRow.title}
+                  </Link>
                   <p className="mt-1 line-clamp-2 text-sm text-text-secondary">
                     {packageRow.summary}
                   </p>

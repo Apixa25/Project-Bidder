@@ -34,6 +34,10 @@ export const BID_ATTACHMENT_FILE_ACCEPT = [
   IMAGE_FILE_ACCEPT,
   ...PROJECT_DOCUMENT_EXTENSIONS,
 ].join(",");
+export const ESTIMATE_PACKAGE_FILE_ACCEPT = [
+  IMAGE_FILE_ACCEPT,
+  ...PROJECT_DOCUMENT_EXTENSIONS,
+].join(",");
 
 function getFileExtension(fileName: string) {
   const extension = fileName.split(".").pop();
@@ -76,6 +80,16 @@ export function isAllowedProjectFile(file: Pick<File, "name" | "type">) {
 }
 
 export function isAllowedBidAttachmentFile(file: Pick<File, "name" | "type">) {
+  const extension = getFileExtension(file.name);
+
+  if (isImageFileType(file.type)) {
+    return true;
+  }
+
+  return PROJECT_DOCUMENT_EXTENSIONS.includes(extension);
+}
+
+export function isAllowedEstimatePackageFile(file: Pick<File, "name" | "type">) {
   const extension = getFileExtension(file.name);
 
   if (isImageFileType(file.type)) {

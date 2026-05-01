@@ -8,6 +8,7 @@ import {
   type EstimatePackageType,
   type TradeCategory,
 } from "@/types/database";
+import { validateEstimatePackageFiles } from "@/lib/upload-validation";
 
 const PACKAGE_TYPES = new Set<EstimatePackageType>([
   "material_takeoff",
@@ -218,6 +219,138 @@ export async function publishEstimatePackage(packageId: string) {
   revalidatePath("/estimator/packages");
   revalidatePath("/estimate-packages");
   revalidatePath("/admin/estimate-packages");
+
+  return { success: true };
+}
+
+export async function uploadEstimatePackageFiles(formData: FormData) {
+  const auth = await requireEstimator();
+  if ("error" in auth) return auth;
+
+  const { supabase, user } = auth;
+  const packageId = cleanRequiredText(formData.get("packageId"));
+  const files = formData
+    .getAll("files")
+    .filter((file): file is File => file instanceof File && file.size > 0);
+
+  if (!packageId) {
+    return { error: "Package id is required." };
+  }
+
+  if (files.length === 0) {
+    return { error: "Choose at least one file to upload." };
+  }
+
+  const validationError = validateEstimatePackageFiles(files);
+  if (validationError) {
+    return { error: validationError };
+  }
+
+  const { data: packageRow, error: packageError } = await supabase
+    .from("estimate_packages")
+    .select("id, estimator_id, status, current_version_id")
+    .eq("id", packageId)
+    .eq("estimator_id", user.id)
+    .single();
+
+  if (packageError || !packageRow) {
+    return { error: "Estimate package could not be found." };
+  }
+
+  if (packageRow.status !== "draft") {
+    return { error: "Files can only be changed while a package is a draft." };
+  }
+
+  if (!packageRow.current_version_id) {
+    return { error: "Package version snapshot is missing." };
+  }
+
+  const { count } = await supabase
+    .from("estimate_package_files")
+    .select("*", { count: "exact", head: true })
+    .eq("package_version_id", packageRow.current_version_id);
+
+  let displayOrder = count || 0;
+
+  for (const file of files) {
+    const fileExt = file.name.split(".").pop()?.toLowerCase() || "bin";
+    const storagePath = `estimators/${user.id}/packages/${packageRow.id}/versions/${packageRow.current_version_id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("estimate-package-files")
+      .upload(storagePath, file, { contentType: file.type || undefined });
+
+    if (uploadError) {
+      console.error("Estimate package file upload error:", uploadError);
+      return { error: `Unable to upload "${file.name}".` };
+    }
+
+    const { error: insertError } = await supabase
+      .from("estimate_package_files")
+      .insert({
+        package_id: packageRow.id,
+        package_version_id: packageRow.current_version_id,
+        storage_path: storagePath,
+        file_name: file.name,
+        file_type: file.type || "application/octet-stream",
+        file_size_bytes: file.size,
+        display_order: displayOrder,
+      });
+
+    if (insertError) {
+      console.error("Estimate package file insert error:", insertError);
+      await supabase.storage.from("estimate-package-files").remove([storagePath]);
+      return { error: `Uploaded "${file.name}", but could not save its record.` };
+    }
+
+    displayOrder += 1;
+  }
+
+  revalidatePath("/estimator/packages");
+  revalidatePath(`/estimator/packages/${packageRow.id}`);
+
+  return { success: true };
+}
+
+export async function deleteEstimatePackageFile(fileId: string) {
+  const auth = await requireEstimator();
+  if ("error" in auth) return auth;
+
+  const { supabase, user } = auth;
+  const { data: file, error: fileError } = await supabase
+    .from("estimate_package_files")
+    .select("id, package_id, package_version_id, storage_path, estimate_packages!inner(estimator_id, status)")
+    .eq("id", fileId)
+    .single();
+
+  const packageInfo = file?.estimate_packages as
+    | { estimator_id: string; status: string }
+    | undefined;
+
+  if (fileError || !file || !packageInfo || packageInfo.estimator_id !== user.id) {
+    return { error: "Package file could not be found." };
+  }
+
+  if (packageInfo.status !== "draft") {
+    return { error: "Files can only be deleted while a package is a draft." };
+  }
+
+  const { error: deleteError } = await supabase
+    .from("estimate_package_files")
+    .delete()
+    .eq("id", file.id);
+
+  if (deleteError) {
+    console.error("Estimate package file delete error:", deleteError);
+    return { error: "Unable to remove package file." };
+  }
+
+  await supabase.storage
+    .from("estimate-package-files")
+    .remove([file.storage_path]);
+
+  revalidatePath("/estimator/packages");
+  revalidatePath(`/estimator/packages/${file.package_id}`);
 
   return { success: true };
 }
