@@ -26,7 +26,9 @@ interface BidFormProps {
     id: string;
     item_label: string;
     description: string | null;
+    item_category: string;
     quantity_drivers_json: unknown;
+    source_method: string | null;
     display_order: number;
   }[];
 }
@@ -144,7 +146,7 @@ export default function BidForm({
       {/* Scope Coverage */}
       <div>
         <label className="block text-sm font-semibold text-text-primary mb-2">
-          How much of the project are you bidding on? *
+          Does your bid cover the customer-approved scope? *
         </label>
         <select
           name="scopeCoverage"
@@ -153,19 +155,19 @@ export default function BidForm({
           required
           className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
         >
-          <option value="all">All of it</option>
-          <option value="part">Part of it</option>
+          <option value="all">Yes, all customer-approved scope items</option>
+          <option value="part">No, only part of the customer-approved scope</option>
         </select>
         <p className="mt-1 text-xs text-text-muted">
-          Choose &quot;All of it&quot; if your bid covers the full scope, or
-          &quot;Part of it&quot; if you&apos;re bidding on only a portion of
-          the project.
+          Choose &quot;all&quot; only when your price covers the full approved
+          scope the customer shared with bidders. Choose &quot;part&quot; if
+          you are excluding items or bidding on one trade/package.
         </p>
 
         {scopeCoverage === "part" && (
           <div className="mt-3">
             <label className="block text-sm font-semibold text-text-primary mb-2">
-              Which part of the project are you bidding on? *
+              What exactly does your bid include and exclude? *
             </label>
             <textarea
               name="scopeDescription"
@@ -177,8 +179,8 @@ export default function BidForm({
               className="block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
             <p className="mt-1 text-xs text-text-muted">
-              Be specific so the customer knows exactly what your bid covers
-              (and what it doesn&apos;t).
+              Be specific so the customer can compare your sealed bid against
+              the approved scope item by item.
             </p>
           </div>
         )}

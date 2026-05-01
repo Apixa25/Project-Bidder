@@ -8,7 +8,9 @@ type PublishedScopeItem = {
   id: string;
   item_label: string;
   description: string | null;
+  item_category: string;
   quantity_drivers_json: unknown;
+  source_method: string | null;
   display_order: number;
 };
 
@@ -158,6 +160,14 @@ export default function QuickBidWorksheet({ items }: QuickBidWorksheetProps) {
     () => calculatedRows.reduce((sum, row) => sum + row.lineTotal, 0),
     [calculatedRows]
   );
+  const scopeItemById = useMemo(
+    () => new Map(items.map((item) => [item.id, item])),
+    [items]
+  );
+  const unpricedCustomerRows = calculatedRows.filter(
+    (row) => !row.isCustom && row.lineTotal <= 0
+  );
+  const pricedCustomerRowCount = items.length - unpricedCustomerRows.length;
 
   function updateRow(rowId: string, patch: Partial<WorksheetRow>) {
     setRows((current) =>
@@ -205,12 +215,12 @@ export default function QuickBidWorksheet({ items }: QuickBidWorksheetProps) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-text-primary">
-            Quick Bid Form
+            Customer-Approved Scope Bid Worksheet
           </h3>
           <p className="mt-1 max-w-2xl text-sm text-text-secondary">
-            Use the project&apos;s line items as a blank bid template. Quantities
-            and prices start empty so your submitted bid is independent from the
-            customer&apos;s planning estimate.
+            These are the scope items the customer chose to share with bidders.
+            Use them as a bid template, but enter your own quantities, material
+            pricing, labor pricing, and notes. Your submitted bid stays sealed.
           </p>
         </div>
         <div className="rounded-lg bg-gradient-to-r from-primary/10 to-secondary/10 px-4 py-2 text-right">
@@ -219,6 +229,33 @@ export default function QuickBidWorksheet({ items }: QuickBidWorksheetProps) {
           </p>
           <p className="text-xl font-bold text-text-primary">
             {formatCurrency(grandTotal)}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 rounded-lg border border-secondary/20 bg-secondary/5 p-4 text-sm md:grid-cols-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+            Customer Scope Items
+          </p>
+          <p className="mt-1 text-lg font-bold text-text-primary">
+            {items.length}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+            Priced By You
+          </p>
+          <p className="mt-1 text-lg font-bold text-text-primary">
+            {pricedCustomerRowCount}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+            Still $0
+          </p>
+          <p className="mt-1 text-lg font-bold text-text-primary">
+            {unpricedCustomerRows.length}
           </p>
         </div>
       </div>
@@ -263,9 +300,17 @@ export default function QuickBidWorksheet({ items }: QuickBidWorksheetProps) {
                         </p>
                         {row.isCustom && (
                           <span className="mt-1 inline-flex rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
-                            Custom
+                            Bidder added
                           </span>
                         )}
+                        {!row.isCustom &&
+                          row.scopeItemId &&
+                          scopeItemById.get(row.scopeItemId)?.source_method ===
+                            "manual_review" && (
+                            <span className="mt-1 inline-flex rounded-full bg-secondary/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-secondary">
+                              Customer added
+                            </span>
+                          )}
                       </div>
                       {row.isCustom && (
                         <button
@@ -411,10 +456,20 @@ export default function QuickBidWorksheet({ items }: QuickBidWorksheetProps) {
         </table>
       </div>
 
+      {unpricedCustomerRows.length > 0 && (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
+          {unpricedCustomerRows.length} customer-approved scope item
+          {unpricedCustomerRows.length === 1 ? " is" : "s are"} still priced at
+          $0.00. You can still submit, but if your bid covers all of the
+          customer&apos;s scope, make sure each intended item has a quantity and
+          price.
+        </div>
+      )}
+
       {showAddForm ? (
         <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-4">
           <p className="mb-3 text-sm font-semibold text-text-primary">
-            Add Custom Line Item
+            Add Bidder-Added Line Item
           </p>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem_auto]">
             <div>
@@ -466,7 +521,7 @@ export default function QuickBidWorksheet({ items }: QuickBidWorksheetProps) {
           className="mt-4 inline-flex items-center gap-2 rounded-lg border border-dashed border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
         >
           <Plus className="h-4 w-4" />
-          Add Custom Line Item
+          Add Bidder-Added Line Item
         </button>
       )}
     </section>

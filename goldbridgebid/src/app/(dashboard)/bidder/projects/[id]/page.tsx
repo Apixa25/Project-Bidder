@@ -211,13 +211,16 @@ export default async function BidderProjectDetailPage({
     description: string | null;
     item_category: string;
     quantity_drivers_json: unknown;
+    source_method: string | null;
     display_order: number;
   }> = [];
 
   if (aiEstimate?.published_to_bidders) {
     const { data: scopeRows } = await admin
       .from("project_ai_scope_items")
-      .select("id, item_label, description, item_category, quantity_drivers_json, display_order")
+      .select(
+        "id, item_label, description, item_category, quantity_drivers_json, source_method, display_order"
+      )
       .eq("project_id", id)
       .eq("customer_inclusion", "yes")
       .order("display_order", { ascending: true });
