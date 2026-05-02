@@ -189,7 +189,7 @@ export default async function EstimatePackagePurchasesPage() {
 
                   <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col">
                     <Link
-                      href={`/estimate-packages/${purchase.package_id}`}
+                      href={`/estimate-packages/${purchase.package_id}?versionId=${purchase.package_version_id}`}
                       className="inline-flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-secondary-dark"
                     >
                       <Download className="h-4 w-4" />

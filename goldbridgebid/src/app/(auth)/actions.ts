@@ -60,6 +60,8 @@ export async function signup(formData: FormData) {
         full_name: fullName,
         role,
         business_name: businessName || null,
+        phone,
+        address,
       },
     },
   });
@@ -70,7 +72,7 @@ export async function signup(formData: FormData) {
 
   if (authData.user) {
     const admin = createAdminClient();
-    const { error: profileError } = await supabase.from("profiles").insert({
+    const { error: profileError } = await admin.from("profiles").insert({
       user_id: authData.user.id,
       role,
       full_name: fullName,
@@ -85,7 +87,7 @@ export async function signup(formData: FormData) {
       return { error: "Account created but profile setup failed. Please contact support." };
     }
 
-    const { error: roleError } = await supabase.from("user_roles").insert({
+    const { error: roleError } = await admin.from("user_roles").insert({
       user_id: authData.user.id,
       role,
     });
@@ -96,7 +98,7 @@ export async function signup(formData: FormData) {
     }
 
     if (role === "bidder") {
-      await supabase.from("bidder_credentials").insert({
+      await admin.from("bidder_credentials").insert({
         user_id: authData.user.id,
       });
     }
@@ -134,6 +136,7 @@ export async function signup(formData: FormData) {
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
+  const admin = createAdminClient();
   const requestHeaders = await headers();
 
   const email = formData.get("email") as string;
@@ -152,11 +155,72 @@ export async function login(formData: FormData) {
     return { error: error.message };
   }
 
-  const { data: profile } = await supabase
+  let { data: profile } = await supabase
     .from("profiles")
     .select("role, email, phone, business_name")
     .eq("user_id", loginData.user.id)
-    .single();
+    .maybeSingle();
+
+  if (!profile) {
+    const metadata = loginData.user.user_metadata || {};
+    const role = parsePublicSignupRole(metadata.role) || "customer";
+    const fullName =
+      typeof metadata.full_name === "string" && metadata.full_name.trim()
+        ? metadata.full_name
+        : loginData.user.email?.split("@")[0] || "User";
+    const businessName =
+      typeof metadata.business_name === "string" && metadata.business_name.trim()
+        ? metadata.business_name
+        : null;
+    const phone = typeof metadata.phone === "string" ? metadata.phone : "";
+    const address = typeof metadata.address === "string" ? metadata.address : "";
+
+    const { error: profileError } = await admin.from("profiles").insert({
+      user_id: loginData.user.id,
+      role,
+      full_name: fullName,
+      email: loginData.user.email || email,
+      phone,
+      address,
+      business_name: businessName,
+    });
+
+    if (profileError) {
+      console.error("Missing profile repair error:", profileError);
+      return { error: "Account exists, but profile setup failed. Please contact support." };
+    }
+
+    await admin.from("user_roles").upsert(
+      {
+        user_id: loginData.user.id,
+        role,
+      },
+      { onConflict: "user_id,role", ignoreDuplicates: true }
+    );
+
+    if (role === "bidder") {
+      await admin.from("bidder_credentials").insert({
+        user_id: loginData.user.id,
+      });
+    }
+
+    if (role === "estimator") {
+      await bootstrapEstimatorProfile({
+        admin,
+        userId: loginData.user.id,
+        fullName,
+        businessName,
+        email: loginData.user.email || email,
+      });
+    }
+
+    profile = {
+      role,
+      email: loginData.user.email || email,
+      phone,
+      business_name: businessName,
+    };
+  }
 
   if (profile?.role && loginData.user) {
     await supabase.from("user_roles").upsert(
@@ -166,6 +230,28 @@ export async function login(formData: FormData) {
       },
       { onConflict: "user_id,role", ignoreDuplicates: true }
     );
+
+    if (profile.role === "estimator") {
+      const metadata = loginData.user.user_metadata || {};
+      const fullName =
+        typeof metadata.full_name === "string" && metadata.full_name.trim()
+          ? metadata.full_name
+          : loginData.user.email?.split("@")[0] || "Estimator";
+      const businessName =
+        typeof profile.business_name === "string" && profile.business_name.trim()
+          ? profile.business_name
+          : typeof metadata.business_name === "string" && metadata.business_name.trim()
+            ? metadata.business_name
+            : null;
+
+      await bootstrapEstimatorProfile({
+        admin,
+        userId: loginData.user.id,
+        fullName,
+        businessName,
+        email: profile.email || loginData.user.email || email,
+      });
+    }
 
     await recordAccountIdentitySignals({
       userId: loginData.user.id,

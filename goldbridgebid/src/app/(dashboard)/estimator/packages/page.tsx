@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { LibraryBig, PackagePlus } from "lucide-react";
+import { LibraryBig, PackagePlus, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { userHasRole } from "@/lib/auth/roles";
 import type { EstimatePackage } from "@/types/database";
@@ -96,6 +96,13 @@ export default async function EstimatorPackagesPage() {
                   <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                     {formatPrice(packageRow)}
                   </span>
+                  <Link
+                    href={`/estimator/packages/${packageRow.id}/edit`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-bg-warm px-3 py-1.5 text-xs font-semibold text-text-primary transition-colors hover:bg-surface-hover"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit
+                  </Link>
                   {packageRow.status === "draft" && (
                     <PublishPackageButton packageId={packageRow.id} />
                   )}

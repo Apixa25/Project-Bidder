@@ -16,6 +16,12 @@ function parseSignupRole(value: string | null): SignupRole {
   return "customer";
 }
 
+function getSignupRoleLabel(role: SignupRole) {
+  if (role === "bidder") return "Contractor";
+  if (role === "estimator") return "Estimator";
+  return "Customer";
+}
+
 function SignupForm() {
   const searchParams = useSearchParams();
   const [role, setRole] = useState<SignupRole>(
@@ -288,7 +294,7 @@ function SignupForm() {
                 Creating Account...
               </>
             ) : (
-              `Create ${role === "customer" ? "Customer" : "Contractor"} Account`
+              `Create ${getSignupRoleLabel(role)} Account`
             )}
           </button>
         </form>

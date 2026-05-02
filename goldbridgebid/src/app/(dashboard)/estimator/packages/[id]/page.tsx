@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
-import { ArrowLeft, Download, FileText, LockKeyhole } from "lucide-react";
+import { ArrowLeft, Download, FileText, LockKeyhole, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { userHasRole } from "@/lib/auth/roles";
 import type {
@@ -108,9 +108,18 @@ export default async function EstimatorPackageDetailPage({
               {currentPackage.summary}
             </p>
           </div>
-          {currentPackage.status === "draft" && (
-            <PublishPackageButton packageId={currentPackage.id} />
-          )}
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <Link
+              href={`/estimator/packages/${currentPackage.id}/edit`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-bg-warm px-3 py-1.5 text-xs font-semibold text-text-primary transition-colors hover:bg-surface-hover"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Edit Package
+            </Link>
+            {currentPackage.status === "draft" && (
+              <PublishPackageButton packageId={currentPackage.id} />
+            )}
+          </div>
         </div>
       </div>
 
@@ -181,9 +190,11 @@ export default async function EstimatorPackageDetailPage({
                   Access model
                 </h2>
                 <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-                  Files are stored in a private bucket. Downloads go through a
-                  same-origin route that checks estimator ownership, admin
-                  access, free package access, purchases, or grants.
+                  Publish makes the active draft version available in the public
+                  estimate package library for buyers to unlock or purchase.
+                  Files are stored in a private bucket, and downloads go through
+                  a same-origin route that checks estimator ownership, admin
+                  access, purchases, or grants.
                 </p>
               </div>
             </div>

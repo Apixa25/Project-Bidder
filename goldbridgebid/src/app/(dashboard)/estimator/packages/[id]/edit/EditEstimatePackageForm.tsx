@@ -2,14 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FileUp, PackagePlus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
-import { createEstimatePackage } from "../actions";
-import { ESTIMATE_PACKAGE_FILE_ACCEPT } from "@/lib/file-uploads";
+import { updateEstimatePackage } from "../../actions";
 import {
   FORM_TRADES,
   TRADE_LABELS,
+  type EstimatePackage,
   type EstimatePackageType,
+  type EstimatePackageVersion,
+  type TradeCategory,
 } from "@/types/database";
 
 const PACKAGE_TYPE_OPTIONS: Array<{
@@ -44,49 +46,64 @@ const PACKAGE_TYPE_OPTIONS: Array<{
   },
 ];
 
-export default function NewEstimatePackageForm() {
+interface EditEstimatePackageFormProps {
+  packageRow: EstimatePackage;
+  version: EstimatePackageVersion;
+  hasPurchases: boolean;
+}
+
+export default function EditEstimatePackageForm({
+  packageRow,
+  version,
+  hasPurchases,
+}: EditEstimatePackageFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [files, setFiles] = useState<File[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const selectedTrades = new Set(packageRow.trades as TradeCategory[]);
 
   function handleSubmit(formData: FormData) {
     setError(null);
-    files.forEach((file) => formData.append("files", file));
+    setMessage(null);
+    formData.set("packageId", packageRow.id);
+
     startTransition(async () => {
-      const result = await createEstimatePackage(formData);
+      const result = await updateEstimatePackage(formData);
 
       if (result?.error) {
         setError(result.error);
         return;
       }
 
-      router.push("/estimator/packages");
+      if (result && "revisionCreated" in result && result.revisionCreated) {
+        setMessage(
+          "A new draft revision was created because buyers already had access to the published version. Add or adjust files on the package page, then publish the new version when it is ready."
+        );
+      } else {
+        setMessage("Package changes saved.");
+      }
+
       router.refresh();
     });
   }
 
-  function removeSelectedFile(index: number) {
-    setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
-  }
-
   return (
     <form action={handleSubmit} className="space-y-8">
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-        <div className="mb-6 flex items-start gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <PackagePlus className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-text-primary">
-              Package Basics
-            </h2>
-            <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-              Create the marketplace listing and version 1 snapshot. You can
-              keep it as a draft until it is ready to publish.
-            </p>
-          </div>
+      {packageRow.status === "published" && hasPurchases && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-900">
+          This package already has buyer access. Saving changes will create a new
+          draft version instead of changing what previous buyers purchased.
         </div>
+      )}
+
+      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <h2 className="mb-2 text-lg font-semibold text-text-primary">
+          Package Basics
+        </h2>
+        <p className="mb-5 text-sm leading-relaxed text-text-secondary">
+          Edit the marketplace listing buyers see before purchasing.
+        </p>
 
         <div className="grid gap-5">
           <div>
@@ -101,7 +118,7 @@ export default function NewEstimatePackageForm() {
               name="title"
               type="text"
               required
-              placeholder="Example: Kitchen Remodel Material Takeoff"
+              defaultValue={packageRow.title}
               className="w-full rounded-lg border border-border bg-bg-warm px-4 py-2.5 text-sm text-text-primary outline-none transition-colors focus:border-primary"
             />
           </div>
@@ -118,7 +135,7 @@ export default function NewEstimatePackageForm() {
               name="summary"
               rows={4}
               required
-              placeholder="Explain what the buyer gets, what project type this applies to, and what decisions still require local contractor judgment."
+              defaultValue={packageRow.summary}
               className="w-full rounded-lg border border-border bg-bg-warm px-4 py-2.5 text-sm text-text-primary outline-none transition-colors focus:border-primary"
             />
           </div>
@@ -134,7 +151,7 @@ export default function NewEstimatePackageForm() {
               id="packageType"
               name="packageType"
               required
-              defaultValue="material_takeoff"
+              defaultValue={packageRow.package_type}
               className="w-full rounded-lg border border-border bg-bg-warm px-4 py-2.5 text-sm text-text-primary outline-none transition-colors focus:border-primary"
             >
               {PACKAGE_TYPE_OPTIONS.map((option) => (
@@ -171,12 +188,11 @@ export default function NewEstimatePackageForm() {
               type="number"
               min="0"
               step="0.01"
-              defaultValue="0"
+              defaultValue={(packageRow.price_cents / 100).toFixed(2)}
               className="w-full rounded-lg border border-border bg-bg-warm px-4 py-2.5 text-sm text-text-primary outline-none transition-colors focus:border-primary"
             />
             <p className="mt-1 text-xs text-text-muted">
-              Use 0.00 for a free package. Paid purchase flow will be connected
-              in a later milestone.
+              Use 0.00 for a free package.
             </p>
           </div>
         </div>
@@ -187,9 +203,7 @@ export default function NewEstimatePackageForm() {
           Scope Snapshot
         </h2>
         <p className="mb-5 text-sm leading-relaxed text-text-secondary">
-          These details become version 1 of the package. Buyers should always
-          know what assumptions and exclusions were attached to the version they
-          accessed.
+          These details are stored with the package version buyers access.
         </p>
 
         <div className="space-y-5">
@@ -204,7 +218,7 @@ export default function NewEstimatePackageForm() {
               id="scopeOverview"
               name="scopeOverview"
               rows={5}
-              placeholder="Describe what is included in this takeoff or estimate package."
+              defaultValue={version.scope_overview || ""}
               className="w-full rounded-lg border border-border bg-bg-warm px-4 py-2.5 text-sm text-text-primary outline-none transition-colors focus:border-primary"
             />
           </div>
@@ -221,7 +235,7 @@ export default function NewEstimatePackageForm() {
                 id="assumptions"
                 name="assumptions"
                 rows={6}
-                placeholder="One assumption per line"
+                defaultValue={(version.assumptions_json || []).join("\n")}
                 className="w-full rounded-lg border border-border bg-bg-warm px-4 py-2.5 text-sm text-text-primary outline-none transition-colors focus:border-primary"
               />
             </div>
@@ -237,79 +251,12 @@ export default function NewEstimatePackageForm() {
                 id="exclusions"
                 name="exclusions"
                 rows={6}
-                placeholder="One exclusion per line"
+                defaultValue={(version.exclusions_json || []).join("\n")}
                 className="w-full rounded-lg border border-border bg-bg-warm px-4 py-2.5 text-sm text-text-primary outline-none transition-colors focus:border-primary"
               />
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-        <div className="mb-5 flex items-start gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary/10">
-            <FileUp className="h-6 w-6 text-secondary" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-text-primary">
-              Package Files
-            </h2>
-            <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-              Attach scanned paper estimates, PDFs, spreadsheets, CAD exports,
-              scope documents, or images while creating the package. You can
-              still add or remove files later while the package is a draft.
-            </p>
-          </div>
-        </div>
-
-        <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-bg-warm px-4 py-8 text-center transition-colors hover:border-primary/60 hover:bg-primary/5">
-          <FileUp className="mb-3 h-8 w-8 text-text-muted" />
-          <span className="text-sm font-semibold text-text-primary">
-            Choose package files
-          </span>
-          <span className="mt-1 text-xs text-text-muted">
-            Images up to 12MB; PDFs, spreadsheets, CSVs, docs, and text files up
-            to 50MB
-          </span>
-          <input
-            type="file"
-            multiple
-            accept={ESTIMATE_PACKAGE_FILE_ACCEPT}
-            onChange={(event) => {
-              setFiles(Array.from(event.target.files || []));
-              event.target.value = "";
-            }}
-            className="hidden"
-          />
-        </label>
-
-        {files.length > 0 && (
-          <div className="mt-4 space-y-2">
-            {files.map((file, index) => (
-              <div
-                key={`${file.name}-${file.size}-${index}`}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-bg-warm px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-text-primary">
-                    {file.name}
-                  </p>
-                  <p className="text-xs text-text-muted">
-                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeSelectedFile(index)}
-                  className="rounded-md p-1.5 text-text-muted transition-colors hover:bg-red-50 hover:text-red-600"
-                  aria-label={`Remove ${file.name}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
@@ -328,6 +275,7 @@ export default function NewEstimatePackageForm() {
                 type="checkbox"
                 name="trades"
                 value={trade}
+                defaultChecked={selectedTrades.has(trade)}
                 className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
               />
               {TRADE_LABELS[trade]}
@@ -341,14 +289,19 @@ export default function NewEstimatePackageForm() {
           {error}
         </p>
       )}
+      {message && (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {message}
+        </p>
+      )}
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
-          href="/estimator/packages"
+          href={`/estimator/packages/${packageRow.id}`}
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface px-5 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-hover"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Packages
+          Back to Package
         </Link>
         <button
           type="submit"
@@ -356,10 +309,9 @@ export default function NewEstimatePackageForm() {
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent-light px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Save className="h-4 w-4" />
-          {isPending ? "Creating..." : "Create Draft Package"}
+          {isPending ? "Saving..." : "Save Changes"}
         </button>
       </div>
     </form>
   );
 }
-

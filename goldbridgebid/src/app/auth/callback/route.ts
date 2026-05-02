@@ -65,7 +65,7 @@ export async function GET(request: Request) {
       // New user — create profile with the role from signup
       const role: UserRole = signupRole || "customer";
 
-      await supabase.from("profiles").insert({
+      await admin.from("profiles").insert({
         user_id: sessionData.user.id,
         role,
         full_name:
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
         address: "",
       });
 
-      await supabase.from("user_roles").upsert(
+      await admin.from("user_roles").upsert(
         {
           user_id: sessionData.user.id,
           role,
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
       );
 
       if (role === "bidder") {
-        await supabase.from("bidder_credentials").insert({
+        await admin.from("bidder_credentials").insert({
           user_id: sessionData.user.id,
         });
       }

@@ -54,6 +54,7 @@ export default async function EstimatePackageDetailPage({
   searchParams?: Promise<{
     packageCheckout?: string;
     session_id?: string;
+    versionId?: string;
   }>;
 }) {
   const { id } = await params;
@@ -78,6 +79,10 @@ export default async function EstimatePackageDetailPage({
   const currentPackage = packageRow as EstimatePackage;
   const isOwner = currentPackage.estimator_id === user.id;
   const nowIso = new Date().toISOString();
+  const requestedVersionId =
+    typeof resolvedSearchParams.versionId === "string"
+      ? resolvedSearchParams.versionId
+      : null;
 
   if (
     resolvedSearchParams.packageCheckout === "success" &&
@@ -99,6 +104,7 @@ export default async function EstimatePackageDetailPage({
   const [
     { data: purchase },
     { data: grant },
+    { data: requestedVersionPurchase },
   ] = await Promise.all([
     currentPackage.current_version_id
       ? admin
@@ -120,14 +126,30 @@ export default async function EstimatePackageDetailPage({
       )
       .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
       .maybeSingle(),
+    requestedVersionId
+      ? admin
+          .from("estimate_package_purchases")
+          .select("id, package_version_id")
+          .eq("package_id", currentPackage.id)
+          .eq("package_version_id", requestedVersionId)
+          .eq("buyer_id", user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
+
+  const requestedVersionHasAccess = Boolean(requestedVersionPurchase);
+  const displayVersionId =
+    requestedVersionHasAccess && requestedVersionId
+      ? requestedVersionId
+      : currentPackage.current_version_id;
 
   if (
     currentPackage.status !== "published" &&
     !isOwner &&
     !isAdmin &&
     !purchase &&
-    !grant
+    !grant &&
+    !requestedVersionHasAccess
   ) {
     notFound();
   }
@@ -139,11 +161,11 @@ export default async function EstimatePackageDetailPage({
         .select("display_name, headline, bio, service_area, website_url, verification_status")
         .eq("user_id", currentPackage.estimator_id)
         .maybeSingle(),
-      currentPackage.current_version_id
+      displayVersionId
         ? admin
             .from("estimate_package_versions")
             .select("*")
-            .eq("id", currentPackage.current_version_id)
+            .eq("id", displayVersionId)
             .maybeSingle()
         : Promise.resolve({ data: null }),
     admin
@@ -154,7 +176,12 @@ export default async function EstimatePackageDetailPage({
     ]);
 
   const version = (versionRow || null) as EstimatePackageVersion | null;
-  const hasAccess = isOwner || isAdmin || Boolean(purchase) || Boolean(grant);
+  const hasAccess =
+    isOwner ||
+    isAdmin ||
+    Boolean(purchase) ||
+    Boolean(grant) ||
+    requestedVersionHasAccess;
   const canUnlockFree =
     currentPackage.status === "published" &&
     currentPackage.price_cents === 0 &&
@@ -166,11 +193,11 @@ export default async function EstimatePackageDetailPage({
     !isOwner;
 
   const { data: packageFiles } =
-    hasAccess && currentPackage.current_version_id
+    hasAccess && displayVersionId
       ? await admin
           .from("estimate_package_files")
           .select("*")
-          .eq("package_version_id", currentPackage.current_version_id)
+          .eq("package_version_id", displayVersionId)
           .order("display_order", { ascending: true })
           .order("uploaded_at", { ascending: true })
       : { data: [] };
