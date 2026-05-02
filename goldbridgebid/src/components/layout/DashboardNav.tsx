@@ -67,6 +67,7 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
     { href: "/estimator", label: "Dashboard", icon: LayoutDashboard },
     { href: "/estimator/packages", label: "My Packages", icon: LibraryBig },
     { href: "/estimate-packages/purchases", label: "My Purchases", icon: ReceiptText },
+    { href: "/estimator/payouts", label: "Payouts", icon: WalletCards },
     { href: "/estimator/requests", label: "Estimate Requests", icon: PackagePlus },
     { href: "/estimator/messages", label: "Messages", icon: MessageSquare },
     { href: "/estimator/profile", label: "Profile", icon: User },

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSiteUrl, getStripeServerClient } from "@/lib/stripe/server";
+import { isEstimatorReadyForPayouts } from "@/lib/estimate-packages/payout-accounts";
 
 export interface EstimatePackageCheckoutActionState {
   error: string | null;
@@ -114,6 +115,20 @@ export async function createEstimatePackageCheckoutSession(
   if (Number(packageRow.price_cents) <= 0) {
     return {
       error: "This package is free. Use the free unlock button instead.",
+      checkoutUrl: null,
+    };
+  }
+
+  const { data: payoutAccount } = await admin
+    .from("estimator_payout_accounts")
+    .select("stripe_account_id, charges_enabled, payouts_enabled, details_submitted")
+    .eq("user_id", packageRow.estimator_id)
+    .maybeSingle();
+
+  if (!isEstimatorReadyForPayouts(payoutAccount)) {
+    return {
+      error:
+        "This estimator needs to finish Stripe payout setup before paid packages can be purchased.",
       checkoutUrl: null,
     };
   }

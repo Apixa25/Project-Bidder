@@ -5,7 +5,10 @@ import {
   getStripeServerClient,
   getStripeWebhookSecrets,
 } from "@/lib/stripe/server";
-import { syncBidderPayoutAccountFromStripe } from "@/lib/stripe/connect";
+import {
+  syncBidderPayoutAccountFromStripe,
+  syncEstimatorPayoutAccountFromStripe,
+} from "@/lib/stripe/connect";
 import { markPaidEstimatePoolFunded } from "@/lib/paid-estimates/funding";
 import { markEstimatePackagePurchased } from "@/lib/estimate-packages/purchases";
 
@@ -118,11 +121,19 @@ export async function POST(request: Request) {
         const account = event.data.object as Stripe.Account;
         const supabase = createAdminClient();
 
-        await syncBidderPayoutAccountFromStripe({
-          admin: supabase,
-          stripe,
-          stripeAccountId: account.id,
-        });
+        if (account.metadata?.role === "estimator") {
+          await syncEstimatorPayoutAccountFromStripe({
+            admin: supabase,
+            stripe,
+            stripeAccountId: account.id,
+          });
+        } else {
+          await syncBidderPayoutAccountFromStripe({
+            admin: supabase,
+            stripe,
+            stripeAccountId: account.id,
+          });
+        }
         break;
       }
       default:

@@ -9,6 +9,7 @@ import {
   type TradeCategory,
 } from "@/types/database";
 import { validateEstimatePackageFiles } from "@/lib/upload-validation";
+import { isEstimatorReadyForPayouts } from "@/lib/estimate-packages/payout-accounts";
 
 const PACKAGE_TYPES = new Set<EstimatePackageType>([
   "material_takeoff",
@@ -87,6 +88,29 @@ async function requireCompleteEstimatorProfile(
     return {
       error:
         "Complete your estimator profile before publishing. Add a display name plus a headline or bio at /estimator/profile.",
+    };
+  }
+
+  return { success: true };
+}
+
+async function requireEstimatorPayoutReadyForPaidPackage(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  priceCents: number
+) {
+  if (priceCents <= 0) return { success: true };
+
+  const { data: payoutAccount } = await supabase
+    .from("estimator_payout_accounts")
+    .select("stripe_account_id, charges_enabled, payouts_enabled, details_submitted")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!isEstimatorReadyForPayouts(payoutAccount)) {
+    return {
+      error:
+        "Connect Stripe payouts before publishing a paid package. Go to /estimator/payouts to finish banking setup.",
     };
   }
 
@@ -340,6 +364,15 @@ export async function updateEstimatePackage(formData: FormData) {
     return { error: "Package version snapshot is missing." };
   }
 
+  if (packageRow.status === "published" && priceCents > 0) {
+    const payoutCheck = await requireEstimatorPayoutReadyForPaidPackage(
+      supabase,
+      user.id,
+      priceCents
+    );
+    if ("error" in payoutCheck) return payoutCheck;
+  }
+
   const { count: purchaseCount } = await supabase
     .from("estimate_package_purchases")
     .select("*", { count: "exact", head: true })
@@ -478,6 +511,18 @@ export async function publishEstimatePackage(packageId: string) {
 
   const profileCheck = await requireCompleteEstimatorProfile(supabase, user.id);
   if ("error" in profileCheck) return profileCheck;
+
+  const { data: currentVersion } = await supabase
+    .from("estimate_package_versions")
+    .select("price_cents_snapshot")
+    .eq("id", packageRow.current_version_id)
+    .maybeSingle();
+  const payoutCheck = await requireEstimatorPayoutReadyForPaidPackage(
+    supabase,
+    user.id,
+    Number(currentVersion?.price_cents_snapshot || 0)
+  );
+  if ("error" in payoutCheck) return payoutCheck;
 
   const publishedAt = new Date().toISOString();
   const { error: versionError } = await supabase

@@ -37,6 +37,12 @@ export type PaidEstimateDisputeReviewStatus =
 
 export type EstimatorVerificationStatus = "pending" | "verified" | "rejected";
 
+export type EstimatePackagePayoutStatus =
+  | "not_applicable"
+  | "payout_pending"
+  | "paid_out"
+  | "payout_failed";
+
 export type AccountSignalConfidence = "low" | "medium" | "high";
 
 export type AccountSignalSource =
@@ -363,6 +369,20 @@ export interface BidderPayoutAccount {
   updated_at: string;
 }
 
+export interface EstimatorPayoutAccount {
+  id: string;
+  user_id: string;
+  stripe_account_id: string | null;
+  charges_enabled: boolean;
+  payouts_enabled: boolean;
+  details_submitted: boolean;
+  onboarding_started_at: string | null;
+  onboarding_completed_at: string | null;
+  last_status_sync_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface BidderServiceArea {
   id: string;
   user_id: string;
@@ -517,6 +537,12 @@ export interface EstimatePackagePurchase {
   seller_id: string;
   price_cents: number;
   currency: string;
+  platform_fee_cents: number;
+  estimator_payout_cents: number;
+  payout_status: EstimatePackagePayoutStatus;
+  payout_available_at: string | null;
+  paid_out_at: string | null;
+  stripe_transfer_id: string | null;
   stripe_checkout_session_id: string | null;
   stripe_payment_intent_id: string | null;
   purchased_at: string;
@@ -979,6 +1005,17 @@ type BidderPayoutAccountInsert = {
   last_status_sync_at?: string | null;
 };
 
+type EstimatorPayoutAccountInsert = {
+  user_id: string;
+  stripe_account_id?: string | null;
+  charges_enabled?: boolean;
+  payouts_enabled?: boolean;
+  details_submitted?: boolean;
+  onboarding_started_at?: string | null;
+  onboarding_completed_at?: string | null;
+  last_status_sync_at?: string | null;
+};
+
 type ProjectInsert = {
   customer_id: string;
   title: string;
@@ -1368,6 +1405,12 @@ type EstimatePackagePurchaseInsert = {
   seller_id: string;
   price_cents: number;
   currency?: string;
+  platform_fee_cents?: number;
+  estimator_payout_cents?: number;
+  payout_status?: EstimatePackagePayoutStatus;
+  payout_available_at?: string | null;
+  paid_out_at?: string | null;
+  stripe_transfer_id?: string | null;
   stripe_checkout_session_id?: string | null;
   stripe_payment_intent_id?: string | null;
   purchased_at?: string;
@@ -1439,6 +1482,12 @@ export interface Database {
         Row: BidderPayoutAccount;
         Insert: BidderPayoutAccountInsert;
         Update: Partial<Omit<BidderPayoutAccountInsert, "user_id">>;
+        Relationships: [];
+      };
+      estimator_payout_accounts: {
+        Row: EstimatorPayoutAccount;
+        Insert: EstimatorPayoutAccountInsert;
+        Update: Partial<Omit<EstimatorPayoutAccountInsert, "user_id">>;
         Relationships: [];
       };
       projects: {

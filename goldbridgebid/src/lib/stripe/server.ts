@@ -57,3 +57,11 @@ export function getStripeConnectReturnUrl() {
 export function getStripeConnectRefreshUrl() {
   return `${getSiteUrl()}/bidder/payouts?stripeConnect=refresh`;
 }
+
+export function getEstimatorStripeConnectReturnUrl() {
+  return `${getSiteUrl()}/estimator/payouts?stripeConnect=return`;
+}
+
+export function getEstimatorStripeConnectRefreshUrl() {
+  return `${getSiteUrl()}/estimator/payouts?stripeConnect=refresh`;
+}

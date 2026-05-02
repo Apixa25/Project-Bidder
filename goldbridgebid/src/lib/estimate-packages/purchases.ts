@@ -18,9 +18,27 @@ interface StripeIds {
   paymentIntentId?: string | null;
 }
 
+export const ESTIMATE_PACKAGE_PLATFORM_FEE_RATE = 0.1;
+
 function parsePriceCents(value: string | null | undefined) {
   const parsed = Number.parseInt(value || "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+export function calculateEstimatePackageSaleSplit(priceCents: number) {
+  if (!Number.isInteger(priceCents) || priceCents < 0) {
+    throw new Error("Package price must be a non-negative integer cent amount.");
+  }
+
+  const platformFeeCents = Math.round(
+    priceCents * ESTIMATE_PACKAGE_PLATFORM_FEE_RATE
+  );
+  const estimatorPayoutCents = priceCents - platformFeeCents;
+
+  return {
+    platformFeeCents,
+    estimatorPayoutCents,
+  };
 }
 
 export async function markEstimatePackagePurchased(options: {
@@ -58,10 +76,12 @@ export async function markEstimatePackagePurchased(options: {
 
   const { data: existingPurchase } = await admin
     .from("estimate_package_purchases")
-    .select("id, stripe_checkout_session_id, stripe_payment_intent_id")
+    .select("id, stripe_checkout_session_id, stripe_payment_intent_id, payout_status, paid_out_at, stripe_transfer_id")
     .eq("package_version_id", packageVersionId)
     .eq("buyer_id", buyerId)
     .maybeSingle();
+  const { platformFeeCents, estimatorPayoutCents } =
+    calculateEstimatePackageSaleSplit(priceCents);
 
   const purchasePayload = {
     package_id: packageId,
@@ -70,6 +90,15 @@ export async function markEstimatePackagePurchased(options: {
     seller_id: sellerId,
     price_cents: priceCents,
     currency,
+    platform_fee_cents: platformFeeCents,
+    estimator_payout_cents: estimatorPayoutCents,
+    payout_status:
+      existingPurchase?.payout_status === "paid_out"
+        ? existingPurchase.payout_status
+        : ("payout_pending" as const),
+    payout_available_at: new Date().toISOString(),
+    paid_out_at: existingPurchase?.paid_out_at ?? null,
+    stripe_transfer_id: existingPurchase?.stripe_transfer_id ?? null,
     stripe_checkout_session_id:
       stripeIds.checkoutSessionId ??
       existingPurchase?.stripe_checkout_session_id ??
@@ -114,6 +143,7 @@ export async function markEstimatePackagePurchased(options: {
   revalidatePath("/estimate-packages");
   revalidatePath(`/estimate-packages/${packageId}`);
   revalidatePath(`/estimator/packages/${packageId}`);
+  revalidatePath("/estimator/payouts");
 
   return { success: true, packageId, buyerId, sellerId } as const;
 }

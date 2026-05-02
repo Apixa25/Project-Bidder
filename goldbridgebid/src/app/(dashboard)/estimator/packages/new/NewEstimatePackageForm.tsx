@@ -187,8 +187,8 @@ export default function NewEstimatePackageForm() {
               className="w-full rounded-lg border border-border bg-bg-warm px-4 py-2.5 text-sm text-text-primary outline-none transition-colors focus:border-primary"
             />
             <p className="mt-1 text-xs text-text-muted">
-              Use 0.00 for a free package. Paid purchase flow will be connected
-              in a later milestone.
+              Use 0.00 for a free package. Paid packages require completed
+              Stripe payout setup before publishing.
             </p>
           </div>
         </div>
