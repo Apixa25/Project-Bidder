@@ -25,6 +25,7 @@ import {
   LibraryBig,
   PackagePlus,
   ReceiptText,
+  MapPin,
 } from "lucide-react";
 import { signOut } from "@/app/(auth)/actions";
 import type { UserRole } from "@/types/database";
@@ -56,6 +57,7 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
     { href: "/bidder", label: "Dashboard", icon: LayoutDashboard },
     { href: "/bidder/bids", label: "My Bids", icon: ClipboardList },
     { href: "/bidder/projects", label: "Browse Projects", icon: FolderOpen },
+    { href: "/bidder/address-quotes", label: "Address Quotes", icon: MapPin },
     { href: "/estimate-packages", label: "Estimate Library", icon: LibraryBig },
     { href: "/estimate-packages/purchases", label: "My Estimate Packages", icon: ReceiptText },
     { href: "/bidder/payouts", label: "Payouts", icon: WalletCards },
@@ -81,6 +83,7 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
     { href: "/admin/flags", label: "Flagged Content", icon: Flag },
     { href: "/admin/reviews", label: "Reviews", icon: Star },
     { href: "/admin/paid-estimates", label: "Paid Estimates", icon: BadgeDollarSign },
+    { href: "/admin/address-quotes", label: "Address Quotes", icon: MapPin },
     { href: "/admin/estimate-packages", label: "Estimate Packages", icon: LibraryBig },
     { href: "/admin/estimate-requests", label: "Estimate Requests", icon: PackagePlus },
     { href: "/admin/disputes", label: "Disputes", icon: Scale },

@@ -125,6 +125,12 @@ export default function Home() {
           <div className="flex-1 md:hidden" aria-hidden />
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-4">
             <Link
+              href="/address-quotes"
+              className="hidden text-sm font-medium text-text-secondary transition-colors hover:text-text-primary sm:inline-flex"
+            >
+              Address Quotes
+            </Link>
+            <Link
               href="/how-it-works"
               className="hidden sm:inline-flex text-sm font-medium text-text-secondary transition-colors hover:text-text-primary"
             >
@@ -176,6 +182,13 @@ export default function Home() {
                   className="flex items-center gap-2 rounded-lg bg-[#eab308] px-8 py-3.5 text-base font-semibold text-slate-950 shadow-lg transition-colors hover:bg-[#fde047]"
                 >
                   Post a Project / Make a Customer Account
+                  <ArrowRight className="h-5 w-5" />
+                </Link>
+                <Link
+                  href="/address-quotes"
+                  className="flex items-center gap-2 rounded-lg border-2 border-[#eab308]/70 bg-[#eab308]/10 px-8 py-3.5 text-base font-semibold text-[#fde047] shadow-lg transition-colors hover:bg-[#eab308]/20"
+                >
+                  Search Address Quotes
                   <ArrowRight className="h-5 w-5" />
                 </Link>
                 <Link

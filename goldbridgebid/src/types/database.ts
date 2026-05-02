@@ -52,6 +52,78 @@ export type AccountSignalSource =
   | "stripe"
   | "admin";
 
+export type AddressQuoteServiceVertical =
+  | "lawn_care"
+  | "exterior_painting"
+  | "pressure_washing"
+  | "gutter_cleaning"
+  | "fence_staining"
+  | "window_washing"
+  | "yard_debris_cleanup";
+
+export type PropertyAddressSource =
+  | "user_search"
+  | "contractor_entry"
+  | "customer_entry"
+  | "admin"
+  | "import";
+
+export type PropertyAddressConfidence =
+  | "unverified"
+  | "geocoded"
+  | "admin_verified"
+  | "imported";
+
+export type PropertyAddressClaimStatus =
+  | "pending"
+  | "verified"
+  | "rejected"
+  | "revoked";
+
+export type PropertyAddressClaimVerificationMethod =
+  | "admin_review"
+  | "postcard_code"
+  | "document_upload"
+  | "manual_admin";
+
+export type AddressQuoteSource =
+  | "contractor_unsolicited"
+  | "customer_requested"
+  | "admin_seeded";
+
+export type AddressQuoteStatus =
+  | "draft"
+  | "published"
+  | "removed"
+  | "expired"
+  | "accepted";
+
+export type AddressQuoteMeasurementType =
+  | "polygon_area"
+  | "manual_area"
+  | "linear_length"
+  | "count";
+
+export type AddressQuoteMeasurementSource =
+  | "manual"
+  | "map_drawn"
+  | "imported"
+  | "admin";
+
+export type AddressQuoteMeasurementConfidence =
+  | "contractor_confirmed"
+  | "customer_confirmed"
+  | "estimated"
+  | "admin_verified";
+
+export type AddressQuoteRequestStatus = "open" | "closed" | "removed";
+
+export type AddressQuoteRemovalRequestStatus =
+  | "auto_hidden"
+  | "approved"
+  | "rejected"
+  | "restored";
+
 export type EstimatePackageStatus = "draft" | "published" | "archived";
 
 export type EstimatePackageType =
@@ -894,6 +966,94 @@ export interface Notification {
   created_at: string;
 }
 
+export interface PropertyAddress {
+  id: string;
+  display_address: string;
+  normalized_address: string;
+  address_hash: string;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  geohash: string | null;
+  source: PropertyAddressSource;
+  confidence: PropertyAddressConfidence;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PropertyAddressClaim {
+  id: string;
+  property_address_id: string;
+  user_id: string;
+  status: PropertyAddressClaimStatus;
+  verification_method: PropertyAddressClaimVerificationMethod;
+  evidence_notes: string | null;
+  verified_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AddressQuote {
+  id: string;
+  property_address_id: string;
+  contractor_id: string;
+  service_vertical: AddressQuoteServiceVertical;
+  quote_source: AddressQuoteSource;
+  status: AddressQuoteStatus;
+  title: string;
+  summary: string;
+  scope_notes: string | null;
+  quote_total_cents: number | null;
+  currency: string;
+  measurement_snapshot_json: Record<string, unknown>;
+  pricing_snapshot_json: Record<string, unknown>;
+  ai_explanation: string | null;
+  expires_at: string | null;
+  published_at: string | null;
+  removed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AddressQuoteMeasurement {
+  id: string;
+  address_quote_id: string;
+  measurement_type: AddressQuoteMeasurementType;
+  label: string | null;
+  geometry_geojson: Record<string, unknown> | null;
+  area_sqft: number | null;
+  source: AddressQuoteMeasurementSource;
+  confidence: AddressQuoteMeasurementConfidence;
+  created_at: string;
+}
+
+export interface AddressQuoteRequest {
+  id: string;
+  property_address_id: string;
+  requester_user_id: string;
+  requester_email: string | null;
+  requested_services_json: AddressQuoteServiceVertical[];
+  notes: string | null;
+  status: AddressQuoteRequestStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AddressQuoteRemovalRequest {
+  id: string;
+  address_quote_id: string;
+  property_address_id: string;
+  requester_user_id: string;
+  requester_email: string | null;
+  reason: string | null;
+  status: AddressQuoteRemovalRequestStatus;
+  created_at: string;
+  resolved_at: string | null;
+}
+
 export interface BidderSavedProjectSearch {
   id: string;
   user_id: string;
@@ -1287,6 +1447,78 @@ type NotificationInsert = {
   title: string;
   message: string;
   link?: string | null;
+};
+
+type PropertyAddressInsert = {
+  display_address: string;
+  normalized_address: string;
+  address_hash: string;
+  street?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  geohash?: string | null;
+  source?: PropertyAddressSource;
+  confidence?: PropertyAddressConfidence;
+};
+
+type PropertyAddressClaimInsert = {
+  property_address_id: string;
+  user_id: string;
+  status?: PropertyAddressClaimStatus;
+  verification_method?: PropertyAddressClaimVerificationMethod;
+  evidence_notes?: string | null;
+  verified_at?: string | null;
+};
+
+type AddressQuoteInsert = {
+  property_address_id: string;
+  contractor_id: string;
+  service_vertical: AddressQuoteServiceVertical;
+  quote_source?: AddressQuoteSource;
+  status?: AddressQuoteStatus;
+  title: string;
+  summary: string;
+  scope_notes?: string | null;
+  quote_total_cents?: number | null;
+  currency?: string;
+  measurement_snapshot_json?: Record<string, unknown>;
+  pricing_snapshot_json?: Record<string, unknown>;
+  ai_explanation?: string | null;
+  expires_at?: string | null;
+  published_at?: string | null;
+  removed_at?: string | null;
+};
+
+type AddressQuoteMeasurementInsert = {
+  address_quote_id: string;
+  measurement_type: AddressQuoteMeasurementType;
+  label?: string | null;
+  geometry_geojson?: Record<string, unknown> | null;
+  area_sqft?: number | null;
+  source?: AddressQuoteMeasurementSource;
+  confidence?: AddressQuoteMeasurementConfidence;
+};
+
+type AddressQuoteRequestInsert = {
+  property_address_id: string;
+  requester_user_id: string;
+  requester_email?: string | null;
+  requested_services_json?: AddressQuoteServiceVertical[];
+  notes?: string | null;
+  status?: AddressQuoteRequestStatus;
+};
+
+type AddressQuoteRemovalRequestInsert = {
+  address_quote_id: string;
+  property_address_id: string;
+  requester_user_id: string;
+  requester_email?: string | null;
+  reason?: string | null;
+  status?: AddressQuoteRemovalRequestStatus;
+  resolved_at?: string | null;
 };
 
 type BidderSavedProjectSearchInsert = {
@@ -1696,6 +1928,53 @@ export interface Database {
         Row: Notification;
         Insert: NotificationInsert;
         Update: { read?: boolean };
+        Relationships: [];
+      };
+      property_addresses: {
+        Row: PropertyAddress;
+        Insert: PropertyAddressInsert;
+        Update: Partial<Omit<PropertyAddressInsert, "address_hash">>;
+        Relationships: [];
+      };
+      property_address_claims: {
+        Row: PropertyAddressClaim;
+        Insert: PropertyAddressClaimInsert;
+        Update: Partial<
+          Omit<PropertyAddressClaimInsert, "property_address_id" | "user_id">
+        >;
+        Relationships: [];
+      };
+      address_quotes: {
+        Row: AddressQuote;
+        Insert: AddressQuoteInsert;
+        Update: Partial<
+          Omit<AddressQuoteInsert, "property_address_id" | "contractor_id">
+        >;
+        Relationships: [];
+      };
+      address_quote_measurements: {
+        Row: AddressQuoteMeasurement;
+        Insert: AddressQuoteMeasurementInsert;
+        Update: Partial<Omit<AddressQuoteMeasurementInsert, "address_quote_id">>;
+        Relationships: [];
+      };
+      address_quote_requests: {
+        Row: AddressQuoteRequest;
+        Insert: AddressQuoteRequestInsert;
+        Update: Partial<
+          Omit<AddressQuoteRequestInsert, "property_address_id" | "requester_user_id">
+        >;
+        Relationships: [];
+      };
+      address_quote_removal_requests: {
+        Row: AddressQuoteRemovalRequest;
+        Insert: AddressQuoteRemovalRequestInsert;
+        Update: Partial<
+          Omit<
+            AddressQuoteRemovalRequestInsert,
+            "address_quote_id" | "property_address_id" | "requester_user_id"
+          >
+        >;
         Relationships: [];
       };
       bidder_saved_project_searches: {
