@@ -4,6 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { UserRole } from "@/types/database";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  bootstrapEstimatorProfile,
+  getDashboardPathForRole,
+  parsePublicSignupRole,
+  recordAccountIdentitySignals,
+} from "@/lib/auth/account-setup";
 
 async function getRequestOrigin() {
   const headerStore = await headers();
@@ -26,6 +33,7 @@ async function getRequestOrigin() {
 
 export async function signup(formData: FormData) {
   const supabase = await createClient();
+  const requestHeaders = await headers();
 
   const roleRaw = formData.get("role") as string;
   const fullName = formData.get("fullName") as string;
@@ -33,16 +41,16 @@ export async function signup(formData: FormData) {
   const phone = formData.get("phone") as string;
   const address = formData.get("address") as string;
   const password = formData.get("password") as string;
+  const businessName = formData.get("businessName") as string | null;
 
   if (!roleRaw || !fullName || !email || !phone || !address || !password) {
     return { error: "All fields are required." };
   }
 
-  if (roleRaw !== "customer" && roleRaw !== "bidder") {
+  const role = parsePublicSignupRole(roleRaw);
+  if (!role) {
     return { error: "Please select a valid account type." };
   }
-
-  const role: UserRole = roleRaw;
 
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
@@ -51,6 +59,7 @@ export async function signup(formData: FormData) {
       data: {
         full_name: fullName,
         role,
+        business_name: businessName || null,
       },
     },
   });
@@ -60,6 +69,7 @@ export async function signup(formData: FormData) {
   }
 
   if (authData.user) {
+    const admin = createAdminClient();
     const { error: profileError } = await supabase.from("profiles").insert({
       user_id: authData.user.id,
       role,
@@ -67,6 +77,7 @@ export async function signup(formData: FormData) {
       email,
       phone,
       address,
+      business_name: businessName || null,
     });
 
     if (profileError) {
@@ -89,13 +100,41 @@ export async function signup(formData: FormData) {
         user_id: authData.user.id,
       });
     }
+
+    if (role === "estimator") {
+      const estimatorSetup = await bootstrapEstimatorProfile({
+        admin,
+        userId: authData.user.id,
+        fullName,
+        businessName,
+        email,
+      });
+
+      if (estimatorSetup.error) {
+        return {
+          error:
+            "Account created but estimator profile setup failed. Please contact support.",
+        };
+      }
+    }
+
+    await recordAccountIdentitySignals({
+      admin,
+      userId: authData.user.id,
+      email,
+      phone,
+      businessName,
+      requestHeaders,
+      source: "email_signup",
+    });
   }
 
-  redirect(role === "customer" ? "/customer" : "/bidder");
+  redirect(getDashboardPathForRole(role));
 }
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
+  const requestHeaders = await headers();
 
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -115,7 +154,7 @@ export async function login(formData: FormData) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, email, phone, business_name")
     .eq("user_id", loginData.user.id)
     .single();
 
@@ -127,17 +166,18 @@ export async function login(formData: FormData) {
       },
       { onConflict: "user_id,role", ignoreDuplicates: true }
     );
+
+    await recordAccountIdentitySignals({
+      userId: loginData.user.id,
+      email: profile.email || email,
+      phone: profile.phone,
+      businessName: profile.business_name,
+      requestHeaders,
+      source: "login",
+    });
   }
 
-  if (profile?.role === "admin") {
-    redirect("/admin");
-  } else if (profile?.role === "estimator") {
-    redirect("/estimator");
-  } else if (profile?.role === "bidder") {
-    redirect("/bidder");
-  } else {
-    redirect("/customer");
-  }
+  redirect(getDashboardPathForRole((profile?.role as UserRole | undefined) || "customer"));
 }
 
 export async function signOut() {
@@ -149,9 +189,10 @@ export async function signOut() {
 export async function signInWithGoogle(role?: string) {
   const supabase = await createClient();
   const baseUrl = await getRequestOrigin();
+  const signupRole = parsePublicSignupRole(role);
 
-  const redirectUrl = role
-    ? `${baseUrl}/auth/callback?role=${role}`
+  const redirectUrl = signupRole
+    ? `${baseUrl}/auth/callback?role=${signupRole}`
     : `${baseUrl}/auth/callback`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({

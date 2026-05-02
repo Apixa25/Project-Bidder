@@ -63,6 +63,36 @@ async function requireEstimator() {
   return { supabase, user };
 }
 
+async function requireCompleteEstimatorProfile(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+) {
+  const { data: profile, error } = await supabase
+    .from("estimator_profiles")
+    .select("display_name, headline, bio")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error || !profile) {
+    return {
+      error:
+        "Complete your estimator profile before publishing. Go to /estimator/profile to add your display name and headline or bio.",
+    };
+  }
+
+  const hasDisplayName = Boolean(profile.display_name?.trim());
+  const hasPublicSummary = Boolean(profile.headline?.trim() || profile.bio?.trim());
+
+  if (!hasDisplayName || !hasPublicSummary) {
+    return {
+      error:
+        "Complete your estimator profile before publishing. Add a display name plus a headline or bio at /estimator/profile.",
+    };
+  }
+
+  return { success: true };
+}
+
 export async function createEstimatePackage(formData: FormData) {
   const auth = await requireEstimator();
   if ("error" in auth) return auth;
@@ -187,6 +217,9 @@ export async function publishEstimatePackage(packageId: string) {
   if (!packageRow.current_version_id) {
     return { error: "Create a package version before publishing." };
   }
+
+  const profileCheck = await requireCompleteEstimatorProfile(supabase, user.id);
+  if ("error" in profileCheck) return profileCheck;
 
   const publishedAt = new Date().toISOString();
   const { error: versionError } = await supabase

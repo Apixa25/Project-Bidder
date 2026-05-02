@@ -4,15 +4,22 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, Suspense } from "react";
 import Image from "next/image";
-import { FileText, ClipboardCheck, Loader2 } from "lucide-react";
+import { Calculator, ClipboardCheck, FileText, Loader2 } from "lucide-react";
 import { signup, signInWithGoogle } from "../actions";
 import { BrandWordmark } from "@/components/BrandWordmark";
+import type { UserRole } from "@/types/database";
+
+type SignupRole = Extract<UserRole, "customer" | "bidder" | "estimator">;
+
+function parseSignupRole(value: string | null): SignupRole {
+  if (value === "bidder" || value === "estimator") return value;
+  return "customer";
+}
 
 function SignupForm() {
   const searchParams = useSearchParams();
-  const defaultRole = searchParams.get("role") || "customer";
-  const [role, setRole] = useState<"customer" | "bidder">(
-    defaultRole === "bidder" ? "bidder" : "customer"
+  const [role, setRole] = useState<SignupRole>(
+    parseSignupRole(searchParams.get("role"))
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -39,7 +46,7 @@ function SignupForm() {
   }
 
   return (
-    <div className="w-full max-w-md">
+    <div className="w-full max-w-2xl">
       <div className="mb-8 text-center">
         <Link href="/" className="inline-flex flex-col items-center gap-2">
           <Image
@@ -58,7 +65,7 @@ function SignupForm() {
       </div>
 
       {/* Role Selection */}
-      <div className="mb-6 grid grid-cols-2 gap-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <button
           type="button"
           onClick={() => setRole("customer")}
@@ -92,6 +99,23 @@ function SignupForm() {
             I&apos;m a Contractor
           </span>
           <span className="text-xs text-text-muted">Bidder Account</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setRole("estimator")}
+          className={`group flex flex-col items-center gap-3 rounded-xl border-2 p-6 text-center transition-all ${
+            role === "estimator"
+              ? "border-accent bg-accent/5"
+              : "border-border bg-surface hover:border-accent/40"
+          }`}
+        >
+          <Calculator
+            className={`h-8 w-8 ${role === "estimator" ? "text-accent" : "text-text-muted"}`}
+          />
+          <span className="text-sm font-semibold text-text-primary">
+            I Sell Estimates
+          </span>
+          <span className="text-xs text-text-muted">Estimator Account</span>
         </button>
       </div>
 
@@ -161,7 +185,7 @@ function SignupForm() {
             />
           </div>
 
-          {role === "bidder" && (
+          {(role === "bidder" || role === "estimator") && (
             <div>
               <label
                 htmlFor="businessName"
@@ -175,7 +199,11 @@ function SignupForm() {
                 name="businessName"
                 type="text"
                 className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                placeholder="Smith Electrical LLC"
+                placeholder={
+                  role === "estimator"
+                    ? "Smith Estimating Services"
+                    : "Smith Electrical LLC"
+                }
               />
             </div>
           )}

@@ -37,6 +37,15 @@ export type PaidEstimateDisputeReviewStatus =
 
 export type EstimatorVerificationStatus = "pending" | "verified" | "rejected";
 
+export type AccountSignalConfidence = "low" | "medium" | "high";
+
+export type AccountSignalSource =
+  | "email_signup"
+  | "oauth_signup"
+  | "login"
+  | "stripe"
+  | "admin";
+
 export type EstimatePackageStatus = "draft" | "published" | "archived";
 
 export type EstimatePackageType =
@@ -286,6 +295,29 @@ export interface UserRoleMembership {
   user_id: string;
   role: UserRole;
   created_at: string;
+}
+
+export interface AccountIdentitySignal {
+  id: string;
+  user_id: string;
+  signal_type: string;
+  signal_value_hash: string;
+  confidence: AccountSignalConfidence;
+  source: AccountSignalSource;
+  created_at: string;
+  last_seen_at: string;
+}
+
+export interface AccountRiskLink {
+  id: string;
+  user_id: string;
+  related_user_id: string;
+  signal_type: string;
+  confidence: AccountSignalConfidence;
+  reason: string | null;
+  admin_notes: string | null;
+  created_at: string;
+  last_seen_at: string;
 }
 
 export type PortfolioItemType = "showcase" | "before_after";
@@ -1241,6 +1273,25 @@ type UserRoleMembershipInsert = {
   role: UserRole;
 };
 
+type AccountIdentitySignalInsert = {
+  user_id: string;
+  signal_type: string;
+  signal_value_hash: string;
+  confidence?: AccountSignalConfidence;
+  source: AccountSignalSource;
+  last_seen_at?: string;
+};
+
+type AccountRiskLinkInsert = {
+  user_id: string;
+  related_user_id: string;
+  signal_type: string;
+  confidence?: AccountSignalConfidence;
+  reason?: string | null;
+  admin_notes?: string | null;
+  last_seen_at?: string;
+};
+
 type ProfileHeartInsert = {
   giver_user_id: string;
   target_user_id: string;
@@ -1469,6 +1520,18 @@ export interface Database {
         Row: UserRoleMembership;
         Insert: UserRoleMembershipInsert;
         Update: never;
+        Relationships: [];
+      };
+      account_identity_signals: {
+        Row: AccountIdentitySignal;
+        Insert: AccountIdentitySignalInsert;
+        Update: Partial<Omit<AccountIdentitySignalInsert, "user_id" | "signal_type" | "signal_value_hash">>;
+        Relationships: [];
+      };
+      account_risk_links: {
+        Row: AccountRiskLink;
+        Insert: AccountRiskLinkInsert;
+        Update: Partial<Omit<AccountRiskLinkInsert, "user_id" | "related_user_id" | "signal_type">>;
         Relationships: [];
       };
       profile_hearts: {

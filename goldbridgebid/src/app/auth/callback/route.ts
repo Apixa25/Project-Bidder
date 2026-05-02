@@ -1,16 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import type { UserRole } from "@/types/database";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  bootstrapEstimatorProfile,
+  getDashboardPathForRole,
+  parsePublicSignupRole,
+  recordAccountIdentitySignals,
+} from "@/lib/auth/account-setup";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const roleRaw = searchParams.get("role");
-  const signupRole: UserRole | null =
-    roleRaw === "bidder" ? "bidder" : roleRaw === "customer" ? "customer" : null;
+  const signupRole = parsePublicSignupRole(roleRaw);
 
   if (code) {
     const supabase = await createClient();
+    const admin = createAdminClient();
     const { data: sessionData, error } =
       await supabase.auth.exchangeCodeForSession(code);
 
@@ -30,17 +37,29 @@ export async function GET(request: Request) {
           { onConflict: "user_id,role", ignoreDuplicates: true }
         );
 
+        if (existingProfile.role === "estimator") {
+          await bootstrapEstimatorProfile({
+            admin,
+            userId: sessionData.user.id,
+            fullName: existingProfile.full_name,
+            businessName: existingProfile.business_name,
+            email: existingProfile.email,
+          });
+        }
+
+        await recordAccountIdentitySignals({
+          admin,
+          userId: sessionData.user.id,
+          email: existingProfile.email,
+          phone: existingProfile.phone,
+          businessName: existingProfile.business_name,
+          requestHeaders: request.headers,
+          source: "login",
+        });
+
         // Existing user — redirect based on their STORED role
         const storedRole = existingProfile.role as UserRole;
-        const redirectPath =
-          storedRole === "admin"
-            ? "/admin"
-            : storedRole === "estimator"
-              ? "/estimator"
-            : storedRole === "bidder"
-              ? "/bidder"
-              : "/customer";
-        return NextResponse.redirect(`${origin}${redirectPath}`);
+        return NextResponse.redirect(`${origin}${getDashboardPathForRole(storedRole)}`);
       }
 
       // New user — create profile with the role from signup
@@ -72,8 +91,27 @@ export async function GET(request: Request) {
         });
       }
 
-      const redirectPath = role === "bidder" ? "/bidder" : "/customer";
-      return NextResponse.redirect(`${origin}${redirectPath}`);
+      if (role === "estimator") {
+        await bootstrapEstimatorProfile({
+          admin,
+          userId: sessionData.user.id,
+          fullName:
+            sessionData.user.user_metadata?.full_name ||
+            sessionData.user.email?.split("@")[0] ||
+            "User",
+          email: sessionData.user.email,
+        });
+      }
+
+      await recordAccountIdentitySignals({
+        admin,
+        userId: sessionData.user.id,
+        email: sessionData.user.email,
+        requestHeaders: request.headers,
+        source: "oauth_signup",
+      });
+
+      return NextResponse.redirect(`${origin}${getDashboardPathForRole(role)}`);
     }
   }
 
