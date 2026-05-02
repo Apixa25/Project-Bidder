@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, FileUp, PackagePlus, Save, Trash2 } from "lucide-react";
 import Link from "next/link";
@@ -46,13 +46,13 @@ const PACKAGE_TYPE_OPTIONS: Array<{
 
 export default function NewEstimatePackageForm() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(formData: FormData) {
     setError(null);
-    files.forEach((file) => formData.append("files", file));
     startTransition(async () => {
       const result = await createEstimatePackage(formData);
 
@@ -66,8 +66,20 @@ export default function NewEstimatePackageForm() {
     });
   }
 
+  function syncFileInput(nextFiles: File[]) {
+    if (!fileInputRef.current) return;
+
+    const dataTransfer = new DataTransfer();
+    nextFiles.forEach((file) => dataTransfer.items.add(file));
+    fileInputRef.current.files = dataTransfer.files;
+  }
+
   function removeSelectedFile(index: number) {
-    setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    setFiles((current) => {
+      const nextFiles = current.filter((_, itemIndex) => itemIndex !== index);
+      syncFileInput(nextFiles);
+      return nextFiles;
+    });
   }
 
   return (
@@ -273,11 +285,12 @@ export default function NewEstimatePackageForm() {
           </span>
           <input
             type="file"
+            name="files"
             multiple
             accept={ESTIMATE_PACKAGE_FILE_ACCEPT}
+            ref={fileInputRef}
             onChange={(event) => {
               setFiles(Array.from(event.target.files || []));
-              event.target.value = "";
             }}
             className="hidden"
           />

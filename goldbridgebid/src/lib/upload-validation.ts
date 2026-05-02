@@ -22,9 +22,9 @@ function getLimitLabel(bytes: number) {
 }
 
 function validateFile(
-  file: File,
+  file: Pick<File, "name" | "type" | "size">,
   options: {
-    allowFile: (file: File) => boolean;
+    allowFile: (file: Pick<File, "name" | "type">) => boolean;
     imageMaxBytes: number;
     videoMaxBytes?: number;
     documentMaxBytes: number;
@@ -57,7 +57,7 @@ function validateFile(
   return null;
 }
 
-export function validateProjectUploadFile(file: File) {
+export function validateProjectUploadFile(file: Pick<File, "name" | "type" | "size">) {
   return validateFile(file, {
     allowFile: isAllowedProjectFile,
     imageMaxBytes: MAX_PROJECT_IMAGE_BYTES,
@@ -70,7 +70,7 @@ export function validateProjectUploadFile(file: File) {
 }
 
 export function validateProjectUploadFiles(
-  files: File[],
+  files: Array<Pick<File, "name" | "type" | "size">>,
   existingVideoCount = 0
 ) {
   let totalVideoCount = existingVideoCount;
@@ -93,7 +93,7 @@ export function validateProjectUploadFiles(
   return null;
 }
 
-export function validateBidAttachmentFile(file: File) {
+export function validateBidAttachmentFile(file: Pick<File, "name" | "type" | "size">) {
   return validateFile(file, {
     allowFile: isAllowedBidAttachmentFile,
     imageMaxBytes: MAX_BID_ATTACHMENT_IMAGE_BYTES,
@@ -103,7 +103,9 @@ export function validateBidAttachmentFile(file: File) {
   });
 }
 
-export function validateEstimatePackageFile(file: File) {
+export function validateEstimatePackageFile(
+  file: Pick<File, "name" | "type" | "size">
+) {
   return validateFile(file, {
     allowFile: isAllowedEstimatePackageFile,
     imageMaxBytes: MAX_ESTIMATE_PACKAGE_IMAGE_BYTES,
@@ -113,7 +115,9 @@ export function validateEstimatePackageFile(file: File) {
   });
 }
 
-export function validateEstimatePackageFiles(files: File[]) {
+export function validateEstimatePackageFiles(
+  files: Array<Pick<File, "name" | "type" | "size">>
+) {
   for (const file of files) {
     const validationError = validateEstimatePackageFile(file);
     if (validationError) {

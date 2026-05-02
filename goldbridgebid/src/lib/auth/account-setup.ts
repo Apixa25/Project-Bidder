@@ -92,6 +92,45 @@ export function getDashboardPathForRole(role: UserRole) {
   return "/customer";
 }
 
+export async function isEstimatorProfileComplete({
+  admin = createAdminClient(),
+  userId,
+}: {
+  admin?: AdminClient;
+  userId: string;
+}) {
+  const { data: profile, error } = await admin
+    .from("estimator_profiles")
+    .select("display_name, headline, bio")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error || !profile) return false;
+
+  const hasDisplayName = Boolean(profile.display_name?.trim());
+  const hasPublicSummary = Boolean(profile.headline?.trim() || profile.bio?.trim());
+
+  return hasDisplayName && hasPublicSummary;
+}
+
+export async function getPostAuthPathForRole({
+  admin = createAdminClient(),
+  role,
+  userId,
+}: {
+  admin?: AdminClient;
+  role: UserRole;
+  userId: string;
+}) {
+  if (role !== "estimator") {
+    return getDashboardPathForRole(role);
+  }
+
+  return (await isEstimatorProfileComplete({ admin, userId }))
+    ? "/estimator"
+    : "/estimator/profile";
+}
+
 export async function bootstrapEstimatorProfile({
   admin = createAdminClient(),
   userId,

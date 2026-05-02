@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   bootstrapEstimatorProfile,
   getDashboardPathForRole,
+  getPostAuthPathForRole,
   parsePublicSignupRole,
   recordAccountIdentitySignals,
 } from "@/lib/auth/account-setup";
@@ -131,7 +132,15 @@ export async function signup(formData: FormData) {
     });
   }
 
-  redirect(getDashboardPathForRole(role));
+  const redirectPath = authData.user
+    ? await getPostAuthPathForRole({
+        admin: createAdminClient(),
+        role,
+        userId: authData.user.id,
+      })
+    : getDashboardPathForRole(role);
+
+  redirect(redirectPath);
 }
 
 export async function login(formData: FormData) {
@@ -263,7 +272,14 @@ export async function login(formData: FormData) {
     });
   }
 
-  redirect(getDashboardPathForRole((profile?.role as UserRole | undefined) || "customer"));
+  const role = (profile?.role as UserRole | undefined) || "customer";
+  const redirectPath = await getPostAuthPathForRole({
+    admin,
+    role,
+    userId: loginData.user.id,
+  });
+
+  redirect(redirectPath);
 }
 
 export async function signOut() {

@@ -101,10 +101,10 @@ export default async function EstimatorPackageDetailPage({
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-bold text-text-primary">
+            <h1 className="text-2xl font-bold text-slate-950">
               {currentPackage.title}
             </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-text-secondary">
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-700">
               {currentPackage.summary}
             </p>
           </div>
@@ -179,6 +179,7 @@ export default async function EstimatorPackageDetailPage({
         <div className="space-y-6">
           <PackageFileUploadForm
             packageId={currentPackage.id}
+            packageVersionId={currentPackage.current_version_id || ""}
             canEditFiles={canEditFiles}
           />
 

@@ -4,7 +4,7 @@ import type { UserRole } from "@/types/database";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   bootstrapEstimatorProfile,
-  getDashboardPathForRole,
+  getPostAuthPathForRole,
   parsePublicSignupRole,
   recordAccountIdentitySignals,
 } from "@/lib/auth/account-setup";
@@ -59,7 +59,13 @@ export async function GET(request: Request) {
 
         // Existing user — redirect based on their STORED role
         const storedRole = existingProfile.role as UserRole;
-        return NextResponse.redirect(`${origin}${getDashboardPathForRole(storedRole)}`);
+        const redirectPath = await getPostAuthPathForRole({
+          admin,
+          role: storedRole,
+          userId: sessionData.user.id,
+        });
+
+        return NextResponse.redirect(`${origin}${redirectPath}`);
       }
 
       // New user — create profile with the role from signup
@@ -111,7 +117,13 @@ export async function GET(request: Request) {
         source: "oauth_signup",
       });
 
-      return NextResponse.redirect(`${origin}${getDashboardPathForRole(role)}`);
+      const redirectPath = await getPostAuthPathForRole({
+        admin,
+        role,
+        userId: sessionData.user.id,
+      });
+
+      return NextResponse.redirect(`${origin}${redirectPath}`);
     }
   }
 
