@@ -3,6 +3,36 @@ import { NextResponse } from "next/server";
 const NOMINATIM_UA =
   "ProjectXBidX-AddressQuotes/1.0 (https://www.projectxbidx.com)";
 
+async function geocodeWithGoogle(address: string) {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY?.trim();
+  if (!apiKey) return null;
+
+  const googleUrl = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+  googleUrl.searchParams.set("address", address);
+  googleUrl.searchParams.set("key", apiKey);
+
+  const response = await fetch(googleUrl, { next: { revalidate: 86400 } });
+  if (!response.ok) return null;
+
+  const data = (await response.json()) as {
+    status?: string;
+    results?: Array<{
+      formatted_address?: string;
+      geometry?: { location?: { lat: number; lng: number } };
+    }>;
+  };
+  const result = data.results?.[0];
+  const location = result?.geometry?.location;
+  if (data.status !== "OK" || !location) return null;
+
+  return {
+    lat: location.lat,
+    lon: location.lng,
+    label: result.formatted_address || address,
+    provider: "google",
+  };
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const address = (url.searchParams.get("address") || "").trim();
@@ -12,6 +42,11 @@ export async function GET(request: Request) {
       { error: "Enter a fuller address." },
       { status: 400 }
     );
+  }
+
+  const googleResult = await geocodeWithGoogle(address);
+  if (googleResult) {
+    return NextResponse.json(googleResult);
   }
 
   const response = await fetch(
@@ -60,5 +95,6 @@ export async function GET(request: Request) {
     lat,
     lon,
     label: first.display_name || address,
+    provider: "nominatim",
   });
 }

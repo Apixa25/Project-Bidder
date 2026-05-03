@@ -6,6 +6,7 @@ import { userHasRole } from "@/lib/auth/roles";
 import { createManualAddressQuote } from "@/lib/address-quotes/actions";
 import AddressQuoteBidSheet from "@/components/address-quotes/AddressQuoteBidSheet";
 import LawnAreaMeasurementMap from "@/components/address-quotes/LawnAreaMeasurementMap";
+import StreetViewEvidenceTool from "@/components/address-quotes/StreetViewEvidenceTool";
 import {
   ADDRESS_QUOTE_SERVICE_LABELS,
   ADDRESS_QUOTE_SERVICE_VERTICALS,
@@ -132,6 +133,8 @@ export default async function NewBidderAddressQuotePage({
           </section>
 
           <LawnAreaMeasurementMap />
+
+          <StreetViewEvidenceTool />
 
           <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-text-primary">

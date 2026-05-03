@@ -9,7 +9,7 @@ type ReverseGeocodeResult = {
   city: string | null;
   state: string | null;
   zip: string | null;
-  provider: "mapbox" | "nominatim";
+  provider: "google" | "mapbox" | "nominatim";
 };
 
 function buildStreet(address: Record<string, string | undefined>) {
@@ -17,6 +17,62 @@ function buildStreet(address: Record<string, string | undefined>) {
     .map((part) => (part || "").trim())
     .filter(Boolean)
     .join(" ");
+}
+
+function getGoogleAddressPart(
+  components: Array<{ long_name: string; short_name: string; types: string[] }>,
+  type: string,
+  useShortName = false
+) {
+  const component = components.find((entry) => entry.types.includes(type));
+  return component ? (useShortName ? component.short_name : component.long_name) : null;
+}
+
+async function reverseGeocodeWithGoogle(
+  lat: number,
+  lon: number
+): Promise<ReverseGeocodeResult | null> {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY?.trim();
+  if (!apiKey) return null;
+
+  const googleUrl = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+  googleUrl.searchParams.set("latlng", `${lat},${lon}`);
+  googleUrl.searchParams.set("result_type", "street_address|premise");
+  googleUrl.searchParams.set("key", apiKey);
+
+  const response = await fetch(googleUrl, { next: { revalidate: 86400 } });
+  if (!response.ok) return null;
+
+  const data = (await response.json()) as {
+    status?: string;
+    results?: Array<{
+      formatted_address?: string;
+      address_components?: Array<{
+        long_name: string;
+        short_name: string;
+        types: string[];
+      }>;
+    }>;
+  };
+  const result = data.results?.[0];
+  const components = result?.address_components || [];
+  if (data.status !== "OK" || !result?.formatted_address) return null;
+
+  const streetNumber = getGoogleAddressPart(components, "street_number");
+  const route = getGoogleAddressPart(components, "route");
+  const city =
+    getGoogleAddressPart(components, "locality") ||
+    getGoogleAddressPart(components, "postal_town") ||
+    getGoogleAddressPart(components, "administrative_area_level_2");
+
+  return {
+    displayAddress: result.formatted_address,
+    street: [streetNumber, route].filter(Boolean).join(" ") || null,
+    city,
+    state: getGoogleAddressPart(components, "administrative_area_level_1", true),
+    zip: getGoogleAddressPart(components, "postal_code"),
+    provider: "google",
+  };
 }
 
 function getContextName(
@@ -153,6 +209,7 @@ export async function GET(request: Request) {
   }
 
   const address =
+    (await reverseGeocodeWithGoogle(lat, lon)) ||
     (await reverseGeocodeWithMapbox(lat, lon)) ||
     (await reverseGeocodeWithNominatim(lat, lon));
 

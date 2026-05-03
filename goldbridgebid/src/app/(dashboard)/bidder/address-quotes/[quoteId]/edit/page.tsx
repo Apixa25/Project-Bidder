@@ -12,6 +12,7 @@ import AddressQuoteBidSheet from "@/components/address-quotes/AddressQuoteBidShe
 import LawnAreaMeasurementMap, {
   type InitialAddressQuoteMeasurement,
 } from "@/components/address-quotes/LawnAreaMeasurementMap";
+import StreetViewEvidenceTool from "@/components/address-quotes/StreetViewEvidenceTool";
 import {
   ADDRESS_QUOTE_SERVICE_LABELS,
   ADDRESS_QUOTE_SERVICE_VERTICALS,
@@ -92,6 +93,13 @@ export default async function EditBidderAddressQuotePage({
   const uploadedReferencePhotos = typedQuoteMedia.filter(
     (media) => media.media_type === "uploaded_photo"
   );
+  const streetViewImages = typedQuoteMedia
+    .filter((media) => media.media_type === "street_view")
+    .map((media) => ({
+      id: media.id,
+      url: media.url,
+      caption: media.caption,
+    }));
   const editableMapMeasurements: InitialAddressQuoteMeasurement[] =
     typedMeasurements
       .map((measurement): InitialAddressQuoteMeasurement | null => {
@@ -187,6 +195,11 @@ export default async function EditBidderAddressQuotePage({
         className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]"
       >
         <input type="hidden" name="quoteId" value={typedQuote.id} />
+        <input
+          type="hidden"
+          name="displayAddress"
+          value={typedAddress?.display_address || ""}
+        />
 
         <div className="space-y-6">
           <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
@@ -272,6 +285,8 @@ export default async function EditBidderAddressQuotePage({
             initialMapSnapshotUrls={mapSnapshotUrls}
             initialSearchAddress={typedAddress?.display_address}
           />
+
+          <StreetViewEvidenceTool initialImages={streetViewImages} />
 
           <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
             <input

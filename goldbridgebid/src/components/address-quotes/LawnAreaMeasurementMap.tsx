@@ -236,6 +236,10 @@ export default function LawnAreaMeasurementMap({
   const [snapshotStatus, setSnapshotStatus] = useState<string | null>(null);
   const [mapSearchAddress, setMapSearchAddress] = useState(initialSearchAddress || "");
   const [geocodeStatus, setGeocodeStatus] = useState<string | null>(null);
+  const [pickedAddressPoint, setPickedAddressPoint] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [viewMode, setViewMode] = useState<MapViewMode>("default");
   const [interactionMode, setInteractionMode] = useState<MapInteractionMode>("draw");
   const [mapReady, setMapReady] = useState(false);
@@ -303,6 +307,7 @@ export default function LawnAreaMeasurementMap({
   const reverseGeocodePoint = useCallback(
     async (lng: number, lat: number) => {
       setGeocodeStatus("Looking up address from clicked map point...");
+      setPickedAddressPoint({ lat, lng });
       const response = await fetch(
         `/api/address-quotes/reverse-geocode?lat=${encodeURIComponent(
           String(lat)
@@ -801,6 +806,16 @@ export default function LawnAreaMeasurementMap({
         type="hidden"
         name="measurementSource"
         value={savedMeasurements.length > 0 ? "map_drawn" : "manual"}
+      />
+      <input
+        type="hidden"
+        name="mapPickedLatitude"
+        value={pickedAddressPoint ? String(pickedAddressPoint.lat) : ""}
+      />
+      <input
+        type="hidden"
+        name="mapPickedLongitude"
+        value={pickedAddressPoint ? String(pickedAddressPoint.lng) : ""}
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

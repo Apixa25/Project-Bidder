@@ -33,10 +33,34 @@ function hashAddress(normalizedAddress: string) {
 }
 
 async function geocodePropertyAddress(displayAddress: string) {
-  const token = process.env.MAPBOX_ACCESS_TOKEN?.trim();
-  if (!token) return null;
-
   try {
+    const googleKey = process.env.GOOGLE_MAPS_API_KEY?.trim();
+    if (googleKey) {
+      const googleUrl = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+      googleUrl.searchParams.set("address", displayAddress);
+      googleUrl.searchParams.set("key", googleKey);
+
+      const googleResponse = await fetch(googleUrl, { next: { revalidate: 86400 } });
+      if (googleResponse.ok) {
+        const googleData = (await googleResponse.json()) as {
+          status?: string;
+          results?: Array<{ geometry?: { location?: { lat: number; lng: number } } }>;
+        };
+        const location = googleData.results?.[0]?.geometry?.location;
+        if (
+          googleData.status === "OK" &&
+          location &&
+          Number.isFinite(location.lat) &&
+          Number.isFinite(location.lng)
+        ) {
+          return { latitude: location.lat, longitude: location.lng };
+        }
+      }
+    }
+
+    const token = process.env.MAPBOX_ACCESS_TOKEN?.trim();
+    if (!token) return null;
+
     const response = await fetch(
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
         displayAddress
@@ -82,6 +106,12 @@ function parsePositiveNumber(rawValue: string) {
   const value = Number.parseFloat(rawValue.replace(/[,\s]/g, ""));
   if (!Number.isFinite(value) || value <= 0) return null;
   return Math.round(value * 100) / 100;
+}
+
+function parseCoordinate(rawValue: string) {
+  const value = Number.parseFloat(rawValue);
+  if (!Number.isFinite(value)) return null;
+  return Math.round(value * 10_000_000) / 10_000_000;
 }
 
 function getRequestedServices(formData: FormData) {
@@ -309,6 +339,40 @@ function parseExistingQuoteMedia(rawValue: string): SubmittedQuoteMedia[] {
   }
 }
 
+function parseStreetViewImages(rawValue: string): SubmittedQuoteMedia[] {
+  if (!rawValue) return [];
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((entry, index): SubmittedQuoteMedia | null => {
+        if (!entry || typeof entry !== "object") return null;
+        const row = entry as { imageDataUrl?: unknown; caption?: unknown };
+        if (
+          typeof row.imageDataUrl !== "string" ||
+          !row.imageDataUrl.startsWith("data:image/jpeg;base64,")
+        ) {
+          return null;
+        }
+
+        return {
+          mediaType: "street_view",
+          url: row.imageDataUrl,
+          caption:
+            typeof row.caption === "string" && row.caption.trim()
+              ? row.caption.trim().slice(0, 200)
+              : `Street View verification ${index + 1}`,
+          displayOrder: index,
+        };
+      })
+      .filter((entry): entry is SubmittedQuoteMedia => entry !== null);
+  } catch {
+    return [];
+  }
+}
+
 async function replacePricingLineItems(params: {
   quoteId: string;
   pricingLineItems: SubmittedPricingLineItem[];
@@ -407,6 +471,37 @@ async function uploadMapSnapshot(params: {
   return data.publicUrl;
 }
 
+async function uploadQuoteDataImage(params: {
+  quoteId: string;
+  contractorId: string;
+  dataUrl: string;
+  folder: string;
+  index: number;
+}) {
+  const buffer = parseMapSnapshotDataUrl(params.dataUrl);
+  if (!buffer) return null;
+
+  const admin = createAdminClient();
+  const path = `${params.contractorId}/${params.quoteId}/${params.folder}/${Date.now()}-${params.index}-${crypto.randomUUID()}.jpg`;
+  const { error } = await admin.storage
+    .from("address-quote-snapshots")
+    .upload(path, buffer, {
+      contentType: "image/jpeg",
+      upsert: false,
+    });
+
+  if (error) {
+    console.error("Quote evidence image upload failed:", error);
+    return null;
+  }
+
+  const { data } = admin.storage
+    .from("address-quote-snapshots")
+    .getPublicUrl(path);
+
+  return data.publicUrl;
+}
+
 function getImageExtension(file: File) {
   if (file.type === "image/png") return "png";
   if (file.type === "image/webp") return "webp";
@@ -456,6 +551,7 @@ async function replaceQuoteMedia(params: {
   quoteId: string;
   contractorId: string;
   mapSnapshotValues: string[];
+  streetViewMedia: SubmittedQuoteMedia[];
   existingMedia: SubmittedQuoteMedia[];
   evidenceImages: File[];
 }) {
@@ -483,6 +579,23 @@ async function replaceQuoteMedia(params: {
     if (media.mediaType === "map_snapshot") continue;
     mediaRows.push({
       ...media,
+      displayOrder: mediaRows.length,
+    });
+  }
+
+  for (const [index, streetView] of params.streetViewMedia.entries()) {
+    const url = await uploadQuoteDataImage({
+      quoteId: params.quoteId,
+      contractorId: params.contractorId,
+      dataUrl: streetView.url,
+      folder: "street-view",
+      index,
+    });
+    if (!url) continue;
+    mediaRows.push({
+      mediaType: "street_view",
+      url,
+      caption: streetView.caption || `Street View verification ${index + 1}`,
       displayOrder: mediaRows.length,
     });
   }
@@ -530,6 +643,8 @@ async function ensurePropertyAddress(params: {
   city?: string | null;
   state?: string | null;
   zip?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   source: "user_search" | "contractor_entry" | "customer_entry";
 }): Promise<PropertyAddress | null> {
   const displayAddress = params.displayAddress.trim();
@@ -550,6 +665,24 @@ async function ensurePropertyAddress(params: {
 
   if (existing) {
     const typedExisting = existing as PropertyAddress;
+    if (
+      typeof params.latitude === "number" &&
+      typeof params.longitude === "number"
+    ) {
+      const { data: updated } = await admin
+        .from("property_addresses")
+        .update({
+          latitude: params.latitude,
+          longitude: params.longitude,
+          confidence: "geocoded",
+        })
+        .eq("id", typedExisting.id)
+        .select("*")
+        .single();
+
+      return (updated as PropertyAddress | null) || typedExisting;
+    }
+
     if (typedExisting.latitude !== null && typedExisting.longitude !== null) {
       return typedExisting;
     }
@@ -571,7 +704,10 @@ async function ensurePropertyAddress(params: {
     return (updated as PropertyAddress | null) || typedExisting;
   }
 
-  const geocoded = await geocodePropertyAddress(displayAddress);
+  const geocoded =
+    typeof params.latitude === "number" && typeof params.longitude === "number"
+      ? { latitude: params.latitude, longitude: params.longitude }
+      : await geocodePropertyAddress(displayAddress);
 
   const { data: inserted, error } = await admin
     .from("property_addresses")
@@ -785,6 +921,10 @@ export async function createManualAddressQuote(
   const mapMeasuredAreaSqft = parsePositiveNumber(
     getString(formData, "mapMeasuredAreaSqft")
   );
+  const mapPickedLatitude = parseCoordinate(getString(formData, "mapPickedLatitude"));
+  const mapPickedLongitude = parseCoordinate(
+    getString(formData, "mapPickedLongitude")
+  );
   const manualMeasuredAreaSqft = parsePositiveNumber(
     getString(formData, "measuredAreaSqft")
   );
@@ -799,6 +939,9 @@ export async function createManualAddressQuote(
       ...parseStringArray(getString(formData, "mapSnapshotUrlsJson")),
       ...(mapSnapshotValue ? [mapSnapshotValue] : []),
     ])
+  );
+  const streetViewMedia = parseStreetViewImages(
+    getString(formData, "streetViewImagesJson")
   );
   const evidenceImages = getQuoteEvidenceImages(formData);
   const areaMeasurements = submittedMeasurements.filter(
@@ -844,6 +987,8 @@ export async function createManualAddressQuote(
     city: getOptionalString(formData, "city"),
     state: getOptionalString(formData, "state"),
     zip: getOptionalString(formData, "zip"),
+    latitude: mapPickedLatitude,
+    longitude: mapPickedLongitude,
     source: "contractor_entry",
   });
 
@@ -914,6 +1059,7 @@ export async function createManualAddressQuote(
     quoteId: quote.id,
     contractorId: user.id,
     mapSnapshotValues,
+    streetViewMedia,
     existingMedia: [],
     evidenceImages,
   });
@@ -989,6 +1135,10 @@ export async function updateContractorAddressQuote(
   const mapMeasuredAreaSqft = parsePositiveNumber(
     getString(formData, "mapMeasuredAreaSqft")
   );
+  const mapPickedLatitude = parseCoordinate(getString(formData, "mapPickedLatitude"));
+  const mapPickedLongitude = parseCoordinate(
+    getString(formData, "mapPickedLongitude")
+  );
   const submittedMeasurements = parseMeasurements(
     getString(formData, "measurementsJson")
   );
@@ -1003,6 +1153,9 @@ export async function updateContractorAddressQuote(
   );
   const existingMedia = parseExistingQuoteMedia(
     getString(formData, "existingQuoteMediaJson")
+  );
+  const streetViewMedia = parseStreetViewImages(
+    getString(formData, "streetViewImagesJson")
   );
   const evidenceImages = getQuoteEvidenceImages(formData);
   const areaMeasurements = submittedMeasurements.filter(
@@ -1062,6 +1215,17 @@ export async function updateContractorAddressQuote(
     redirect("/bidder/address-quotes?error=not-found");
   }
 
+  if (mapPickedLatitude !== null && mapPickedLongitude !== null) {
+    await admin
+      .from("property_addresses")
+      .update({
+        latitude: mapPickedLatitude,
+        longitude: mapPickedLongitude,
+        confidence: "geocoded",
+      })
+      .eq("id", existingQuote.property_address_id);
+  }
+
   const shouldPublish = intent === "publish";
   const publishedAt =
     shouldPublish && existingQuote.status !== "published"
@@ -1073,6 +1237,7 @@ export async function updateContractorAddressQuote(
     quoteId,
     contractorId: user.id,
     mapSnapshotValues,
+    streetViewMedia,
     existingMedia,
     evidenceImages,
   });
