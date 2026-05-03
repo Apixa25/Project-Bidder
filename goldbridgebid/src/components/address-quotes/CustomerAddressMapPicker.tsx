@@ -24,10 +24,16 @@ interface CustomerAddressMapPickerProps {
   initialCity: string;
   initialState: string;
   initialZip: string;
+  initialLatitude?: number | null;
+  initialLongitude?: number | null;
+  label?: string;
+  helpText?: string;
 }
 
 const DEFAULT_CENTER: [number, number] = [-124.2026, 41.7558];
 const MAPBOX_PUBLIC_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+const PIN_SOURCE_ID = "customer-exact-address-pin-source";
+const PIN_LAYER_ID = "customer-exact-address-pin-layer";
 
 export default function CustomerAddressMapPicker({
   initialDisplayAddress,
@@ -35,22 +41,75 @@ export default function CustomerAddressMapPicker({
   initialCity,
   initialState,
   initialZip,
+  initialLatitude = null,
+  initialLongitude = null,
+  label = "Save your customer address",
+  helpText = "Search your address or click directly on your house. The red marker is what contractors will see for quick quote requests.",
 }: CustomerAddressMapPickerProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
+  const mapSnapshotInputRef = useRef<HTMLInputElement | null>(null);
   const [displayAddress, setDisplayAddress] = useState(initialDisplayAddress);
   const [street, setStreet] = useState(initialStreet);
   const [city, setCity] = useState(initialCity);
   const [state, setState] = useState(initialState);
   const [zip, setZip] = useState(initialZip);
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
+  const [latitude, setLatitude] = useState(
+    typeof initialLatitude === "number" ? String(initialLatitude) : ""
+  );
+  const [longitude, setLongitude] = useState(
+    typeof initialLongitude === "number" ? String(initialLongitude) : ""
+  );
   const [status, setStatus] = useState<string | null>(
-    initialDisplayAddress
+    typeof initialLatitude === "number" && typeof initialLongitude === "number"
+      ? "Existing pin loaded. Move it if the exact location is wrong."
+      : initialDisplayAddress
       ? "Use the saved profile address, search it on the map, or click your house."
       : "Search or click the map to set your customer address."
   );
+
+  const syncCanvasPin = useCallback((lat: number, lon: number) => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+
+    const point = {
+      type: "FeatureCollection" as const,
+      features: [
+        {
+          type: "Feature" as const,
+          geometry: {
+            type: "Point" as const,
+            coordinates: [lon, lat],
+          },
+          properties: {},
+        },
+      ],
+    };
+    const existingSource = map.getSource(PIN_SOURCE_ID) as
+      | maplibregl.GeoJSONSource
+      | undefined;
+
+    if (existingSource) {
+      existingSource.setData(point);
+    } else {
+      map.addSource(PIN_SOURCE_ID, {
+        type: "geojson",
+        data: point,
+      });
+      map.addLayer({
+        id: PIN_LAYER_ID,
+        type: "circle",
+        source: PIN_SOURCE_ID,
+        paint: {
+          "circle-color": "#dc2626",
+          "circle-radius": 9,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 3,
+        },
+      });
+    }
+  }, []);
 
   const placeMarker = useCallback((lat: number, lon: number) => {
     const point: [number, number] = [lon, lat];
@@ -61,10 +120,11 @@ export default function CustomerAddressMapPicker({
     } else {
       markerRef.current.setLngLat(point);
     }
+    syncCanvasPin(lat, lon);
     mapRef.current?.flyTo({ center: point, zoom: 18, duration: 600 });
     setLatitude(String(Math.round(lat * 10_000_000) / 10_000_000));
     setLongitude(String(Math.round(lon * 10_000_000) / 10_000_000));
-  }, []);
+  }, [syncCanvasPin]);
 
   const selectPoint = useCallback(
     async (lat: number, lon: number) => {
@@ -95,6 +155,21 @@ export default function CustomerAddressMapPicker({
     },
     [placeMarker]
   );
+
+  const captureMapSnapshot = useCallback(() => {
+    if (!markerRef.current || !mapRef.current || !mapSnapshotInputRef.current) {
+      return;
+    }
+
+    try {
+      mapSnapshotInputRef.current.value = mapRef.current
+        .getCanvas()
+        .toDataURL("image/jpeg", 0.82);
+    } catch (error) {
+      console.error("Map snapshot capture failed:", error);
+      mapSnapshotInputRef.current.value = "";
+    }
+  }, []);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -130,10 +205,16 @@ export default function CustomerAddressMapPicker({
       center: DEFAULT_CENTER,
       zoom: 14,
       maxZoom: 22,
+      canvasContextAttributes: { preserveDrawingBuffer: true },
       attributionControl: { compact: true },
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    if (typeof initialLatitude === "number" && typeof initialLongitude === "number") {
+      map.on("load", () => {
+        placeMarker(initialLatitude, initialLongitude);
+      });
+    }
     map.on("click", (event) => {
       void selectPoint(event.lngLat.lat, event.lngLat.lng);
     });
@@ -145,7 +226,17 @@ export default function CustomerAddressMapPicker({
       map.remove();
       mapRef.current = null;
     };
-  }, [selectPoint]);
+  }, [initialLatitude, initialLongitude, placeMarker, selectPoint]);
+
+  useEffect(() => {
+    const form = mapContainerRef.current?.closest("form");
+    if (!form) return;
+
+    form.addEventListener("submit", captureMapSnapshot);
+    return () => {
+      form.removeEventListener("submit", captureMapSnapshot);
+    };
+  }, [captureMapSnapshot]);
 
   async function searchAddressOnMap() {
     if (displayAddress.trim().length < 6) {
@@ -180,11 +271,10 @@ export default function CustomerAddressMapPicker({
           htmlFor="displayAddress"
           className="block text-sm font-semibold text-text-primary"
         >
-          Save your customer address
+          {label}
         </label>
         <p className="mt-1 text-xs leading-5 text-text-secondary">
-          Search your address or click directly on your house. The red marker is
-          what contractors will see for quick quote requests.
+          {helpText}
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
           <input
@@ -213,6 +303,11 @@ export default function CustomerAddressMapPicker({
       <input type="hidden" name="zip" value={zip} />
       <input type="hidden" name="mapLatitude" value={latitude} />
       <input type="hidden" name="mapLongitude" value={longitude} />
+      <input
+        ref={mapSnapshotInputRef}
+        type="hidden"
+        name="mapSnapshotDataUrl"
+      />
 
       <div
         ref={mapContainerRef}

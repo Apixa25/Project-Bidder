@@ -7,7 +7,6 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowLeft,
-  MapPin,
   Calendar,
   DollarSign,
   Clock,
@@ -31,6 +30,7 @@ import BidForm from "./BidForm";
 import ProjectPhotosBidder from "./ProjectPhotosBidder";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
 import ProjectAddressMap from "@/components/project/ProjectAddressMap";
+import AddressWithMapPreview from "@/components/address-quotes/AddressWithMapPreview";
 import { userHasRole } from "@/lib/auth/roles";
 import ProjectQA from "@/components/ProjectQA";
 import {
@@ -125,7 +125,9 @@ export default async function BidderProjectDetailPage({
 
   const { data: customerProfile } = await supabase
     .from("profiles")
-    .select("user_id, full_name, business_name, city, state, created_at, avatar_url")
+    .select(
+      "user_id, full_name, business_name, city, state, created_at, avatar_url, exact_address_map_image_url"
+    )
     .eq("user_id", project.customer_id)
     .single();
 
@@ -449,19 +451,12 @@ export default async function BidderProjectDetailPage({
               Project Details
             </h3>
 
-            <div className="flex items-center gap-3">
-              <MapPin className="h-5 w-5 text-text-muted shrink-0" />
-              <div>
-                <p className="text-xs text-text-muted">Location</p>
-                <p className="text-sm font-medium text-text-primary">
-                  {project.location_address}
-                </p>
-                <p className="text-sm text-text-secondary">
-                  {project.location_city}, {project.location_state}{" "}
-                  {project.location_zip}
-                </p>
-              </div>
-            </div>
+            <AddressWithMapPreview
+              label="Location"
+              address={`${project.location_address}, ${project.location_city}, ${project.location_state} ${project.location_zip}`}
+              mapImageUrl={customerProfile?.exact_address_map_image_url}
+              className="text-sm"
+            />
 
             <ProjectAddressMap
               address={project.location_address}

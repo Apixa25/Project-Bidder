@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, BadgeDollarSign, Clock, MapPin } from "lucide-react";
+import { ArrowLeft, BadgeDollarSign, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { userHasRole } from "@/lib/auth/roles";
+import AddressWithMapPreview from "@/components/address-quotes/AddressWithMapPreview";
 import { submitAddressQuoteRequestResponse } from "@/lib/address-quotes/actions";
 import { formatAddressQuoteRequestServices } from "@/lib/address-quotes/service-verticals";
 import type {
   AddressQuoteRequest,
   AddressQuoteRequestResponse,
+  Profile,
   PropertyAddress,
 } from "@/types/database";
 
@@ -58,12 +60,20 @@ export default async function BidderAddressRequestDetailPage({
   if (!request) notFound();
 
   const typedRequest = request as AddressQuoteRequest;
-  const { data: address } = await admin
-    .from("property_addresses")
-    .select("*")
-    .eq("id", typedRequest.property_address_id)
-    .maybeSingle();
+  const [{ data: address }, { data: requesterProfile }] = await Promise.all([
+    admin
+      .from("property_addresses")
+      .select("*")
+      .eq("id", typedRequest.property_address_id)
+      .maybeSingle(),
+    admin
+      .from("profiles")
+      .select("*")
+      .eq("user_id", typedRequest.requester_user_id)
+      .maybeSingle(),
+  ]);
   const typedAddress = address as PropertyAddress | null;
+  const typedRequesterProfile = requesterProfile as Profile | null;
 
   const { data: existingResponse } = await admin
     .from("address_quote_request_responses")
@@ -120,12 +130,11 @@ export default async function BidderAddressRequestDetailPage({
                 typedRequest.requested_services_json
               )}
             </h1>
-            <p className="mt-2 flex items-start gap-2 text-text-secondary">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-red-700" />
-              <span>
-                {typedAddress?.display_address || "Address unavailable"}
-              </span>
-            </p>
+            <AddressWithMapPreview
+              address={typedAddress?.display_address || "Address unavailable"}
+              mapImageUrl={typedRequesterProfile?.exact_address_map_image_url}
+              className="mt-3 text-text-secondary"
+            />
           </div>
           <Link
             href={`/address-quotes/${typedRequest.property_address_id}`}
@@ -166,9 +175,11 @@ export default async function BidderAddressRequestDetailPage({
               <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
                 Address
               </p>
-              <p className="mt-1 font-semibold text-text-primary">
-                {typedAddress?.display_address || "Address unavailable"}
-              </p>
+              <AddressWithMapPreview
+                address={typedAddress?.display_address || "Address unavailable"}
+                mapImageUrl={typedRequesterProfile?.exact_address_map_image_url}
+                className="mt-2 text-sm"
+              />
             </div>
             <div className="rounded-xl bg-bg-warm px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">

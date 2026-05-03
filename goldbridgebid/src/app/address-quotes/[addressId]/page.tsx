@@ -25,6 +25,7 @@ import {
   formatAddressQuoteRequestServices,
 } from "@/lib/address-quotes/service-verticals";
 import { BrowserBackButton } from "@/components/BrowserBackButton";
+import AddressWithMapPreview from "@/components/address-quotes/AddressWithMapPreview";
 import type {
   AddressQuote,
   AddressQuoteMedia,
@@ -168,6 +169,25 @@ export default async function AddressQuoteDetailPage({
     : { data: [] };
 
   const currentClaim = ((userClaims || []) as PropertyAddressClaim[])[0] || null;
+  const { data: addressClaimRows } = await admin
+    .from("property_address_claims")
+    .select("user_id")
+    .eq("property_address_id", addressId)
+    .eq("status", "verified")
+    .limit(10);
+  const addressClaimUserIds = Array.from(
+    new Set((addressClaimRows || []).map((claim) => claim.user_id))
+  );
+  const { data: addressClaimProfileRows } = addressClaimUserIds.length
+    ? await admin
+        .from("profiles")
+        .select("*")
+        .in("user_id", addressClaimUserIds)
+    : { data: [] };
+  const addressMapImageUrl =
+    ((addressClaimProfileRows || []) as Profile[]).find(
+      (profile) => profile.exact_address_map_image_url
+    )?.exact_address_map_image_url || null;
   const isCustomerUser = user ? await userHasRole(user.id, "customer") : false;
   const isVerifiedClaimant = currentClaim?.status === "verified";
   const hasCustomerAddressAccess =
@@ -259,9 +279,13 @@ export default async function AddressQuoteDetailPage({
                   as your property.
                 </div>
               )}
-              <h1 className="mt-2 text-3xl font-bold text-text-primary">
-                {(address as PropertyAddress).display_address}
-              </h1>
+              <AddressWithMapPreview
+                address={(address as PropertyAddress).display_address}
+                mapImageUrl={addressMapImageUrl}
+                className="mt-3"
+                addressClassName="text-3xl font-bold text-text-primary"
+                imageClassName="h-20 w-32 sm:h-24 sm:w-40"
+              />
               <p className="mt-2 max-w-3xl text-text-secondary">
                 Anyone can view published quotes for this address. Customers can
                 save one address to request quick quotes from contractors.
@@ -701,20 +725,24 @@ export default async function AddressQuoteDetailPage({
                 </button>
               </form>
 
-              {((quoteRequests || []) as AddressQuoteRequest[]).length > 0 && (
+              {((quoteRequests || []) as AddressQuoteRequest[]).filter(
+                (request) => request.status !== "removed"
+              ).length > 0 && (
                 <div className="mt-5 border-t border-border pt-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
                     Existing requests
                   </p>
                   <div className="mt-2 space-y-2">
-                    {((quoteRequests || []) as AddressQuoteRequest[]).map((request) => (
-                      <div
-                        key={request.id}
-                        className="rounded-lg bg-bg-warm px-3 py-2 text-sm text-text-secondary"
-                      >
-                        {formatServices(request.requested_services_json)}
-                      </div>
-                    ))}
+                    {((quoteRequests || []) as AddressQuoteRequest[])
+                      .filter((request) => request.status !== "removed")
+                      .map((request) => (
+                        <div
+                          key={request.id}
+                          className="rounded-lg bg-bg-warm px-3 py-2 text-sm text-text-secondary"
+                        >
+                          {formatServices(request.requested_services_json)}
+                        </div>
+                      ))}
                   </div>
                 </div>
               )}

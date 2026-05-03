@@ -6,7 +6,6 @@ import Image from "next/image";
 import RichTextRenderer from "@/components/ui/RichTextRenderer";
 import {
   ArrowLeft,
-  MapPin,
   Calendar,
   DollarSign,
   Clock,
@@ -33,6 +32,7 @@ import type {
 import ProjectStatusActions from "./ProjectStatusActions";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
 import ProjectAddressMap from "@/components/project/ProjectAddressMap";
+import AddressWithMapPreview from "@/components/address-quotes/AddressWithMapPreview";
 import ProjectPhotos from "./ProjectPhotos";
 import ProjectEditHistoryCollapsible from "@/components/project/ProjectEditHistoryCollapsible";
 import AwardBidButton from "./AwardBidButton";
@@ -92,6 +92,12 @@ export default async function ProjectDetailPage({
     );
     notFound();
   }
+
+  const { data: customerProfile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
   const { data: projectFiles } = await supabase
     .from("project_files")
@@ -932,19 +938,12 @@ export default async function ProjectDetailPage({
         <div className="space-y-6">
           {/* Quick Info */}
           <div className="rounded-xl border border-border bg-surface p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-3">
-              <MapPin className="h-5 w-5 text-text-muted shrink-0" />
-              <div>
-                <p className="text-xs text-text-muted">Location</p>
-                <p className="text-sm font-medium text-text-primary">
-                  {project.location_address}
-                </p>
-                <p className="text-sm text-text-secondary">
-                  {project.location_city}, {project.location_state}{" "}
-                  {project.location_zip}
-                </p>
-              </div>
-            </div>
+            <AddressWithMapPreview
+              label="Location"
+              address={`${project.location_address}, ${project.location_city}, ${project.location_state} ${project.location_zip}`}
+              mapImageUrl={customerProfile?.exact_address_map_image_url}
+              className="text-sm"
+            />
 
             <ProjectAddressMap
               address={project.location_address}

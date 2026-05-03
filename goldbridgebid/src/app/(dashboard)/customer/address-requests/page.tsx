@@ -14,11 +14,12 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { userHasRole } from "@/lib/auth/roles";
-import CustomerAddressMapPicker from "@/components/address-quotes/CustomerAddressMapPicker";
+import AddressWithMapPreview from "@/components/address-quotes/AddressWithMapPreview";
 import {
   createCustomerAddressQuoteRequest,
-  saveCustomerAddressForRequests,
+  removeCustomerAddressQuoteRequest,
   selectAddressQuoteRequestResponse,
+  updateCustomerAddressQuoteRequest,
 } from "@/lib/address-quotes/actions";
 import {
   ADDRESS_QUOTE_REQUEST_SERVICE_LABELS,
@@ -114,16 +115,8 @@ export default async function CustomerAddressRequestsPage({
     ]);
 
   const customerProfile = profile as Profile | null;
-  const profileCityStateZip = [
-    customerProfile?.city,
-    customerProfile?.state,
-    customerProfile?.zip,
-  ]
-    .filter(Boolean)
-    .join(", ");
-  const profileDisplayAddress = [customerProfile?.address, profileCityStateZip]
-    .filter(Boolean)
-    .join(", ");
+  const customerMapImageUrl = customerProfile?.exact_address_map_image_url || null;
+
   const claims = (claimRows || []) as PropertyAddressClaim[];
   const requests = (requestRows || []) as AddressQuoteRequest[];
   const addressIds = Array.from(
@@ -174,12 +167,20 @@ export default async function CustomerAddressRequestsPage({
   const customerAddressClaims = claims.filter(
     (claim) => claim.status === "pending" || claim.status === "verified"
   );
+  const visibleRequests = requests.filter(
+    (request) => request.status !== "removed"
+  );
   const activeRequests = requests.filter((request) => request.status === "open");
 
   const feedback = query.request
     ? {
         tone: "success",
-        message: "Quick quote request created. Contractors can now find it from the address request list.",
+        message:
+          query.request === "updated"
+            ? "Quick quote request updated."
+            : query.request === "removed"
+              ? "Quick quote request removed."
+              : "Quick quote request created. Contractors can now find it from the address request list.",
       }
     : query.address === "saved"
       ? {
@@ -303,34 +304,15 @@ export default async function CustomerAddressRequestsPage({
                   No customer address saved yet
                 </h3>
                 <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-text-secondary">
-                  Look up your address, open its address quote page, and save it
-                  as your one customer address. Quick quote requests unlock
-                  immediately.
+                  Open your profile and save your exact address pin. That pin
+                  becomes the location contractors use for quick quote requests.
                 </p>
-                <form
-                  action={saveCustomerAddressForRequests}
-                  className="mx-auto mt-6 max-w-xl rounded-xl border border-border bg-bg-warm p-4 text-left"
-                >
-                  <CustomerAddressMapPicker
-                    initialDisplayAddress={profileDisplayAddress}
-                    initialStreet={customerProfile?.address || ""}
-                    initialCity={customerProfile?.city || ""}
-                    initialState={customerProfile?.state || ""}
-                    initialZip={customerProfile?.zip || ""}
-                  />
-                  <button
-                    type="submit"
-                    className="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark"
-                  >
-                    Save This As My Address
-                  </button>
-                </form>
                 <Link
-                  href="/address-quotes"
+                  href="/customer/profile"
                   className="mt-5 inline-flex items-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark"
                 >
                   <Search className="h-4 w-4" />
-                  Look Up Your Address
+                  Open Edit Profile
                 </Link>
               </div>
             ) : (
@@ -342,9 +324,11 @@ export default async function CustomerAddressRequestsPage({
                     <div key={claim.id} className="px-6 py-4">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                          <h3 className="font-semibold text-text-primary">
-                            {address?.display_address || "Address unavailable"}
-                          </h3>
+                          <AddressWithMapPreview
+                            address={address?.display_address || "Address unavailable"}
+                            mapImageUrl={customerMapImageUrl}
+                            label="Saved customer address"
+                          />
                           <p className="mt-1 text-sm text-text-secondary">
                             Saved {formatDate(claim.created_at)}
                           </p>
@@ -388,7 +372,7 @@ export default async function CustomerAddressRequestsPage({
               </p>
             </div>
 
-            {requests.length === 0 ? (
+            {visibleRequests.length === 0 ? (
               <div className="px-6 py-10 text-center">
                 <BadgeDollarSign className="mx-auto mb-4 h-10 w-10 text-text-muted" />
                 <h3 className="font-semibold text-text-primary">
@@ -402,7 +386,7 @@ export default async function CustomerAddressRequestsPage({
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {requests.map((request) => {
+                {visibleRequests.map((request) => {
                   const address = addressMap.get(request.property_address_id);
                   const requestResponses =
                     responsesByRequest.get(request.id) || [];
@@ -411,6 +395,11 @@ export default async function CustomerAddressRequestsPage({
                       response.status === "submitted" ||
                       response.status === "selected"
                   );
+                  const selectedServices = Array.isArray(
+                    request.requested_services_json
+                  )
+                    ? request.requested_services_json
+                    : [];
 
                   return (
                     <div key={request.id} className="px-6 py-4">
@@ -433,9 +422,11 @@ export default async function CustomerAddressRequestsPage({
                               request.requested_services_json
                             )}
                           </h3>
-                          <p className="mt-1 text-sm text-text-secondary">
-                            {address?.display_address || "Address unavailable"}
-                          </p>
+                          <AddressWithMapPreview
+                            address={address?.display_address || "Address unavailable"}
+                            mapImageUrl={customerMapImageUrl}
+                            className="mt-2 text-sm"
+                          />
                           {request.notes && (
                             <p className="mt-2 rounded-lg bg-bg-warm px-3 py-2 text-sm leading-6 text-text-secondary">
                               {request.notes}
@@ -551,13 +542,95 @@ export default async function CustomerAddressRequestsPage({
                             )}
                           </div>
                         </div>
-                        <Link
-                          href={`/address-quotes/${request.property_address_id}`}
-                          className="inline-flex items-center justify-center rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary transition-colors hover:bg-white"
-                        >
-                          View address
-                        </Link>
+                        <div className="flex flex-col gap-2 sm:items-end">
+                          <Link
+                            href={`/address-quotes/${request.property_address_id}`}
+                            className="inline-flex items-center justify-center rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary transition-colors hover:bg-white"
+                          >
+                            View address
+                          </Link>
+                          {request.status === "open" && (
+                            <form action={removeCustomerAddressQuoteRequest}>
+                              <input
+                                type="hidden"
+                                name="requestId"
+                                value={request.id}
+                              />
+                              <button
+                                type="submit"
+                                className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
+                              >
+                                Delete request
+                              </button>
+                            </form>
+                          )}
+                        </div>
                       </div>
+                      {request.status === "open" && (
+                        <details className="mt-4 rounded-xl border border-border bg-bg-warm p-4">
+                          <summary className="cursor-pointer text-sm font-semibold text-text-primary">
+                            Edit this request
+                          </summary>
+                          <form
+                            action={updateCustomerAddressQuoteRequest}
+                            className="mt-4 space-y-4"
+                          >
+                            <input
+                              type="hidden"
+                              name="requestId"
+                              value={request.id}
+                            />
+                            <fieldset>
+                              <legend className="text-sm font-semibold text-text-primary">
+                                Services to quote
+                              </legend>
+                              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                {ADDRESS_QUOTE_REQUEST_SERVICE_VERTICALS.map(
+                                  (service) => (
+                                    <label
+                                      key={service}
+                                      className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        name="services"
+                                        value={service}
+                                        defaultChecked={selectedServices.includes(
+                                          service
+                                        )}
+                                        className="rounded border-border text-secondary"
+                                      />
+                                      {ADDRESS_QUOTE_REQUEST_SERVICE_LABELS[service]}
+                                    </label>
+                                  )
+                                )}
+                              </div>
+                            </fieldset>
+                            <div>
+                              <label
+                                htmlFor={`notes-${request.id}`}
+                                className="block text-sm font-semibold text-text-primary"
+                              >
+                                Notes
+                              </label>
+                              <textarea
+                                id={`notes-${request.id}`}
+                                name="notes"
+                                rows={3}
+                                defaultValue={request.notes || ""}
+                                placeholder="Add or update details contractors should know."
+                                className="mt-2 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                              />
+                            </div>
+                            <button
+                              type="submit"
+                              className="rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark"
+                            >
+                              Save Request Changes
+                            </button>
+                          </form>
+                        </details>
+                      )}
                     </div>
                   );
                 })}

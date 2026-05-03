@@ -4,6 +4,7 @@ import { MapPin, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { userHasRole } from "@/lib/auth/roles";
+import AddressWithMapPreview from "@/components/address-quotes/AddressWithMapPreview";
 import {
   rejectPropertyAddressClaim,
   verifyPropertyAddressClaim,
@@ -274,9 +275,11 @@ export default async function AdminAddressQuotesPage({
                   className="flex flex-col gap-4 px-6 py-4 lg:flex-row lg:items-start lg:justify-between"
                 >
                   <div>
-                    <p className="font-semibold text-text-primary">
-                      {address?.display_address || claim.property_address_id}
-                    </p>
+                    <AddressWithMapPreview
+                      address={address?.display_address || claim.property_address_id}
+                      mapImageUrl={profile?.exact_address_map_image_url}
+                      label="Claimed customer address"
+                    />
                     <p className="mt-1 text-sm text-text-secondary">
                       Requested by{" "}
                       {profile?.full_name || profile?.email || claim.user_id}

@@ -7,6 +7,7 @@ import AdminFilterBar, { FilterDropdown } from "@/components/admin/AdminFilters"
 import AdminPagination from "@/components/admin/AdminPagination";
 import ExportButton from "@/components/admin/ExportButton";
 import UserActions from "./UserActions";
+import AddressWithMapPreview from "@/components/address-quotes/AddressWithMapPreview";
 
 const PAGE_SIZE = 25;
 
@@ -281,9 +282,16 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                       {p.email}
                     </td>
                     <td className="px-6 py-4 text-text-muted">
-                      {p.city && p.state
-                        ? `${p.city}, ${p.state}`
-                        : p.address || "—"}
+                      <AddressWithMapPreview
+                        address={
+                          p.city && p.state
+                            ? `${p.city}, ${p.state}`
+                            : p.address || "—"
+                        }
+                        mapImageUrl={p.exact_address_map_image_url}
+                        imageClassName="h-12 w-16"
+                        className="text-xs"
+                      />
                     </td>
                     <td className="px-6 py-4 text-text-muted">
                       {new Date(p.created_at).toLocaleDateString()}

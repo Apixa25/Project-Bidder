@@ -23,6 +23,7 @@ import {
 import ProjectDetailTabs from "./ProjectDetailTabs";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
 import ProjectAddressMap from "@/components/project/ProjectAddressMap";
+import AddressWithMapPreview from "@/components/address-quotes/AddressWithMapPreview";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -251,20 +252,19 @@ export default async function AdminProjectDetailPage({ params }: Props) {
         project.location_zip) && (
         <div className="mb-6 rounded-xl border border-border bg-surface p-4">
           <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                Project Address
-              </p>
-              {project.location_address && (
-                <p className="mt-1 text-sm font-medium text-text-primary">
-                  {project.location_address}
-                </p>
-              )}
-              <p className="text-sm text-text-secondary">
-                {project.location_city}, {project.location_state}{" "}
-                {project.location_zip}
-              </p>
-            </div>
+            <AddressWithMapPreview
+              label="Project Address"
+              address={[
+                project.location_address,
+                project.location_city,
+                project.location_state,
+                project.location_zip,
+              ]
+                .filter(Boolean)
+                .join(", ")}
+              mapImageUrl={customer?.exact_address_map_image_url}
+              className="text-sm"
+            />
             <ProjectAddressMap
               address={project.location_address}
               city={project.location_city}

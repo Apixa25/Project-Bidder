@@ -492,6 +492,30 @@ async function uploadMapSnapshot(params: {
   return data.publicUrl;
 }
 
+async function uploadCustomerExactAddressMapSnapshot(params: {
+  userId: string;
+  snapshotValue: string;
+}) {
+  const buffer = parseMapSnapshotDataUrl(params.snapshotValue);
+  if (!buffer) return null;
+
+  const admin = createAdminClient();
+  const path = `exact-address-maps/${params.userId}/map-${Date.now()}.jpg`;
+  const { error } = await admin.storage.from("profile-media").upload(path, buffer, {
+    contentType: "image/jpeg",
+    cacheControl: "3600",
+    upsert: false,
+  });
+
+  if (error) {
+    console.error("Exact address map snapshot upload failed:", error);
+    return null;
+  }
+
+  const { data } = admin.storage.from("profile-media").getPublicUrl(path);
+  return data.publicUrl;
+}
+
 async function uploadQuoteDataImage(params: {
   quoteId: string;
   contractorId: string;
@@ -1028,6 +1052,98 @@ export async function createCustomerAddressQuoteRequest(
   redirect("/customer/address-requests?request=created");
 }
 
+export async function updateCustomerAddressQuoteRequest(
+  formData: FormData
+): Promise<void> {
+  const user = await requireUser();
+  if (!user) redirect("/login");
+  if (!(await userHasRole(user.id, "customer"))) redirect("/login");
+
+  const requestId = getString(formData, "requestId");
+  const services = getRequestedServices(formData);
+  const notes = getOptionalString(formData, "notes");
+
+  if (!requestId) redirect("/customer/address-requests?error=request");
+  if (services.length === 0) {
+    redirect("/customer/address-requests?error=services");
+  }
+
+  const admin = createAdminClient();
+  const { data: request } = await admin
+    .from("address_quote_requests")
+    .select("id, property_address_id, requester_user_id, status")
+    .eq("id", requestId)
+    .eq("requester_user_id", user.id)
+    .maybeSingle();
+
+  if (!request || request.status !== "open") {
+    redirect("/customer/address-requests?error=request");
+  }
+
+  const { error } = await admin
+    .from("address_quote_requests")
+    .update({
+      requested_services_json: services,
+      notes,
+    })
+    .eq("id", requestId)
+    .eq("requester_user_id", user.id)
+    .eq("status", "open");
+
+  if (error) {
+    console.error("Customer address quote request update failed:", error);
+    redirect("/customer/address-requests?error=request");
+  }
+
+  revalidatePath("/customer/address-requests");
+  revalidatePath("/bidder/address-requests");
+  revalidatePath(`/address-quotes/${request.property_address_id}`);
+  redirect("/customer/address-requests?request=updated");
+}
+
+export async function removeCustomerAddressQuoteRequest(
+  formData: FormData
+): Promise<void> {
+  const user = await requireUser();
+  if (!user) redirect("/login");
+  if (!(await userHasRole(user.id, "customer"))) redirect("/login");
+
+  const requestId = getString(formData, "requestId");
+  if (!requestId) redirect("/customer/address-requests?error=request");
+
+  const admin = createAdminClient();
+  const { data: request } = await admin
+    .from("address_quote_requests")
+    .select("id, property_address_id, requester_user_id, status")
+    .eq("id", requestId)
+    .eq("requester_user_id", user.id)
+    .maybeSingle();
+
+  if (!request || request.status !== "open") {
+    redirect("/customer/address-requests?error=request");
+  }
+
+  const { error } = await admin
+    .from("address_quote_requests")
+    .update({
+      status: "removed",
+      selected_response_id: null,
+    })
+    .eq("id", requestId)
+    .eq("requester_user_id", user.id)
+    .eq("status", "open");
+
+  if (error) {
+    console.error("Customer address quote request removal failed:", error);
+    redirect("/customer/address-requests?error=request");
+  }
+
+  revalidatePath("/customer/address-requests");
+  revalidatePath("/bidder/address-requests");
+  revalidatePath(`/address-quotes/${request.property_address_id}`);
+  redirect("/customer/address-requests?request=removed");
+}
+
 export async function saveCustomerAddressForRequests(
   formData: FormData
 ): Promise<void> {
@@ -1042,6 +1158,12 @@ export async function saveCustomerAddressForRequests(
   const zip = getOptionalString(formData, "zip");
   const mapLatitude = parseCoordinate(getString(formData, "mapLatitude"));
   const mapLongitude = parseCoordinate(getString(formData, "mapLongitude"));
+  const mapSnapshotDataUrl = getOptionalString(formData, "mapSnapshotDataUrl");
+  const returnPath = getOptionalString(formData, "returnPath");
+  const redirectBase =
+    returnPath === "/customer/profile"
+      ? "/customer/profile"
+      : "/customer/address-requests";
 
   const address = await ensurePropertyAddress({
     displayAddress,
@@ -1055,7 +1177,7 @@ export async function saveCustomerAddressForRequests(
   });
 
   if (!address) {
-    redirect("/customer/address-requests?error=address");
+    redirect(`${redirectBase}?error=address`);
   }
 
   const admin = createAdminClient();
@@ -1068,11 +1190,58 @@ export async function saveCustomerAddressForRequests(
     (claim) => claim.property_address_id === address.id
   );
 
+  const saveProfileMapSnapshot = async () => {
+    if (!mapSnapshotDataUrl) return;
+
+    const mapImageUrl = await uploadCustomerExactAddressMapSnapshot({
+      userId: user.id,
+      snapshotValue: mapSnapshotDataUrl,
+    });
+    if (!mapImageUrl) return;
+
+    const { error: profileUpdateError } = await admin
+      .from("profiles")
+      .update({ exact_address_map_image_url: mapImageUrl })
+      .eq("user_id", user.id);
+
+    if (profileUpdateError) {
+      console.error(
+        "Customer exact address map profile update failed:",
+        profileUpdateError
+      );
+    }
+  };
+
   if (
     (activeClaims || []).length >= MAX_CUSTOMER_ADDRESS_CLAIMS &&
     !existingClaimForAddress
   ) {
-    redirect("/customer/address-requests?error=address-limit");
+    const existingClaim = (activeClaims || [])[0];
+    if (!existingClaim) redirect(`${redirectBase}?error=address-limit`);
+
+    const now = new Date().toISOString();
+    const { error: updateError } = await admin
+      .from("property_address_claims")
+      .update({
+        property_address_id: address.id,
+        status: "verified",
+        verification_method: "manual_admin",
+        evidence_notes: "Customer updated their exact pinned address location.",
+        verified_at: now,
+      })
+      .eq("id", existingClaim.id)
+      .eq("user_id", user.id);
+
+    if (updateError) {
+      console.error("Customer address update failed:", updateError);
+      redirect(`${redirectBase}?error=address`);
+    }
+
+    await saveProfileMapSnapshot();
+    revalidatePath("/customer/address-requests");
+    revalidatePath("/customer/profile");
+    revalidatePath(`/address-quotes/${address.id}`);
+    redirect(`${redirectBase}?address=saved`);
   }
 
   const now = new Date().toISOString();
@@ -1090,12 +1259,14 @@ export async function saveCustomerAddressForRequests(
 
   if (error) {
     console.error("Customer address save failed:", error);
-    redirect("/customer/address-requests?error=address");
+    redirect(`${redirectBase}?error=address`);
   }
 
+  await saveProfileMapSnapshot();
   revalidatePath("/customer/address-requests");
+  revalidatePath("/customer/profile");
   revalidatePath(`/address-quotes/${address.id}`);
-  redirect("/customer/address-requests?address=saved");
+  redirect(`${redirectBase}?address=saved`);
 }
 
 export async function submitAddressQuoteRequestResponse(

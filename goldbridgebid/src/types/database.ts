@@ -360,6 +360,7 @@ export interface Profile {
   bio: string | null;
   avatar_url: string | null;
   company_logo_url: string | null;
+  exact_address_map_image_url: string | null;
   website_url: string | null;
   facebook_url: string | null;
   linkedin_url: string | null;
@@ -1164,6 +1165,7 @@ type ProfileInsert = {
   bio?: string | null;
   avatar_url?: string | null;
   company_logo_url?: string | null;
+  exact_address_map_image_url?: string | null;
   website_url?: string | null;
   facebook_url?: string | null;
   linkedin_url?: string | null;

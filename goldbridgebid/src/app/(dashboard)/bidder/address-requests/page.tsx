@@ -10,6 +10,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { userHasRole } from "@/lib/auth/roles";
+import AddressWithMapPreview from "@/components/address-quotes/AddressWithMapPreview";
 import AdminSearchBar from "@/components/admin/AdminSearchBar";
 import AdminFilterBar, { FilterDropdown } from "@/components/admin/AdminFilters";
 import {
@@ -21,6 +22,7 @@ import {
 import type {
   AddressQuoteRequest,
   AddressQuoteRequestServiceVertical,
+  Profile,
   PropertyAddress,
 } from "@/types/database";
 
@@ -77,13 +79,27 @@ export default async function BidderAddressRequestsPage({
   const addressIds = Array.from(
     new Set(requests.map((request) => request.property_address_id))
   );
-  const { data: addressRows } = addressIds.length
-    ? await admin.from("property_addresses").select("*").in("id", addressIds)
-    : { data: [] };
+  const requesterIds = Array.from(
+    new Set(requests.map((request) => request.requester_user_id))
+  );
+  const [{ data: addressRows }, { data: requesterRows }] = await Promise.all([
+    addressIds.length
+      ? admin.from("property_addresses").select("*").in("id", addressIds)
+      : Promise.resolve({ data: [] }),
+    requesterIds.length
+      ? admin.from("profiles").select("*").in("user_id", requesterIds)
+      : Promise.resolve({ data: [] }),
+  ]);
   const addressMap = new Map(
     ((addressRows || []) as PropertyAddress[]).map((address) => [
       address.id,
       address,
+    ])
+  );
+  const requesterMap = new Map(
+    ((requesterRows || []) as Profile[]).map((profile) => [
+      profile.user_id,
+      profile,
     ])
   );
 
@@ -218,6 +234,7 @@ export default async function BidderAddressRequestsPage({
           <div className="divide-y divide-border">
             {filteredRequests.map((request) => {
               const address = addressMap.get(request.property_address_id);
+              const requester = requesterMap.get(request.requester_user_id);
 
               return (
                 <article key={request.id} className="px-6 py-5">
@@ -237,12 +254,11 @@ export default async function BidderAddressRequestsPage({
                           request.requested_services_json
                         )}
                       </h2>
-                      <p className="mt-1 flex items-start gap-2 text-sm font-medium text-text-secondary">
-                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-red-700" />
-                        <span>
-                          {address?.display_address || "Address unavailable"}
-                        </span>
-                      </p>
+                      <AddressWithMapPreview
+                        address={address?.display_address || "Address unavailable"}
+                        mapImageUrl={requester?.exact_address_map_image_url}
+                        className="mt-2 text-sm"
+                      />
                       {request.notes && (
                         <p className="mt-3 rounded-lg bg-bg-warm px-3 py-2 text-sm leading-6 text-text-secondary">
                           {request.notes}
