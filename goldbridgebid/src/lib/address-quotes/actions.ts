@@ -32,6 +32,35 @@ function hashAddress(normalizedAddress: string) {
   return crypto.createHash("sha256").update(normalizedAddress).digest("hex");
 }
 
+async function geocodePropertyAddress(displayAddress: string) {
+  const token = process.env.MAPBOX_ACCESS_TOKEN?.trim();
+  if (!token) return null;
+
+  try {
+    const response = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+        displayAddress
+      )}.json?access_token=${encodeURIComponent(token)}&limit=1&types=address`,
+      { next: { revalidate: 86400 } }
+    );
+
+    if (!response.ok) return null;
+    const data = (await response.json()) as {
+      features?: Array<{ center?: [number, number] }>;
+    };
+    const center = data.features?.[0]?.center;
+    if (!center) return null;
+
+    const [longitude, latitude] = center;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+    return { latitude, longitude };
+  } catch (error) {
+    console.error("Address quote geocoding failed:", error);
+    return null;
+  }
+}
+
 function getString(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
@@ -520,8 +549,29 @@ async function ensurePropertyAddress(params: {
     .maybeSingle();
 
   if (existing) {
-    return existing as PropertyAddress;
+    const typedExisting = existing as PropertyAddress;
+    if (typedExisting.latitude !== null && typedExisting.longitude !== null) {
+      return typedExisting;
+    }
+
+    const geocoded = await geocodePropertyAddress(displayAddress);
+    if (!geocoded) return typedExisting;
+
+    const { data: updated } = await admin
+      .from("property_addresses")
+      .update({
+        latitude: geocoded.latitude,
+        longitude: geocoded.longitude,
+        confidence: "geocoded",
+      })
+      .eq("id", typedExisting.id)
+      .select("*")
+      .single();
+
+    return (updated as PropertyAddress | null) || typedExisting;
   }
+
+  const geocoded = await geocodePropertyAddress(displayAddress);
 
   const { data: inserted, error } = await admin
     .from("property_addresses")
@@ -533,8 +583,10 @@ async function ensurePropertyAddress(params: {
       city: params.city || null,
       state: params.state || null,
       zip: params.zip || null,
+      latitude: geocoded?.latitude || null,
+      longitude: geocoded?.longitude || null,
       source: params.source,
-      confidence: "unverified",
+      confidence: geocoded ? "geocoded" : "unverified",
     })
     .select("*")
     .single();

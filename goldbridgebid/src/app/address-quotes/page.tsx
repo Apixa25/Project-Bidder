@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { MapPin, Search, ShieldCheck } from "lucide-react";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { searchPublicAddressQuotes } from "@/lib/address-quotes/actions";
 import { ADDRESS_QUOTE_SERVICE_LABELS } from "@/lib/address-quotes/service-verticals";
+import AddressQuoteDiscoveryMap from "@/components/address-quotes/AddressQuoteDiscoveryMap";
+import type { AddressQuote, PropertyAddress } from "@/types/database";
 
 export default async function AddressQuotesSearchPage({
   searchParams,
@@ -9,6 +12,37 @@ export default async function AddressQuotesSearchPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
+  const admin = createAdminClient();
+  const { data: publishedQuotes } = await admin
+    .from("address_quotes")
+    .select("id, property_address_id")
+    .eq("status", "published")
+    .is("removed_at", null);
+  const addressIds = Array.from(
+    new Set(((publishedQuotes || []) as AddressQuote[]).map((quote) => quote.property_address_id))
+  );
+  const { data: addressRows } = addressIds.length
+    ? await admin
+        .from("property_addresses")
+        .select("id, display_address, latitude, longitude")
+        .in("id", addressIds)
+        .not("latitude", "is", null)
+        .not("longitude", "is", null)
+    : { data: [] };
+  const quoteCountsByAddress = new Map<string, number>();
+  for (const quote of (publishedQuotes || []) as AddressQuote[]) {
+    quoteCountsByAddress.set(
+      quote.property_address_id,
+      (quoteCountsByAddress.get(quote.property_address_id) || 0) + 1
+    );
+  }
+  const mapMarkers = ((addressRows || []) as PropertyAddress[]).map((address) => ({
+    addressId: address.id,
+    displayAddress: address.display_address,
+    latitude: Number(address.latitude),
+    longitude: Number(address.longitude),
+    quoteCount: quoteCountsByAddress.get(address.id) || 0,
+  }));
 
   return (
     <main className="min-h-screen bg-bg-warm">
@@ -73,6 +107,8 @@ export default async function AddressQuotesSearchPage({
             </p>
           )}
         </form>
+
+        <AddressQuoteDiscoveryMap markers={mapMarkers} />
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
