@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
+import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 import PwaRegistration from "@/components/PwaRegistration";
 import HydrationWatchdog from "@/components/HydrationWatchdog";

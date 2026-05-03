@@ -1010,6 +1010,7 @@ export interface AddressQuote {
   currency: string;
   measurement_snapshot_json: Record<string, unknown>;
   pricing_snapshot_json: Record<string, unknown>;
+  map_snapshot_url: string | null;
   ai_explanation: string | null;
   expires_at: string | null;
   published_at: string | null;
@@ -1025,6 +1026,7 @@ export interface AddressQuoteMeasurement {
   label: string | null;
   geometry_geojson: Record<string, unknown> | null;
   area_sqft: number | null;
+  length_ft: number | null;
   source: AddressQuoteMeasurementSource;
   confidence: AddressQuoteMeasurementConfidence;
   created_at: string;
@@ -1486,6 +1488,7 @@ type AddressQuoteInsert = {
   currency?: string;
   measurement_snapshot_json?: Record<string, unknown>;
   pricing_snapshot_json?: Record<string, unknown>;
+  map_snapshot_url?: string | null;
   ai_explanation?: string | null;
   expires_at?: string | null;
   published_at?: string | null;
@@ -1498,6 +1501,7 @@ type AddressQuoteMeasurementInsert = {
   label?: string | null;
   geometry_geojson?: Record<string, unknown> | null;
   area_sqft?: number | null;
+  length_ft?: number | null;
   source?: AddressQuoteMeasurementSource;
   confidence?: AddressQuoteMeasurementConfidence;
 };

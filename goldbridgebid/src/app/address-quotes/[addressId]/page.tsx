@@ -22,6 +22,7 @@ import {
 } from "@/lib/address-quotes/service-verticals";
 import type {
   AddressQuote,
+  AddressQuoteMeasurement,
   AddressQuoteRequest,
   Profile,
   PropertyAddress,
@@ -87,18 +88,31 @@ export default async function AddressQuoteDetailPage({
   const contractorIds = Array.from(
     new Set((quotes || []).map((quote) => quote.contractor_id))
   );
-  const { data: contractorProfiles } = contractorIds.length
-    ? await admin
-        .from("profiles")
-        .select("*")
-        .in("user_id", contractorIds)
-    : { data: [] };
+  const quoteIds = (quotes || []).map((quote) => quote.id);
+  const [{ data: contractorProfiles }, { data: measurementRows }] = await Promise.all([
+    contractorIds.length
+      ? admin.from("profiles").select("*").in("user_id", contractorIds)
+      : Promise.resolve({ data: [] }),
+    quoteIds.length
+      ? admin
+          .from("address_quote_measurements")
+          .select("*")
+          .in("address_quote_id", quoteIds)
+          .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
+  ]);
   const contractorMap = new Map(
     ((contractorProfiles || []) as Profile[]).map((profile) => [
       profile.user_id,
       profile,
     ])
   );
+  const measurementsByQuote = new Map<string, AddressQuoteMeasurement[]>();
+  for (const measurement of (measurementRows || []) as AddressQuoteMeasurement[]) {
+    const rows = measurementsByQuote.get(measurement.address_quote_id) || [];
+    rows.push(measurement);
+    measurementsByQuote.set(measurement.address_quote_id, rows);
+  }
 
   const { data: userClaims } = user
     ? await admin
@@ -226,6 +240,7 @@ export default async function AddressQuoteDetailPage({
           ) : (
             ((quotes || []) as AddressQuote[]).map((quote) => {
               const contractor = contractorMap.get(quote.contractor_id);
+              const quoteMeasurements = measurementsByQuote.get(quote.id) || [];
 
               return (
                 <article
@@ -277,11 +292,27 @@ export default async function AddressQuoteDetailPage({
                       <p className="mt-1 font-medium text-text-primary">
                         {typeof quote.measurement_snapshot_json?.measuredAreaSqft ===
                         "number"
-                          ? `${quote.measurement_snapshot_json.measuredAreaSqft.toLocaleString()} sq ft`
-                          : "Measurement details pending"}
+                          ? `${quote.measurement_snapshot_json.source === "map_drawn" ? "Map-measured" : "Measured"}: ${quote.measurement_snapshot_json.measuredAreaSqft.toLocaleString()} sq ft`
+                          : typeof quote.measurement_snapshot_json?.measuredLengthFt ===
+                              "number"
+                            ? `Map-measured: ${quote.measurement_snapshot_json.measuredLengthFt.toLocaleString()} linear ft`
+                            : "Measurement details pending"}
                       </p>
                     </div>
                   </div>
+
+                  {quote.map_snapshot_url && (
+                    <div className="mt-5 border-t border-border pt-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                        Measurement map screenshot
+                      </p>
+                      <img
+                        src={quote.map_snapshot_url}
+                        alt={`Map screenshot for ${quote.title}`}
+                        className="mt-2 w-full rounded-xl border border-border bg-bg-warm"
+                      />
+                    </div>
+                  )}
 
                   {isVerifiedClaimant && (
                     <form action={removeQuoteFromClaimedAddress} className="mt-4">
@@ -300,6 +331,35 @@ export default async function AddressQuoteDetailPage({
                         Remove this quote from my address
                       </button>
                     </form>
+                  )}
+
+                  {quoteMeasurements.length > 0 && (
+                    <div className="mt-5 border-t border-border pt-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                        Measurement line items
+                      </p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {quoteMeasurements.map((measurement, index) => (
+                          <div
+                            key={measurement.id}
+                            className="rounded-lg bg-bg-warm px-3 py-2 text-sm"
+                          >
+                            <p className="font-semibold text-text-primary">
+                              {measurement.label || `Area ${index + 1}`}
+                            </p>
+                            <p className="text-text-secondary">
+                              {measurement.measurement_type === "linear_length"
+                                ? measurement.length_ft
+                                  ? `${measurement.length_ft.toLocaleString()} linear ft`
+                                  : "Length pending"
+                                : measurement.area_sqft
+                                  ? `${measurement.area_sqft.toLocaleString()} sq ft`
+                                  : "Area pending"}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </article>
               );

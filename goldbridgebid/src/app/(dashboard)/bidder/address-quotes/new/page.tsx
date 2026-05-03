@@ -4,6 +4,7 @@ import { ArrowLeft, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { userHasRole } from "@/lib/auth/roles";
 import { createManualAddressQuote } from "@/lib/address-quotes/actions";
+import LawnAreaMeasurementMap from "@/components/address-quotes/LawnAreaMeasurementMap";
 import {
   ADDRESS_QUOTE_SERVICE_LABELS,
   ADDRESS_QUOTE_SERVICE_VERTICALS,
@@ -37,8 +38,8 @@ export default async function NewBidderAddressQuotePage({
           Create Address Quote
         </h1>
         <p className="mt-1 text-text-secondary">
-          Publish a free quote on a real address. Map polygon measurement will
-          be added in the next build slice.
+          Publish a free quote on a real address with map-measured areas,
+          length line items, and a screenshot proof image.
         </p>
       </div>
 
@@ -129,6 +130,8 @@ export default async function NewBidderAddressQuotePage({
             </div>
           </section>
 
+          <LawnAreaMeasurementMap />
+
           <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-text-primary">
               Quote Details
@@ -201,7 +204,7 @@ export default async function NewBidderAddressQuotePage({
             <div className="mt-5 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-text-primary">
-                  Measured area, sq ft
+                  Manual fallback area, sq ft
                 </label>
                 <input
                   name="measuredAreaSqft"
@@ -211,6 +214,9 @@ export default async function NewBidderAddressQuotePage({
                   placeholder="8420"
                   className="mt-2 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
+                <p className="mt-1 text-xs text-text-muted">
+                  Used only when no map area has been saved.
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-text-primary">

@@ -74,9 +74,9 @@ export default async function BidderAddressQuotesPage() {
               First build slice
             </h2>
             <p className="mt-1 text-sm font-medium leading-6 text-black">
-              This starts with manual square footage and manual pricing. Map
-              polygon measurement and saved pricing rules come next, after the
-              address quote layer is stable.
+              This now supports saved map areas, length line items, proof
+              screenshots, and manual pricing. Saved pricing rules can come
+              next after the address quote layer is stable.
             </p>
           </div>
         </div>

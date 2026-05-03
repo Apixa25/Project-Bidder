@@ -57,6 +57,132 @@ function getRequestedServices(formData: FormData) {
     .filter(isAddressQuoteServiceVertical);
 }
 
+type SubmittedMeasurement = {
+  measurementType: "polygon_area" | "linear_length";
+  label: string;
+  areaSqft?: number;
+  lengthFt?: number;
+  geometryGeojson: Record<string, unknown>;
+};
+
+function parseMeasurements(rawValue: string): SubmittedMeasurement[] {
+  if (!rawValue) return [];
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((entry, index): SubmittedMeasurement | null => {
+        if (!entry || typeof entry !== "object") return null;
+
+        const measurementType: SubmittedMeasurement["measurementType"] =
+          entry.measurementType === "linear_length"
+            ? "linear_length"
+            : "polygon_area";
+        const areaSqft =
+          typeof entry.areaSqft === "number" && Number.isFinite(entry.areaSqft)
+            ? Math.round(entry.areaSqft * 100) / 100
+            : null;
+        const lengthFt =
+          typeof entry.lengthFt === "number" && Number.isFinite(entry.lengthFt)
+            ? Math.round(entry.lengthFt * 100) / 100
+            : null;
+        const geometryGeojson =
+          entry.geometryGeojson &&
+          typeof entry.geometryGeojson === "object" &&
+          (entry.geometryGeojson as { type?: unknown }).type ===
+            (measurementType === "linear_length" ? "LineString" : "Polygon")
+            ? (entry.geometryGeojson as Record<string, unknown>)
+            : null;
+
+        if (!geometryGeojson) return null;
+        if (measurementType === "polygon_area" && (!areaSqft || areaSqft <= 0)) {
+          return null;
+        }
+        if (measurementType === "linear_length" && (!lengthFt || lengthFt <= 0)) {
+          return null;
+        }
+
+        const rawLabel =
+          typeof entry.label === "string" ? entry.label.trim() : "";
+
+        return {
+          measurementType,
+          label:
+            rawLabel ||
+            `${measurementType === "linear_length" ? "Line" : "Area"} ${index + 1}`,
+          areaSqft: areaSqft || undefined,
+          lengthFt: lengthFt || undefined,
+          geometryGeojson,
+        };
+      })
+      .filter((entry): entry is SubmittedMeasurement => entry !== null);
+  } catch {
+    return [];
+  }
+}
+
+function parseMapSnapshotDataUrl(rawValue: string) {
+  if (!rawValue.startsWith("data:image/jpeg;base64,")) return null;
+
+  const base64 = rawValue.replace("data:image/jpeg;base64,", "");
+  const buffer = Buffer.from(base64, "base64");
+  if (buffer.length === 0 || buffer.length > 2_500_000) return null;
+
+  return buffer;
+}
+
+function isAllowedMapSnapshotUrl(rawValue: string) {
+  if (!rawValue) return false;
+
+  try {
+    const url = new URL(rawValue);
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "api.mapbox.com" &&
+      url.pathname.startsWith(
+        "/styles/v1/mapbox/satellite-streets-v12/static/"
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function uploadMapSnapshot(params: {
+  quoteId: string;
+  contractorId: string;
+  snapshotValue: string;
+}) {
+  if (isAllowedMapSnapshotUrl(params.snapshotValue)) {
+    return params.snapshotValue;
+  }
+
+  const buffer = parseMapSnapshotDataUrl(params.snapshotValue);
+  if (!buffer) return null;
+
+  const admin = createAdminClient();
+  const path = `${params.contractorId}/${params.quoteId}/map-snapshot.jpg`;
+  const { error } = await admin.storage
+    .from("address-quote-snapshots")
+    .upload(path, buffer, {
+      contentType: "image/jpeg",
+      upsert: true,
+    });
+
+  if (error) {
+    console.error("Map snapshot upload failed:", error);
+    return null;
+  }
+
+  const { data } = admin.storage
+    .from("address-quote-snapshots")
+    .getPublicUrl(path);
+
+  return data.publicUrl;
+}
+
 async function ensurePropertyAddress(params: {
   displayAddress: string;
   street?: string | null;
@@ -283,7 +409,46 @@ export async function createManualAddressQuote(
   const title = getString(formData, "title");
   const summary = getString(formData, "summary");
   const quoteTotalCents = parseDollarsToCents(getString(formData, "quoteTotal"));
-  const measuredAreaSqft = parsePositiveNumber(getString(formData, "measuredAreaSqft"));
+  const mapMeasuredAreaSqft = parsePositiveNumber(
+    getString(formData, "mapMeasuredAreaSqft")
+  );
+  const manualMeasuredAreaSqft = parsePositiveNumber(
+    getString(formData, "measuredAreaSqft")
+  );
+  const submittedMeasurements = parseMeasurements(
+    getString(formData, "measurementsJson")
+  );
+  const mapSnapshotValue =
+    getString(formData, "mapSnapshotUrl") ||
+    getString(formData, "mapSnapshotDataUrl");
+  const areaMeasurements = submittedMeasurements.filter(
+    (measurement) => measurement.measurementType === "polygon_area"
+  );
+  const lineMeasurements = submittedMeasurements.filter(
+    (measurement) => measurement.measurementType === "linear_length"
+  );
+  const savedAreaTotalSqft =
+    areaMeasurements.length > 0
+      ? Math.round(
+          areaMeasurements.reduce(
+            (total, measurement) => total + (measurement.areaSqft || 0),
+            0
+          ) * 100
+        ) / 100
+      : null;
+  const savedLengthTotalFt =
+    lineMeasurements.length > 0
+      ? Math.round(
+          lineMeasurements.reduce(
+            (total, measurement) => total + (measurement.lengthFt || 0),
+            0
+          ) * 100
+        ) / 100
+      : null;
+  const measuredAreaSqft =
+    savedAreaTotalSqft ?? mapMeasuredAreaSqft ?? manualMeasuredAreaSqft;
+  const measurementSource =
+    submittedMeasurements.length > 0 || mapMeasuredAreaSqft ? "map_drawn" : "manual";
 
   if (!isAddressQuoteServiceVertical(serviceVertical)) {
     redirect("/bidder/address-quotes/new?error=service");
@@ -309,11 +474,26 @@ export async function createManualAddressQuote(
   const shouldPublish = getString(formData, "intent") === "publish";
   const now = new Date().toISOString();
   const measurementSnapshot =
-    measuredAreaSqft !== null
+    measuredAreaSqft !== null || savedLengthTotalFt !== null
       ? {
           measuredAreaSqft,
-          unit: "sq_ft",
-          source: "manual",
+          measuredLengthFt: savedLengthTotalFt,
+          unit: "mixed",
+          source: measurementSource,
+          areas:
+            areaMeasurements.length > 0
+              ? areaMeasurements.map((measurement) => ({
+                  label: measurement.label,
+                  areaSqft: measurement.areaSqft,
+                }))
+              : undefined,
+          lines:
+            lineMeasurements.length > 0
+              ? lineMeasurements.map((measurement) => ({
+                  label: measurement.label,
+                  lengthFt: measurement.lengthFt,
+                }))
+              : undefined,
         }
       : {};
   const pricingSnapshot = {
@@ -349,13 +529,41 @@ export async function createManualAddressQuote(
     redirect("/bidder/address-quotes/new?error=save");
   }
 
-  if (measuredAreaSqft !== null) {
+  const mapSnapshotUrl = await uploadMapSnapshot({
+    quoteId: quote.id,
+    contractorId: user.id,
+    snapshotValue: mapSnapshotValue,
+  });
+
+  if (mapSnapshotUrl) {
+    await admin
+      .from("address_quotes")
+      .update({ map_snapshot_url: mapSnapshotUrl })
+      .eq("id", quote.id);
+  }
+
+  if (submittedMeasurements.length > 0) {
+    await admin.from("address_quote_measurements").insert(
+      submittedMeasurements.map((measurement) => ({
+        address_quote_id: quote.id,
+        measurement_type: measurement.measurementType,
+        label: measurement.label,
+        geometry_geojson: measurement.geometryGeojson,
+        area_sqft: measurement.areaSqft || null,
+        length_ft: measurement.lengthFt || null,
+        source: "map_drawn",
+        confidence: "contractor_confirmed",
+      }))
+    );
+  } else if (measuredAreaSqft !== null) {
     await admin.from("address_quote_measurements").insert({
       address_quote_id: quote.id,
       measurement_type: "manual_area",
-      label: "Manual measured area",
+      label: mapMeasuredAreaSqft ? "Map measured area" : "Manual measured area",
+      geometry_geojson: null,
       area_sqft: measuredAreaSqft,
-      source: "manual",
+      length_ft: null,
+      source: measurementSource,
       confidence: "contractor_confirmed",
     });
   }
