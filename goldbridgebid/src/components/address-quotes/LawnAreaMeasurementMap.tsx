@@ -6,6 +6,7 @@ import area from "@turf/area";
 import {
   Camera,
   Check,
+  LocateFixed,
   MapPin,
   MousePointer2,
   RotateCcw,
@@ -236,6 +237,7 @@ export default function LawnAreaMeasurementMap({
   const [snapshotStatus, setSnapshotStatus] = useState<string | null>(null);
   const [mapSearchAddress, setMapSearchAddress] = useState(initialSearchAddress || "");
   const [geocodeStatus, setGeocodeStatus] = useState<string | null>(null);
+  const [isLocatingUser, setIsLocatingUser] = useState(false);
   const [pickedAddressPoint, setPickedAddressPoint] = useState<{
     lat: number;
     lng: number;
@@ -305,41 +307,56 @@ export default function LawnAreaMeasurementMap({
   );
 
   const reverseGeocodePoint = useCallback(
-    async (lng: number, lat: number) => {
-      setGeocodeStatus("Looking up address from clicked map point...");
-      setPickedAddressPoint({ lat, lng });
-      const response = await fetch(
-        `/api/address-quotes/reverse-geocode?lat=${encodeURIComponent(
-          String(lat)
-        )}&lon=${encodeURIComponent(String(lng))}`
-      );
-      const data = (await response.json()) as
-        | {
-            displayAddress: string;
-            street?: string | null;
-            city?: string | null;
-            state?: string | null;
-            zip?: string | null;
-          }
-        | { error?: string };
-
-      if (!response.ok || !("displayAddress" in data)) {
-        setGeocodeStatus(
-          "Could not identify an address there. Try another point or enter it manually."
-        );
-        return;
+    async (
+      lng: number,
+      lat: number,
+      copy: {
+        lookupStatus: string;
+        successStatus: string;
+        failureStatus: string;
+      } = {
+        lookupStatus: "Looking up address from clicked map point...",
+        successStatus:
+          "Address fields filled from the clicked map point. Please confirm before publishing.",
+        failureStatus:
+          "Could not identify an address there. Try another point or enter it manually.",
       }
+    ) => {
+      setGeocodeStatus(copy.lookupStatus);
+      setPickedAddressPoint({ lat, lng });
 
-      setFormField("displayAddress", data.displayAddress);
-      setFormField("street", data.street);
-      setFormField("city", data.city);
-      setFormField("state", data.state);
-      setFormField("zip", data.zip);
-      setMapSearchAddress(data.displayAddress);
-      setGeocodeStatus(
-        "Address fields filled from the clicked map point. Please confirm before publishing."
-      );
-      setInteractionMode("draw");
+      try {
+        const response = await fetch(
+          `/api/address-quotes/reverse-geocode?lat=${encodeURIComponent(
+            String(lat)
+          )}&lon=${encodeURIComponent(String(lng))}`
+        );
+        const data = (await response.json()) as
+          | {
+              displayAddress: string;
+              street?: string | null;
+              city?: string | null;
+              state?: string | null;
+              zip?: string | null;
+            }
+          | { error?: string };
+
+        if (!response.ok || !("displayAddress" in data)) {
+          setGeocodeStatus(copy.failureStatus);
+          return;
+        }
+
+        setFormField("displayAddress", data.displayAddress);
+        setFormField("street", data.street);
+        setFormField("city", data.city);
+        setFormField("state", data.state);
+        setFormField("zip", data.zip);
+        setMapSearchAddress(data.displayAddress);
+        setGeocodeStatus(copy.successStatus);
+        setInteractionMode("draw");
+      } catch {
+        setGeocodeStatus(copy.failureStatus);
+      }
     },
     [setFormField]
   );
@@ -637,6 +654,70 @@ export default function LawnAreaMeasurementMap({
     setGeocodeStatus(data.label ? `Centered on ${data.label}` : "Map centered.");
   }
 
+  function locateUserOnMap() {
+    const map = mapRef.current;
+
+    if (!map || !mapReady) {
+      setGeocodeStatus("Map is still loading. Try Locate Me again in a moment.");
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      setGeocodeStatus(
+        "Location services are not available in this browser. You can still search or pick the address manually."
+      );
+      return;
+    }
+
+    setIsLocatingUser(true);
+    setGeocodeStatus("Finding your current location...");
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+
+        map.flyTo({
+          center: [longitude, latitude],
+          zoom: accuracy <= 75 ? 19 : 18,
+          essential: true,
+        });
+
+        await reverseGeocodePoint(longitude, latitude, {
+          lookupStatus: "Looking up the nearest address from your current location...",
+          successStatus:
+            "Address fields filled from your current location. Please confirm the exact property before publishing.",
+          failureStatus:
+            "Map centered on your current location, but the nearest address could not be identified. Try Pick Address on the house or enter it manually.",
+        });
+        setIsLocatingUser(false);
+      },
+      (error) => {
+        setIsLocatingUser(false);
+        if (error.code === error.PERMISSION_DENIED) {
+          setGeocodeStatus(
+            "Location permission was blocked. Allow location access in your browser, then try Locate Me again."
+          );
+          return;
+        }
+
+        if (error.code === error.TIMEOUT) {
+          setGeocodeStatus(
+            "Location lookup timed out. Check your signal and try Locate Me again."
+          );
+          return;
+        }
+
+        setGeocodeStatus(
+          "Could not find your current location. You can still search or pick the address manually."
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 30_000,
+        timeout: 12_000,
+      }
+    );
+  }
+
   function saveCurrentArea() {
     if (!polygonFeature || measuredAreaSqft <= 0) return;
 
@@ -865,6 +946,15 @@ export default function LawnAreaMeasurementMap({
         >
           <Search className="h-4 w-4" />
           Center Map
+        </button>
+        <button
+          type="button"
+          onClick={locateUserOnMap}
+          disabled={isLocatingUser}
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-secondary/30 bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-colors hover:bg-secondary/10 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <LocateFixed className="h-4 w-4" />
+          {isLocatingUser ? "Locating..." : "Locate Me"}
         </button>
       </div>
       {geocodeStatus && (
