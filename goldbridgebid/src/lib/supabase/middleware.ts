@@ -39,6 +39,7 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/privacy") ||
     request.nextUrl.pathname.startsWith("/how-it-works") ||
     request.nextUrl.pathname.startsWith("/address-quotes") ||
+    request.nextUrl.pathname.startsWith("/api/address-quotes") ||
     request.nextUrl.pathname === "/manifest.json" ||
     request.nextUrl.pathname === "/sw.js";
 
