@@ -4,6 +4,7 @@ import { ArrowLeft, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { userHasRole } from "@/lib/auth/roles";
 import { createManualAddressQuote } from "@/lib/address-quotes/actions";
+import AddressQuoteBidSheet from "@/components/address-quotes/AddressQuoteBidSheet";
 import LawnAreaMeasurementMap from "@/components/address-quotes/LawnAreaMeasurementMap";
 import {
   ADDRESS_QUOTE_SERVICE_LABELS,
@@ -132,6 +133,8 @@ export default async function NewBidderAddressQuotePage({
 
           <LawnAreaMeasurementMap />
 
+          <AddressQuoteBidSheet />
+
           <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-text-primary">
               Quote Details
@@ -196,48 +199,17 @@ export default async function NewBidderAddressQuotePage({
         <aside className="space-y-6">
           <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-text-primary">
-              Manual Pricing
+              Pricing
             </h2>
             <p className="mt-1 text-sm text-text-secondary">
-              Use your own measured quantity and price for this first build.
+              Use the bid sheet to price measured rows and hand-entered rows.
+              The sheet total becomes the quote total.
             </p>
-            <div className="mt-5 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-text-primary">
-                  Manual fallback area, sq ft
-                </label>
-                <input
-                  name="measuredAreaSqft"
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  placeholder="8420"
-                  className="mt-2 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-                <p className="mt-1 text-xs text-text-muted">
-                  Used only when no map area has been saved.
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-text-primary">
-                  Quote total *
-                </label>
-                <input
-                  name="quoteTotal"
-                  type="number"
-                  required
-                  min="0"
-                  step="0.01"
-                  placeholder="150"
-                  className="mt-2 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-            </div>
           </section>
 
-          <section className="rounded-xl border border-primary/20 bg-primary/5 p-6">
-            <h2 className="font-semibold text-text-primary">Publish status</h2>
-            <p className="mt-2 text-sm leading-6 text-text-secondary">
+          <section className="rounded-xl border border-white/30 bg-primary/20 p-6">
+            <h2 className="font-semibold text-white">Publish status</h2>
+            <p className="mt-2 text-sm font-medium leading-6 text-white">
               Drafts stay in your contractor dashboard. Published quotes become
               visible on the public address page.
             </p>

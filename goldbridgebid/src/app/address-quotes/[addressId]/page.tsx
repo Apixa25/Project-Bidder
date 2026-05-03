@@ -20,9 +20,11 @@ import {
   ADDRESS_QUOTE_SERVICE_VERTICALS,
   type AddressQuoteServiceVertical,
 } from "@/lib/address-quotes/service-verticals";
+import { BrowserBackButton } from "@/components/BrowserBackButton";
 import type {
   AddressQuote,
   AddressQuoteMeasurement,
+  AddressQuotePricingLineItem,
   AddressQuoteRequest,
   Profile,
   PropertyAddress,
@@ -34,7 +36,8 @@ function formatMoney(cents: number | null) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(cents / 100);
 }
 
@@ -89,7 +92,11 @@ export default async function AddressQuoteDetailPage({
     new Set((quotes || []).map((quote) => quote.contractor_id))
   );
   const quoteIds = (quotes || []).map((quote) => quote.id);
-  const [{ data: contractorProfiles }, { data: measurementRows }] = await Promise.all([
+  const [
+    { data: contractorProfiles },
+    { data: measurementRows },
+    { data: pricingLineRows },
+  ] = await Promise.all([
     contractorIds.length
       ? admin.from("profiles").select("*").in("user_id", contractorIds)
       : Promise.resolve({ data: [] }),
@@ -99,6 +106,13 @@ export default async function AddressQuoteDetailPage({
           .select("*")
           .in("address_quote_id", quoteIds)
           .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    quoteIds.length
+      ? admin
+          .from("address_quote_pricing_line_items")
+          .select("*")
+          .in("address_quote_id", quoteIds)
+          .order("display_order", { ascending: true })
       : Promise.resolve({ data: [] }),
   ]);
   const contractorMap = new Map(
@@ -112,6 +126,12 @@ export default async function AddressQuoteDetailPage({
     const rows = measurementsByQuote.get(measurement.address_quote_id) || [];
     rows.push(measurement);
     measurementsByQuote.set(measurement.address_quote_id, rows);
+  }
+  const pricingLinesByQuote = new Map<string, AddressQuotePricingLineItem[]>();
+  for (const pricingLine of (pricingLineRows || []) as AddressQuotePricingLineItem[]) {
+    const rows = pricingLinesByQuote.get(pricingLine.address_quote_id) || [];
+    rows.push(pricingLine);
+    pricingLinesByQuote.set(pricingLine.address_quote_id, rows);
   }
 
   const { data: userClaims } = user
@@ -176,12 +196,15 @@ export default async function AddressQuoteDetailPage({
     <main className="min-h-screen bg-bg-warm">
       <section className="border-b border-border bg-surface px-6 py-8">
         <div className="mx-auto max-w-6xl">
-          <Link
-            href="/address-quotes"
-            className="text-sm font-medium text-primary transition-colors hover:text-primary-dark"
-          >
-            ← Search another address
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/address-quotes"
+              className="text-sm font-medium text-primary transition-colors hover:text-primary-dark"
+            >
+              ← Search another address
+            </Link>
+            <BrowserBackButton />
+          </div>
           <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-text-muted">
@@ -241,6 +264,7 @@ export default async function AddressQuoteDetailPage({
             ((quotes || []) as AddressQuote[]).map((quote) => {
               const contractor = contractorMap.get(quote.contractor_id);
               const quoteMeasurements = measurementsByQuote.get(quote.id) || [];
+              const quotePricingLines = pricingLinesByQuote.get(quote.id) || [];
 
               return (
                 <article
@@ -358,6 +382,69 @@ export default async function AddressQuoteDetailPage({
                             </p>
                           </div>
                         ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {quotePricingLines.length > 0 && (
+                    <div className="mt-5 border-t border-border pt-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                          Priced bid sheet
+                        </p>
+                        <p className="text-sm font-bold text-text-primary">
+                          {formatMoney(quote.quote_total_cents)}
+                        </p>
+                      </div>
+                      <div className="mt-2 overflow-x-auto rounded-lg bg-bg-warm px-3 py-2">
+                        <table className="w-full text-sm tabular-nums">
+                          <thead>
+                            <tr className="border-b border-border/70 text-left">
+                              <th className="py-2 pr-3 font-semibold text-text-primary">
+                                Item
+                              </th>
+                              <th className="px-2 py-2 text-center font-semibold text-text-primary">
+                                Qty
+                              </th>
+                              <th className="px-2 py-2 text-right font-semibold text-text-primary">
+                                Price
+                              </th>
+                              <th className="py-2 pl-2 text-right font-semibold text-text-primary">
+                                Total
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {quotePricingLines.map((line) => (
+                              <tr
+                                key={line.id}
+                                className="border-b border-border/40 last:border-0"
+                              >
+                                <td className="py-2 pr-3 align-top">
+                                  <p className="font-medium text-text-primary">
+                                    {line.item_label}
+                                  </p>
+                                  {line.is_custom && (
+                                    <span className="mt-1 inline-flex rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
+                                      Custom
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-2 py-2 text-center align-top text-text-secondary">
+                                  {Number(line.quantity).toLocaleString()}{" "}
+                                  {line.unit || ""}
+                                </td>
+                                <td className="px-2 py-2 text-right align-top text-text-secondary">
+                                  {line.calc_mode === "add" ? "+" : "×"}{" "}
+                                  {formatMoney(Math.round(Number(line.amount || 0) * 100))}
+                                </td>
+                                <td className="py-2 pl-2 text-right align-top font-semibold text-text-primary">
+                                  {formatMoney(Math.round(Number(line.line_total || 0) * 100))}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   )}

@@ -1032,6 +1032,23 @@ export interface AddressQuoteMeasurement {
   created_at: string;
 }
 
+export interface AddressQuotePricingLineItem {
+  id: string;
+  address_quote_id: string;
+  measurement_id: string | null;
+  item_label: string;
+  description: string | null;
+  unit: string | null;
+  quantity: number;
+  amount: number;
+  calc_mode: BidLineItemCalcMode;
+  line_total: number;
+  display_order: number;
+  is_custom: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AddressQuoteRequest {
   id: string;
   property_address_id: string;
@@ -1506,6 +1523,20 @@ type AddressQuoteMeasurementInsert = {
   confidence?: AddressQuoteMeasurementConfidence;
 };
 
+type AddressQuotePricingLineItemInsert = {
+  address_quote_id: string;
+  measurement_id?: string | null;
+  item_label: string;
+  description?: string | null;
+  unit?: string | null;
+  quantity?: number;
+  amount?: number;
+  calc_mode?: BidLineItemCalcMode;
+  line_total?: number;
+  display_order?: number;
+  is_custom?: boolean;
+};
+
 type AddressQuoteRequestInsert = {
   property_address_id: string;
   requester_user_id: string;
@@ -1960,6 +1991,14 @@ export interface Database {
         Row: AddressQuoteMeasurement;
         Insert: AddressQuoteMeasurementInsert;
         Update: Partial<Omit<AddressQuoteMeasurementInsert, "address_quote_id">>;
+        Relationships: [];
+      };
+      address_quote_pricing_line_items: {
+        Row: AddressQuotePricingLineItem;
+        Insert: AddressQuotePricingLineItemInsert;
+        Update: Partial<
+          Omit<AddressQuotePricingLineItemInsert, "address_quote_id">
+        >;
         Relationships: [];
       };
       address_quote_requests: {

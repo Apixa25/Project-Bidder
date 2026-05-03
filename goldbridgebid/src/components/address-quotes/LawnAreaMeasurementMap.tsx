@@ -205,6 +205,14 @@ export default function LawnAreaMeasurementMap() {
   }, [interactionMode]);
 
   useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("address-quote-measurements-updated", {
+        detail: savedMeasurements,
+      })
+    );
+  }, [measurementsJson]);
+
+  useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
     const mapOptions = {

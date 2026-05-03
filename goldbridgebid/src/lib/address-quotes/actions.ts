@@ -11,7 +11,7 @@ import {
   isAddressQuoteServiceVertical,
   type AddressQuoteServiceVertical,
 } from "@/lib/address-quotes/service-verticals";
-import type { PropertyAddress } from "@/types/database";
+import type { BidLineItemCalcMode, PropertyAddress } from "@/types/database";
 
 const MAX_ACTIVE_ADDRESS_CLAIMS = 3;
 
@@ -58,11 +58,26 @@ function getRequestedServices(formData: FormData) {
 }
 
 type SubmittedMeasurement = {
+  clientId: string;
   measurementType: "polygon_area" | "linear_length";
   label: string;
   areaSqft?: number;
   lengthFt?: number;
   geometryGeojson: Record<string, unknown>;
+};
+
+type SubmittedPricingLineItem = {
+  measurementId: string | null;
+  measurementClientId: string | null;
+  itemLabel: string;
+  description: string | null;
+  unit: string | null;
+  quantity: number;
+  amount: number;
+  calcMode: BidLineItemCalcMode;
+  lineTotal: number;
+  displayOrder: number;
+  isCustom: boolean;
 };
 
 function parseMeasurements(rawValue: string): SubmittedMeasurement[] {
@@ -106,8 +121,13 @@ function parseMeasurements(rawValue: string): SubmittedMeasurement[] {
 
         const rawLabel =
           typeof entry.label === "string" ? entry.label.trim() : "";
+        const rawClientId =
+          typeof entry.id === "string" && entry.id.trim()
+            ? entry.id.trim()
+            : `measurement_${index}`;
 
         return {
+          clientId: rawClientId,
           measurementType,
           label:
             rawLabel ||
@@ -120,6 +140,121 @@ function parseMeasurements(rawValue: string): SubmittedMeasurement[] {
       .filter((entry): entry is SubmittedMeasurement => entry !== null);
   } catch {
     return [];
+  }
+}
+
+function toMoney(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return Math.round(parsed * 100) / 100;
+}
+
+function toCalcMode(value: unknown): BidLineItemCalcMode {
+  return value === "add" ? "add" : "multiply";
+}
+
+function applyLineItemMode(
+  value: number,
+  mode: BidLineItemCalcMode,
+  quantity: number
+) {
+  return mode === "multiply" ? value * quantity : value;
+}
+
+function parsePricingLineItems(rawValue: string): SubmittedPricingLineItem[] {
+  if (!rawValue) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawValue);
+  } catch {
+    return [];
+  }
+
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .map((entry, index): SubmittedPricingLineItem | null => {
+      if (!entry || typeof entry !== "object") return null;
+
+      const line = entry as Record<string, unknown>;
+      const itemLabel = String(line.itemLabel || "").trim();
+      if (!itemLabel) return null;
+
+      const quantity = toMoney(line.quantity);
+      const amount = toMoney(line.amount);
+      const calcMode = toCalcMode(line.calcMode);
+      const lineTotal =
+        Math.round(applyLineItemMode(amount, calcMode, quantity) * 100) / 100;
+
+      return {
+        measurementId:
+          typeof line.measurementId === "string" && line.measurementId
+            ? line.measurementId
+            : null,
+        measurementClientId:
+          typeof line.measurementClientId === "string" && line.measurementClientId
+            ? line.measurementClientId
+            : null,
+        itemLabel: itemLabel.slice(0, 200),
+        description: line.description
+          ? String(line.description).slice(0, 1000)
+          : null,
+        unit: line.unit ? String(line.unit).trim().slice(0, 40) || null : null,
+        quantity,
+        amount,
+        calcMode,
+        lineTotal,
+        displayOrder: Number.isInteger(line.displayOrder)
+          ? Number(line.displayOrder)
+          : index,
+        isCustom: Boolean(line.isCustom),
+      };
+    })
+    .filter((item): item is SubmittedPricingLineItem => item !== null)
+    .filter(
+      (item) =>
+        item.lineTotal > 0 ||
+        item.quantity > 0 ||
+        item.amount > 0
+    );
+}
+
+async function replacePricingLineItems(params: {
+  quoteId: string;
+  pricingLineItems: SubmittedPricingLineItem[];
+  measurementIdByClientId?: Map<string, string>;
+}) {
+  const admin = createAdminClient();
+  await admin
+    .from("address_quote_pricing_line_items")
+    .delete()
+    .eq("address_quote_id", params.quoteId);
+
+  if (params.pricingLineItems.length === 0) return;
+
+  const { error } = await admin.from("address_quote_pricing_line_items").insert(
+    params.pricingLineItems.map((item) => ({
+      address_quote_id: params.quoteId,
+      measurement_id:
+        item.measurementId ||
+        (item.measurementClientId
+          ? params.measurementIdByClientId?.get(item.measurementClientId) || null
+          : null),
+      item_label: item.itemLabel,
+      description: item.description,
+      unit: item.unit,
+      quantity: item.quantity,
+      amount: item.amount,
+      calc_mode: item.calcMode,
+      line_total: item.lineTotal,
+      display_order: item.displayOrder,
+      is_custom: item.isCustom,
+    }))
+  );
+
+  if (error) {
+    console.error("Address quote pricing line item save failed:", error);
   }
 }
 
@@ -408,7 +543,16 @@ export async function createManualAddressQuote(
   const serviceVertical = getString(formData, "serviceVertical");
   const title = getString(formData, "title");
   const summary = getString(formData, "summary");
-  const quoteTotalCents = parseDollarsToCents(getString(formData, "quoteTotal"));
+  const pricingLineItems = parsePricingLineItems(
+    getString(formData, "pricingLineItemsJson")
+  );
+  const pricingLineItemsTotal = Math.round(
+    pricingLineItems.reduce((total, item) => total + item.lineTotal, 0) * 100
+  ) / 100;
+  const quoteTotalCents =
+    pricingLineItems.length > 0
+      ? Math.round(pricingLineItemsTotal * 100)
+      : parseDollarsToCents(getString(formData, "quoteTotal"));
   const mapMeasuredAreaSqft = parsePositiveNumber(
     getString(formData, "mapMeasuredAreaSqft")
   );
@@ -499,6 +643,7 @@ export async function createManualAddressQuote(
   const pricingSnapshot = {
     quoteTotalCents,
     source: "contractor_manual",
+    lineItemsTotal: pricingLineItemsTotal,
     serviceLabel:
       ADDRESS_QUOTE_SERVICE_LABELS[serviceVertical as AddressQuoteServiceVertical],
   };
@@ -542,19 +687,28 @@ export async function createManualAddressQuote(
       .eq("id", quote.id);
   }
 
+  const measurementIdByClientId = new Map<string, string>();
   if (submittedMeasurements.length > 0) {
-    await admin.from("address_quote_measurements").insert(
-      submittedMeasurements.map((measurement) => ({
-        address_quote_id: quote.id,
-        measurement_type: measurement.measurementType,
-        label: measurement.label,
-        geometry_geojson: measurement.geometryGeojson,
-        area_sqft: measurement.areaSqft || null,
-        length_ft: measurement.lengthFt || null,
-        source: "map_drawn",
-        confidence: "contractor_confirmed",
-      }))
-    );
+    const { data: insertedMeasurements } = await admin
+      .from("address_quote_measurements")
+      .insert(
+        submittedMeasurements.map((measurement) => ({
+          address_quote_id: quote.id,
+          measurement_type: measurement.measurementType,
+          label: measurement.label,
+          geometry_geojson: measurement.geometryGeojson,
+          area_sqft: measurement.areaSqft || null,
+          length_ft: measurement.lengthFt || null,
+          source: "map_drawn",
+          confidence: "contractor_confirmed",
+        }))
+      )
+      .select("id");
+
+    (insertedMeasurements || []).forEach((insertedMeasurement, index) => {
+      const clientId = submittedMeasurements[index]?.clientId;
+      if (clientId) measurementIdByClientId.set(clientId, insertedMeasurement.id);
+    });
   } else if (measuredAreaSqft !== null) {
     await admin.from("address_quote_measurements").insert({
       address_quote_id: quote.id,
@@ -568,9 +722,151 @@ export async function createManualAddressQuote(
     });
   }
 
+  await replacePricingLineItems({
+    quoteId: quote.id,
+    pricingLineItems,
+    measurementIdByClientId,
+  });
+
   revalidatePath("/bidder/address-quotes");
   revalidatePath(`/address-quotes/${address.id}`);
   redirect("/bidder/address-quotes");
+}
+
+export async function updateContractorAddressQuote(
+  formData: FormData
+): Promise<void> {
+  const user = await requireUser();
+  if (!user) redirect("/login");
+  if (!(await userHasRole(user.id, "bidder"))) redirect("/login");
+
+  const quoteId = getString(formData, "quoteId");
+  const serviceVertical = getString(formData, "serviceVertical");
+  const title = getString(formData, "title");
+  const summary = getString(formData, "summary");
+  const scopeNotes = getOptionalString(formData, "scopeNotes");
+  const pricingLineItems = parsePricingLineItems(
+    getString(formData, "pricingLineItemsJson")
+  );
+  const pricingLineItemsTotal = Math.round(
+    pricingLineItems.reduce((total, item) => total + item.lineTotal, 0) * 100
+  ) / 100;
+  const quoteTotalCents =
+    pricingLineItems.length > 0
+      ? Math.round(pricingLineItemsTotal * 100)
+      : parseDollarsToCents(getString(formData, "quoteTotal"));
+  const intent = getString(formData, "intent");
+
+  if (!quoteId) redirect("/bidder/address-quotes?error=quote");
+  if (!isAddressQuoteServiceVertical(serviceVertical)) {
+    redirect(`/bidder/address-quotes/${quoteId}/edit?error=service`);
+  }
+  if (!title || !summary || quoteTotalCents === null) {
+    redirect(`/bidder/address-quotes/${quoteId}/edit?error=quote`);
+  }
+
+  const admin = createAdminClient();
+  const { data: existingQuote } = await admin
+    .from("address_quotes")
+    .select("id, property_address_id, contractor_id, status")
+    .eq("id", quoteId)
+    .eq("contractor_id", user.id)
+    .is("removed_at", null)
+    .maybeSingle();
+
+  if (!existingQuote) {
+    redirect("/bidder/address-quotes?error=not-found");
+  }
+
+  const shouldPublish = intent === "publish";
+  const publishedAt =
+    shouldPublish && existingQuote.status !== "published"
+      ? new Date().toISOString()
+      : shouldPublish
+        ? undefined
+        : null;
+
+  const updatePayload: Record<string, unknown> = {
+    service_vertical: serviceVertical as AddressQuoteServiceVertical,
+    status: shouldPublish ? "published" : "draft",
+    title,
+    summary,
+    scope_notes: scopeNotes,
+    quote_total_cents: quoteTotalCents,
+    pricing_snapshot_json: {
+      quoteTotalCents,
+      source: "contractor_manual",
+      lineItemsTotal: pricingLineItemsTotal,
+      serviceLabel:
+        ADDRESS_QUOTE_SERVICE_LABELS[serviceVertical as AddressQuoteServiceVertical],
+    },
+  };
+
+  if (publishedAt !== undefined) {
+    updatePayload.published_at = publishedAt;
+  }
+
+  const { error } = await admin
+    .from("address_quotes")
+    .update(updatePayload)
+    .eq("id", quoteId)
+    .eq("contractor_id", user.id);
+
+  if (error) {
+    console.error("Contractor address quote update failed:", error);
+    redirect(`/bidder/address-quotes/${quoteId}/edit?error=save`);
+  }
+
+  await replacePricingLineItems({
+    quoteId,
+    pricingLineItems,
+  });
+
+  revalidatePath("/bidder/address-quotes");
+  revalidatePath(`/address-quotes/${existingQuote.property_address_id}`);
+  redirect("/bidder/address-quotes?quote=updated");
+}
+
+export async function deleteContractorAddressQuote(
+  formData: FormData
+): Promise<void> {
+  const user = await requireUser();
+  if (!user) redirect("/login");
+  if (!(await userHasRole(user.id, "bidder"))) redirect("/login");
+
+  const quoteId = getString(formData, "quoteId");
+  if (!quoteId) redirect("/bidder/address-quotes?error=quote");
+
+  const admin = createAdminClient();
+  const { data: existingQuote } = await admin
+    .from("address_quotes")
+    .select("id, property_address_id")
+    .eq("id", quoteId)
+    .eq("contractor_id", user.id)
+    .is("removed_at", null)
+    .maybeSingle();
+
+  if (!existingQuote) {
+    redirect("/bidder/address-quotes?error=not-found");
+  }
+
+  const { error } = await admin
+    .from("address_quotes")
+    .update({
+      status: "removed",
+      removed_at: new Date().toISOString(),
+    })
+    .eq("id", quoteId)
+    .eq("contractor_id", user.id);
+
+  if (error) {
+    console.error("Contractor address quote delete failed:", error);
+    redirect("/bidder/address-quotes?error=delete");
+  }
+
+  revalidatePath("/bidder/address-quotes");
+  revalidatePath(`/address-quotes/${existingQuote.property_address_id}`);
+  redirect("/bidder/address-quotes?quote=deleted");
 }
 
 export async function verifyPropertyAddressClaim(formData: FormData): Promise<void> {
