@@ -242,12 +242,7 @@ export default async function AddressQuoteDetailPage({
               </div>
               {query.nearby === "1" && (
                 <div className="mt-4 rounded-xl border-2 border-primary bg-primary/10 px-4 py-3 text-sm font-semibold text-text-primary">
-                  We did not find an exact quote for{" "}
-                  <span className="text-primary-dark">
-                    {query.searched || "that searched address"}
-                  </span>
-                  , so we opened the nearest published quote nearby
-                  {query.distance ? `, about ${query.distance} meters away` : ""}.
+                  We believe this might be the address you were looking for.
                   Check the address, map, and property photos before treating it
                   as your property.
                 </div>

@@ -9,6 +9,11 @@ type StreetViewImage = {
   caption: string;
 };
 
+type StreetViewPreview = {
+  imageDataUrl: string;
+  heading: number;
+};
+
 interface StreetViewEvidenceToolProps {
   initialImages?: Array<{
     id: string;
@@ -31,6 +36,7 @@ export default function StreetViewEvidenceTool({
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [heading, setHeading] = useState(0);
+  const [preview, setPreview] = useState<StreetViewPreview | null>(null);
 
   const serializedImages = useMemo(
     () =>
@@ -43,7 +49,17 @@ export default function StreetViewEvidenceTool({
     [images]
   );
 
-  async function captureStreetView() {
+  function updateHeading(value: number) {
+    setHeading(value);
+    setPreview(null);
+    setStatus("Preview the new direction before saving it.");
+  }
+
+  function rotateHeading() {
+    updateHeading((heading + 90) % 360);
+  }
+
+  async function fetchStreetViewPreview() {
     const pickedLat = readFormValue("mapPickedLatitude");
     const pickedLng = readFormValue("mapPickedLongitude");
     const displayAddress = readFormValue("displayAddress");
@@ -60,11 +76,11 @@ export default function StreetViewEvidenceTool({
       query.set("location", displayAddress);
     } else {
       setStatus("Pick an address on the map or enter the full address first.");
-      return;
+      return null;
     }
 
     setLoading(true);
-    setStatus("Checking Google Street View...");
+    setStatus("Loading Google Street View preview...");
 
     try {
       const response = await fetch(`/api/address-quotes/street-view?${query}`);
@@ -78,24 +94,46 @@ export default function StreetViewEvidenceTool({
             ? data.error
             : "No Street View image was found there."
         );
-        return;
+        return null;
       }
 
-      setImages((current) => [
-        ...current,
-        {
-          id: `street_view_${Date.now()}`,
-          imageDataUrl: data.imageDataUrl,
-          caption: `Street View verification ${current.length + 1}`,
-        },
-      ]);
-      setStatus("Street View screenshot saved to this quote.");
+      const nextPreview = {
+        imageDataUrl: data.imageDataUrl,
+        heading,
+      };
+      setPreview(nextPreview);
+      setStatus("Preview loaded. If this shows the right property, save it.");
+      return nextPreview;
     } catch {
       setStatus("Street View could not be loaded. Please try again.");
+      return null;
     } finally {
       setLoading(false);
     }
   }
+
+  async function captureStreetView() {
+    const currentPreview =
+      preview && preview.heading === heading ? preview : await fetchStreetViewPreview();
+
+    if (!currentPreview) return;
+
+    setImages((current) => [
+      ...current,
+      {
+        id: `street_view_${Date.now()}`,
+        imageDataUrl: currentPreview.imageDataUrl,
+        caption: `Street View verification ${current.length + 1}`,
+      },
+    ]);
+    setStatus("Street View screenshot saved to this quote.");
+  }
+
+  const actionIcon = loading ? (
+    <Loader2 className="h-4 w-4 animate-spin" />
+  ) : (
+    <Camera className="h-4 w-4" />
+  );
 
   return (
     <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
@@ -104,8 +142,9 @@ export default function StreetViewEvidenceTool({
         Street View Property Verification
       </h2>
       <p className="mt-1 text-sm leading-6 text-text-secondary">
-        Use Google Street View to save a front-of-property reference image so
-        the customer can confirm exactly which property this quote references.
+        Use Google Street View to preview the camera direction, then save a
+        front-of-property reference image so the customer can confirm exactly
+        which property this quote references.
       </p>
 
       {initialImages.length > 0 && (
@@ -137,7 +176,7 @@ export default function StreetViewEvidenceTool({
             max={359}
             step={15}
             value={heading}
-            onChange={(event) => setHeading(Number(event.target.value))}
+            onChange={(event) => updateHeading(Number(event.target.value))}
             className="mt-3 w-full accent-primary"
           />
           <span className="mt-1 block text-xs font-medium text-text-muted">
@@ -146,20 +185,25 @@ export default function StreetViewEvidenceTool({
         </label>
         <button
           type="button"
+          onClick={fetchStreetViewPreview}
+          disabled={loading}
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-secondary bg-white px-4 py-2.5 text-sm font-semibold text-secondary transition-colors hover:bg-secondary/10 disabled:opacity-50"
+        >
+          {actionIcon}
+          Preview Direction
+        </button>
+        <button
+          type="button"
           onClick={captureStreetView}
           disabled={loading}
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:opacity-50"
         >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Camera className="h-4 w-4" />
-          )}
+          {actionIcon}
           Save Street View
         </button>
         <button
           type="button"
-          onClick={() => setHeading((current) => (current + 90) % 360)}
+          onClick={rotateHeading}
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-white"
         >
           <RotateCcw className="h-4 w-4" />
@@ -168,6 +212,30 @@ export default function StreetViewEvidenceTool({
       </div>
 
       {status && <p className="mt-3 text-sm font-medium text-text-secondary">{status}</p>}
+
+      {preview ? (
+        <figure className="mt-4 overflow-hidden rounded-xl border-2 border-secondary bg-bg-warm">
+          <img
+            src={preview.imageDataUrl}
+            alt={`Street View preview at ${preview.heading} degrees`}
+            className="aspect-video w-full object-cover"
+          />
+          <figcaption className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <span className="font-semibold text-text-primary">
+              Preview at {preview.heading} degrees
+            </span>
+            <span className="text-text-secondary">
+              Adjust the direction until the correct property is visible, then
+              save this Street View image.
+            </span>
+          </figcaption>
+        </figure>
+      ) : (
+        <div className="mt-4 rounded-xl border border-dashed border-border bg-bg-warm px-4 py-6 text-center text-sm text-text-secondary">
+          Click “Preview Direction” to see the actual Street View image before
+          saving it to the estimate.
+        </div>
+      )}
 
       {images.length > 0 && (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">

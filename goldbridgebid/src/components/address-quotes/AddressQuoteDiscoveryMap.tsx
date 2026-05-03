@@ -77,14 +77,18 @@ export default function AddressQuoteDiscoveryMap({
     if (!map) return;
 
     const mapMarkers = markers.map((marker) => {
-      const element = document.createElement("a");
-      element.href = `/address-quotes/${marker.addressId}`;
-      element.className =
-        "flex h-10 min-w-10 items-center justify-center rounded-full border-2 border-white bg-primary px-2 text-sm font-bold text-slate-950 shadow-lg transition-transform hover:scale-110";
-      element.textContent = String(marker.quoteCount);
-      element.title = `${marker.displayAddress} - ${marker.quoteCount} quote${
+      const element = document.createElement("div");
+      element.className = "flex h-12 w-12 items-center justify-center";
+
+      const link = document.createElement("a");
+      link.href = `/address-quotes/${marker.addressId}`;
+      link.className =
+        "flex h-10 min-w-10 items-center justify-center rounded-full border-2 border-white bg-primary px-2 text-sm font-bold text-slate-950 shadow-lg transition-colors hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2";
+      link.textContent = String(marker.quoteCount);
+      link.title = `${marker.displayAddress} - ${marker.quoteCount} quote${
         marker.quoteCount === 1 ? "" : "s"
       }`;
+      element.appendChild(link);
 
       const popup = new maplibregl.Popup({ offset: 18 }).setHTML(
         `<div style="max-width:220px"><strong>${marker.displayAddress}</strong><br/><span>${marker.quoteCount} public quote${marker.quoteCount === 1 ? "" : "s"}</span><br/><a href="/address-quotes/${marker.addressId}">View quotes</a></div>`
