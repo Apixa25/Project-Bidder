@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from "maplibre-gl";
 import area from "@turf/area";
 import {
@@ -38,6 +38,22 @@ type SavedMeasurementLine = {
 };
 
 type SavedMeasurement = SavedMeasurementArea | SavedMeasurementLine;
+
+export type InitialAddressQuoteMeasurement = {
+  id: string;
+  measurementType: "polygon_area" | "linear_length";
+  label: string;
+  areaSqft?: number;
+  lengthFt?: number;
+  geometryGeojson: Polygon | LineString;
+};
+
+interface LawnAreaMeasurementMapProps {
+  initialMeasurements?: InitialAddressQuoteMeasurement[];
+  initialMapSnapshotUrl?: string | null;
+  initialMapSnapshotUrls?: string[];
+  initialSearchAddress?: string | null;
+}
 
 const DEFAULT_CENTER: LngLatPoint = [-124.2026, 41.7558];
 const MAX_MEASUREMENT_ZOOM = 22;
@@ -154,22 +170,75 @@ function roundPoint(point: LngLatPoint): LngLatPoint {
   ];
 }
 
-export default function LawnAreaMeasurementMap() {
+function getMeasurementCoordinates(measurements: SavedMeasurement[]) {
+  return measurements.flatMap((measurement) => {
+    if (measurement.geometryGeojson.type === "Polygon") {
+      return measurement.geometryGeojson.coordinates[0] as LngLatPoint[];
+    }
+
+    return measurement.geometryGeojson.coordinates as LngLatPoint[];
+  });
+}
+
+export default function LawnAreaMeasurementMap({
+  initialMeasurements = [],
+  initialMapSnapshotUrl = null,
+  initialMapSnapshotUrls = [],
+  initialSearchAddress = null,
+}: LawnAreaMeasurementMapProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRefs = useRef<maplibregl.Marker[]>([]);
   const interactionModeRef = useRef<MapInteractionMode>("draw");
+  const didFitInitialMeasurementsRef = useRef(false);
   const [points, setPoints] = useState<LngLatPoint[]>([]);
-  const [savedAreas, setSavedAreas] = useState<SavedMeasurementArea[]>([]);
-  const [savedLines, setSavedLines] = useState<SavedMeasurementLine[]>([]);
+  const [savedAreas, setSavedAreas] = useState<SavedMeasurementArea[]>(() =>
+    initialMeasurements
+      .filter(
+        (measurement): measurement is SavedMeasurementArea =>
+          measurement.measurementType === "polygon_area" &&
+          measurement.geometryGeojson.type === "Polygon" &&
+          typeof measurement.areaSqft === "number"
+      )
+      .map((measurement) => ({
+        id: measurement.id,
+        measurementType: "polygon_area",
+        label: measurement.label,
+        areaSqft: measurement.areaSqft,
+        geometryGeojson: measurement.geometryGeojson,
+      }))
+  );
+  const [savedLines, setSavedLines] = useState<SavedMeasurementLine[]>(() =>
+    initialMeasurements
+      .filter(
+        (measurement): measurement is SavedMeasurementLine =>
+          measurement.measurementType === "linear_length" &&
+          measurement.geometryGeojson.type === "LineString" &&
+          typeof measurement.lengthFt === "number"
+      )
+      .map((measurement) => ({
+        id: measurement.id,
+        measurementType: "linear_length",
+        label: measurement.label,
+        lengthFt: measurement.lengthFt,
+        geometryGeojson: measurement.geometryGeojson,
+      }))
+  );
   const [drawTool, setDrawTool] = useState<DrawTool>("area");
   const [measurementLabel, setMeasurementLabel] = useState("Area 1");
-  const [mapSnapshotUrl, setMapSnapshotUrl] = useState("");
+  const [mapSnapshotUrls, setMapSnapshotUrls] = useState<string[]>(() => {
+    const urls = [
+      ...initialMapSnapshotUrls,
+      ...(initialMapSnapshotUrl ? [initialMapSnapshotUrl] : []),
+    ];
+    return Array.from(new Set(urls.filter(Boolean)));
+  });
   const [snapshotStatus, setSnapshotStatus] = useState<string | null>(null);
-  const [mapSearchAddress, setMapSearchAddress] = useState("");
+  const [mapSearchAddress, setMapSearchAddress] = useState(initialSearchAddress || "");
   const [geocodeStatus, setGeocodeStatus] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<MapViewMode>("default");
   const [interactionMode, setInteractionMode] = useState<MapInteractionMode>("draw");
+  const [mapReady, setMapReady] = useState(false);
 
   const polygonFeature = useMemo(
     () => (drawTool === "area" ? buildFeature(points) : null),
@@ -197,8 +266,14 @@ export default function LawnAreaMeasurementMap() {
   );
   const submittedAreaSqft = savedAreas.length > 0 ? savedAreaTotalSqft : measuredAreaSqft;
   const submittedLengthFt = savedLines.length > 0 ? savedLineTotalFt : 0;
-  const savedMeasurements: SavedMeasurement[] = [...savedAreas, ...savedLines];
-  const measurementsJson = JSON.stringify(savedMeasurements);
+  const savedMeasurements: SavedMeasurement[] = useMemo(
+    () => [...savedAreas, ...savedLines],
+    [savedAreas, savedLines]
+  );
+  const measurementsJson = useMemo(
+    () => JSON.stringify(savedMeasurements),
+    [savedMeasurements]
+  );
 
   useEffect(() => {
     interactionModeRef.current = interactionMode;
@@ -210,7 +285,59 @@ export default function LawnAreaMeasurementMap() {
         detail: savedMeasurements,
       })
     );
-  }, [measurementsJson]);
+  }, [savedMeasurements]);
+
+  const setFormField = useCallback(
+    (name: string, value: string | null | undefined) => {
+      const field = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+        `[name="${name}"]`
+      );
+      if (!field || !value) return;
+      field.value = value;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+    },
+    []
+  );
+
+  const reverseGeocodePoint = useCallback(
+    async (lng: number, lat: number) => {
+      setGeocodeStatus("Looking up address from clicked map point...");
+      const response = await fetch(
+        `/api/address-quotes/reverse-geocode?lat=${encodeURIComponent(
+          String(lat)
+        )}&lon=${encodeURIComponent(String(lng))}`
+      );
+      const data = (await response.json()) as
+        | {
+            displayAddress: string;
+            street?: string | null;
+            city?: string | null;
+            state?: string | null;
+            zip?: string | null;
+          }
+        | { error?: string };
+
+      if (!response.ok || !("displayAddress" in data)) {
+        setGeocodeStatus(
+          "Could not identify an address there. Try another point or enter it manually."
+        );
+        return;
+      }
+
+      setFormField("displayAddress", data.displayAddress);
+      setFormField("street", data.street);
+      setFormField("city", data.city);
+      setFormField("state", data.state);
+      setFormField("zip", data.zip);
+      setMapSearchAddress(data.displayAddress);
+      setGeocodeStatus(
+        "Address fields filled from the clicked map point. Please confirm before publishing."
+      );
+      setInteractionMode("draw");
+    },
+    [setFormField]
+  );
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -322,6 +449,7 @@ export default function LawnAreaMeasurementMap() {
           "line-dasharray": [2, 2],
         },
       });
+      setMapReady(true);
     });
 
     map.on("click", (event) => {
@@ -344,11 +472,11 @@ export default function LawnAreaMeasurementMap() {
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [reverseGeocodePoint]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
+    if (!map || !mapReady || !map.isStyleLoaded()) return;
 
     const polygonSource = map.getSource("lawn-polygon") as GeoJSONSource | undefined;
     const lineSource = map.getSource("lawn-line") as GeoJSONSource | undefined;
@@ -430,11 +558,39 @@ export default function LawnAreaMeasurementMap() {
 
       return marker;
     });
-  }, [drawTool, points, polygonFeature, savedAreas, savedLines]);
+  }, [drawTool, mapReady, points, polygonFeature, savedAreas, savedLines]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
+    const savedMeasurementsForBounds: SavedMeasurement[] = [...savedAreas, ...savedLines];
+    if (
+      !map ||
+      !mapReady ||
+      didFitInitialMeasurementsRef.current ||
+      savedMeasurementsForBounds.length === 0
+    ) {
+      return;
+    }
+
+    const coordinates = getMeasurementCoordinates(savedMeasurementsForBounds);
+    if (coordinates.length === 0) return;
+
+    const bounds = coordinates.reduce(
+      (nextBounds, coordinate) => nextBounds.extend(coordinate),
+      new maplibregl.LngLatBounds(coordinates[0], coordinates[0])
+    );
+
+    map.fitBounds(bounds, {
+      padding: 80,
+      maxZoom: 20,
+      duration: 0,
+    });
+    didFitInitialMeasurementsRef.current = true;
+  }, [mapReady, savedAreas, savedLines]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !map.isStyleLoaded()) return;
 
     map.setLayoutProperty(
       "osm",
@@ -446,7 +602,7 @@ export default function LawnAreaMeasurementMap() {
       "visibility",
       viewMode === "satellite" ? "visible" : "none"
     );
-  }, [viewMode]);
+  }, [mapReady, viewMode]);
 
   async function geocodeAddress() {
     const address = mapSearchAddress.trim();
@@ -474,50 +630,6 @@ export default function LawnAreaMeasurementMap() {
       essential: true,
     });
     setGeocodeStatus(data.label ? `Centered on ${data.label}` : "Map centered.");
-  }
-
-  function setFormField(name: string, value: string | null | undefined) {
-    const field = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-      `[name="${name}"]`
-    );
-    if (!field || !value) return;
-    field.value = value;
-    field.dispatchEvent(new Event("input", { bubbles: true }));
-    field.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-
-  async function reverseGeocodePoint(lng: number, lat: number) {
-    setGeocodeStatus("Looking up address from clicked map point...");
-    const response = await fetch(
-      `/api/address-quotes/reverse-geocode?lat=${encodeURIComponent(
-        String(lat)
-      )}&lon=${encodeURIComponent(String(lng))}`
-    );
-    const data = (await response.json()) as
-      | {
-          displayAddress: string;
-          street?: string | null;
-          city?: string | null;
-          state?: string | null;
-          zip?: string | null;
-        }
-      | { error?: string };
-
-    if (!response.ok || !("displayAddress" in data)) {
-      setGeocodeStatus(
-        "Could not identify an address there. Try another point or enter it manually."
-      );
-      return;
-    }
-
-    setFormField("displayAddress", data.displayAddress);
-    setFormField("street", data.street);
-    setFormField("city", data.city);
-    setFormField("state", data.state);
-    setFormField("zip", data.zip);
-    setMapSearchAddress(data.displayAddress);
-    setGeocodeStatus("Address fields filled from the clicked map point. Please confirm before publishing.");
-    setInteractionMode("draw");
   }
 
   function saveCurrentArea() {
@@ -659,7 +771,7 @@ export default function LawnAreaMeasurementMap() {
       return;
     }
 
-    setMapSnapshotUrl(snapshotUrl);
+    setMapSnapshotUrls((current) => [...current, snapshotUrl]);
     setSnapshotStatus("Map screenshot saved. It will be attached to this estimate.");
   }
 
@@ -679,7 +791,12 @@ export default function LawnAreaMeasurementMap() {
         value={submittedAreaSqft > 0 ? String(submittedAreaSqft) : ""}
       />
       <input type="hidden" name="measurementsJson" value={measurementsJson} />
-      <input type="hidden" name="mapSnapshotUrl" value={mapSnapshotUrl} />
+      <input type="hidden" name="mapSnapshotUrl" value={mapSnapshotUrls[0] || ""} />
+      <input
+        type="hidden"
+        name="mapSnapshotUrlsJson"
+        value={JSON.stringify(mapSnapshotUrls)}
+      />
       <input
         type="hidden"
         name="measurementSource"
@@ -885,34 +1002,50 @@ export default function LawnAreaMeasurementMap() {
         </button>
       </div>
 
-      {mapSnapshotUrl && (
+      {mapSnapshotUrls.length > 0 && (
         <div className="mt-5 rounded-xl border border-border bg-bg-warm p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h3 className="text-sm font-semibold text-text-primary">
-                Saved Map Screenshot
+                Saved Map Screenshots
               </h3>
               <p className="mt-1 text-xs text-text-muted">
-                This proof image will be shown on the customer-facing estimate.
+                These proof images will be shown on the customer-facing estimate.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setMapSnapshotUrl("");
-                setSnapshotStatus("Map screenshot removed.");
-              }}
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-xs font-semibold text-text-primary transition-colors hover:bg-white"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Remove Screenshot
-            </button>
           </div>
-          <img
-            src={mapSnapshotUrl}
-            alt="Saved map screenshot preview"
-            className="mt-3 w-full rounded-lg border border-border"
-          />
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {mapSnapshotUrls.map((snapshotUrl, index) => (
+              <div
+                key={`${snapshotUrl}_${index}`}
+                className="overflow-hidden rounded-lg border border-border bg-surface"
+              >
+                <img
+                  src={snapshotUrl}
+                  alt={`Saved map screenshot preview ${index + 1}`}
+                  className="aspect-video w-full object-cover"
+                />
+                <div className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="text-xs font-semibold text-text-secondary">
+                    Map screenshot {index + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMapSnapshotUrls((current) =>
+                        current.filter((_, snapshotIndex) => snapshotIndex !== index)
+                      );
+                      setSnapshotStatus("Map screenshot removed.");
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

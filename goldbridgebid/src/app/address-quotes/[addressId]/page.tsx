@@ -4,7 +4,9 @@ import {
   BadgeDollarSign,
   CheckCircle2,
   ClipboardList,
+  Mail,
   MapPin,
+  Phone,
   ShieldCheck,
   Trash2,
 } from "lucide-react";
@@ -23,6 +25,7 @@ import {
 import { BrowserBackButton } from "@/components/BrowserBackButton";
 import type {
   AddressQuote,
+  AddressQuoteMedia,
   AddressQuoteMeasurement,
   AddressQuotePricingLineItem,
   AddressQuoteRequest,
@@ -49,6 +52,15 @@ function formatServices(services: unknown) {
     )
     .map((service) => ADDRESS_QUOTE_SERVICE_LABELS[service])
     .join(", ");
+}
+
+function formatContractorAddress(contractor: Profile | undefined) {
+  if (!contractor) return null;
+  const cityStateZip = [contractor.city, contractor.state, contractor.zip]
+    .filter(Boolean)
+    .join(", ");
+
+  return [contractor.address, cityStateZip].filter(Boolean).join(", ") || null;
 }
 
 export default async function AddressQuoteDetailPage({
@@ -96,6 +108,7 @@ export default async function AddressQuoteDetailPage({
     { data: contractorProfiles },
     { data: measurementRows },
     { data: pricingLineRows },
+    { data: quoteMediaRows },
   ] = await Promise.all([
     contractorIds.length
       ? admin.from("profiles").select("*").in("user_id", contractorIds)
@@ -110,6 +123,13 @@ export default async function AddressQuoteDetailPage({
     quoteIds.length
       ? admin
           .from("address_quote_pricing_line_items")
+          .select("*")
+          .in("address_quote_id", quoteIds)
+          .order("display_order", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    quoteIds.length
+      ? admin
+          .from("address_quote_media")
           .select("*")
           .in("address_quote_id", quoteIds)
           .order("display_order", { ascending: true })
@@ -132,6 +152,12 @@ export default async function AddressQuoteDetailPage({
     const rows = pricingLinesByQuote.get(pricingLine.address_quote_id) || [];
     rows.push(pricingLine);
     pricingLinesByQuote.set(pricingLine.address_quote_id, rows);
+  }
+  const mediaByQuote = new Map<string, AddressQuoteMedia[]>();
+  for (const media of (quoteMediaRows || []) as AddressQuoteMedia[]) {
+    const rows = mediaByQuote.get(media.address_quote_id) || [];
+    rows.push(media);
+    mediaByQuote.set(media.address_quote_id, rows);
   }
 
   const { data: userClaims } = user
@@ -265,6 +291,29 @@ export default async function AddressQuoteDetailPage({
               const contractor = contractorMap.get(quote.contractor_id);
               const quoteMeasurements = measurementsByQuote.get(quote.id) || [];
               const quotePricingLines = pricingLinesByQuote.get(quote.id) || [];
+              const quoteMedia = mediaByQuote.get(quote.id) || [];
+              const evidenceMedia =
+                quoteMedia.length > 0
+                  ? quoteMedia
+                  : quote.map_snapshot_url
+                    ? ([
+                        {
+                          id: `${quote.id}_legacy_map_snapshot`,
+                          address_quote_id: quote.id,
+                          contractor_id: quote.contractor_id,
+                          media_type: "map_snapshot",
+                          url: quote.map_snapshot_url,
+                          caption: "Measurement map screenshot",
+                          display_order: 0,
+                          created_at: quote.created_at,
+                        },
+                      ] satisfies AddressQuoteMedia[])
+                    : [];
+              const contractorDisplayName =
+                contractor?.business_name ||
+                contractor?.full_name ||
+                "Contractor profile";
+              const contractorAddress = formatContractorAddress(contractor);
 
               return (
                 <article
@@ -298,43 +347,105 @@ export default async function AddressQuoteDetailPage({
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
-                    <div>
+                  <div className="mt-5 border-t border-border pt-4">
+                    <div className="rounded-xl border border-border bg-bg-warm p-4">
                       <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                        Contractor
+                        Quote provided by
                       </p>
-                      <p className="mt-1 font-medium text-text-primary">
-                        {contractor?.business_name ||
-                          contractor?.full_name ||
-                          "Contractor profile"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                        Measurement
-                      </p>
-                      <p className="mt-1 font-medium text-text-primary">
-                        {typeof quote.measurement_snapshot_json?.measuredAreaSqft ===
-                        "number"
-                          ? `${quote.measurement_snapshot_json.source === "map_drawn" ? "Map-measured" : "Measured"}: ${quote.measurement_snapshot_json.measuredAreaSqft.toLocaleString()} sq ft`
-                          : typeof quote.measurement_snapshot_json?.measuredLengthFt ===
-                              "number"
-                            ? `Map-measured: ${quote.measurement_snapshot_json.measuredLengthFt.toLocaleString()} linear ft`
-                            : "Measurement details pending"}
-                      </p>
+                      <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row">
+                          {contractor?.company_logo_url ? (
+                            <img
+                              src={contractor.company_logo_url}
+                              alt={`${contractorDisplayName} company logo`}
+                              className="h-20 w-20 shrink-0 rounded-xl border border-border bg-white object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border border-border bg-surface text-2xl font-bold text-secondary">
+                              {contractorDisplayName.slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <h3 className="text-lg font-bold text-text-primary">
+                              {contractorDisplayName}
+                            </h3>
+                            {contractor?.business_name && contractor.full_name && (
+                              <p className="mt-0.5 text-sm font-medium text-text-secondary">
+                                Contact: {contractor.full_name}
+                              </p>
+                            )}
+                            <div className="mt-3 space-y-2 text-sm text-text-secondary">
+                              {contractor?.phone && (
+                                <a
+                                  href={`tel:${contractor.phone}`}
+                                  className="flex items-center gap-2 font-medium text-text-primary hover:text-primary"
+                                >
+                                  <Phone className="h-4 w-4 text-secondary" />
+                                  {contractor.phone}
+                                </a>
+                              )}
+                              {contractor?.email && (
+                                <a
+                                  href={`mailto:${contractor.email}`}
+                                  className="flex items-center gap-2 font-medium text-text-primary hover:text-primary"
+                                >
+                                  <Mail className="h-4 w-4 text-secondary" />
+                                  {contractor.email}
+                                </a>
+                              )}
+                              {contractorAddress && (
+                                <p className="flex items-start gap-2">
+                                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+                                  <span>{contractorAddress}</span>
+                                </p>
+                              )}
+                            </div>
+                            {contractor?.bio && (
+                              <p className="mt-3 rounded-lg bg-surface px-3 py-2 text-xs leading-5 text-text-secondary">
+                                {contractor.bio}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {contractor?.avatar_url && (
+                          <img
+                            src={contractor.avatar_url}
+                            alt={`${contractor.full_name || contractorDisplayName} profile photo`}
+                            className="h-24 w-24 shrink-0 rounded-full border-4 border-white object-cover shadow-md sm:ml-4"
+                          />
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {quote.map_snapshot_url && (
+                  {evidenceMedia.length > 0 && (
                     <div className="mt-5 border-t border-border pt-4">
                       <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                        Measurement map screenshot
+                        Quote evidence images
                       </p>
-                      <img
-                        src={quote.map_snapshot_url}
-                        alt={`Map screenshot for ${quote.title}`}
-                        className="mt-2 w-full rounded-xl border border-border bg-bg-warm"
-                      />
+                      <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                        {evidenceMedia.map((media, index) => (
+                          <figure
+                            key={media.id}
+                            className="overflow-hidden rounded-xl border border-border bg-bg-warm"
+                          >
+                            <img
+                              src={media.url}
+                              alt={
+                                media.caption ||
+                                `${media.media_type === "map_snapshot" ? "Map screenshot" : "Reference photo"} for ${quote.title}`
+                              }
+                              className="aspect-video w-full object-cover"
+                            />
+                            <figcaption className="px-3 py-2 text-xs font-semibold text-text-secondary">
+                              {media.caption ||
+                                (media.media_type === "map_snapshot"
+                                  ? `Map screenshot ${index + 1}`
+                                  : `Reference photo ${index + 1}`)}
+                            </figcaption>
+                          </figure>
+                        ))}
+                      </div>
                     </div>
                   )}
 

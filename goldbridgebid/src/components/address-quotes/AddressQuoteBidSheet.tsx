@@ -46,6 +46,7 @@ type SerializedPricingLineItem = {
 interface AddressQuoteBidSheetProps {
   initialLineItems?: AddressQuotePricingLineItem[];
   lockToInitialRows?: boolean;
+  syncMeasurements?: boolean;
 }
 
 function formatCurrency(value: number): string {
@@ -95,7 +96,7 @@ function rowFromSavedLineItem(
   return {
     rowId: item.id,
     measurementId: item.measurement_id,
-    measurementClientId: null,
+    measurementClientId: item.is_custom ? null : item.measurement_id,
     itemLabel: item.item_label,
     description: item.description,
     unit: item.unit || "ea",
@@ -110,6 +111,7 @@ function rowFromSavedLineItem(
 export default function AddressQuoteBidSheet({
   initialLineItems = [],
   lockToInitialRows = false,
+  syncMeasurements = false,
 }: AddressQuoteBidSheetProps) {
   const [rows, setRows] = useState<PricingRow[]>(() =>
     initialLineItems.map(rowFromSavedLineItem)
@@ -119,7 +121,9 @@ export default function AddressQuoteBidSheet({
   const [newUnit, setNewUnit] = useState("ea");
 
   useEffect(() => {
-    if (lockToInitialRows || initialLineItems.length > 0) return;
+    if (lockToInitialRows || (!syncMeasurements && initialLineItems.length > 0)) {
+      return;
+    }
 
     function handleMeasurements(event: Event) {
       const measurements = (event as CustomEvent<MapMeasurement[]>).detail || [];
@@ -160,7 +164,7 @@ export default function AddressQuoteBidSheet({
         handleMeasurements
       );
     };
-  }, [initialLineItems.length, lockToInitialRows]);
+  }, [initialLineItems.length, lockToInitialRows, syncMeasurements]);
 
   const calculatedRows = useMemo(() => {
     return rows.map((row) => {
@@ -185,7 +189,7 @@ export default function AddressQuoteBidSheet({
           (row.lineTotal > 0 || row.parsedQuantity > 0 || row.parsedAmount > 0)
       )
       .map((row) => ({
-        measurementId: row.measurementId,
+        measurementId: row.measurementClientId ? null : row.measurementId,
         measurementClientId: row.measurementClientId,
         itemLabel: row.itemLabel.trim(),
         description: row.description,

@@ -11,7 +11,12 @@ import {
   isAddressQuoteServiceVertical,
   type AddressQuoteServiceVertical,
 } from "@/lib/address-quotes/service-verticals";
-import type { BidLineItemCalcMode, PropertyAddress } from "@/types/database";
+import type {
+  AddressQuoteMedia,
+  AddressQuoteMediaType,
+  BidLineItemCalcMode,
+  PropertyAddress,
+} from "@/types/database";
 
 const MAX_ACTIVE_ADDRESS_CLAIMS = 3;
 
@@ -78,6 +83,13 @@ type SubmittedPricingLineItem = {
   lineTotal: number;
   displayOrder: number;
   isCustom: boolean;
+};
+
+type SubmittedQuoteMedia = {
+  mediaType: AddressQuoteMediaType;
+  url: string;
+  caption: string | null;
+  displayOrder: number;
 };
 
 function parseMeasurements(rawValue: string): SubmittedMeasurement[] {
@@ -220,6 +232,54 @@ function parsePricingLineItems(rawValue: string): SubmittedPricingLineItem[] {
     );
 }
 
+function parseStringArray(rawValue: string) {
+  if (!rawValue) return [];
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (value): value is string => typeof value === "string" && value.trim().length > 0
+    );
+  } catch {
+    return [];
+  }
+}
+
+function parseExistingQuoteMedia(rawValue: string): SubmittedQuoteMedia[] {
+  if (!rawValue) return [];
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((entry, index): SubmittedQuoteMedia | null => {
+        if (!entry || typeof entry !== "object") return null;
+        const row = entry as Partial<AddressQuoteMedia>;
+        if (!row.url || typeof row.url !== "string") return null;
+        if (
+          row.media_type !== "uploaded_photo" &&
+          row.media_type !== "street_view" &&
+          row.media_type !== "map_snapshot"
+        ) {
+          return null;
+        }
+
+        return {
+          mediaType: row.media_type,
+          url: row.url,
+          caption: row.caption || null,
+          displayOrder:
+            typeof row.display_order === "number" ? row.display_order : index,
+        };
+      })
+      .filter((entry): entry is SubmittedQuoteMedia => entry !== null);
+  } catch {
+    return [];
+  }
+}
+
 async function replacePricingLineItems(params: {
   quoteId: string;
   pricingLineItems: SubmittedPricingLineItem[];
@@ -316,6 +376,123 @@ async function uploadMapSnapshot(params: {
     .getPublicUrl(path);
 
   return data.publicUrl;
+}
+
+function getImageExtension(file: File) {
+  if (file.type === "image/png") return "png";
+  if (file.type === "image/webp") return "webp";
+  if (file.type === "image/gif") return "gif";
+  return "jpg";
+}
+
+function getQuoteEvidenceImages(formData: FormData) {
+  return formData
+    .getAll("quoteEvidenceImages")
+    .filter((value): value is File => value instanceof File && value.size > 0)
+    .filter((file) => file.type.startsWith("image/"))
+    .slice(0, 10);
+}
+
+async function uploadQuoteEvidenceImage(params: {
+  quoteId: string;
+  contractorId: string;
+  file: File;
+  index: number;
+}) {
+  if (params.file.size > 8_000_000) return null;
+
+  const admin = createAdminClient();
+  const extension = getImageExtension(params.file);
+  const path = `${params.contractorId}/${params.quoteId}/evidence/${Date.now()}-${params.index}-${crypto.randomUUID()}.${extension}`;
+  const { error } = await admin.storage
+    .from("address-quote-snapshots")
+    .upload(path, params.file, {
+      contentType: params.file.type || "image/jpeg",
+      upsert: false,
+    });
+
+  if (error) {
+    console.error("Address quote evidence image upload failed:", error);
+    return null;
+  }
+
+  const { data } = admin.storage
+    .from("address-quote-snapshots")
+    .getPublicUrl(path);
+
+  return data.publicUrl;
+}
+
+async function replaceQuoteMedia(params: {
+  quoteId: string;
+  contractorId: string;
+  mapSnapshotValues: string[];
+  existingMedia: SubmittedQuoteMedia[];
+  evidenceImages: File[];
+}) {
+  const admin = createAdminClient();
+  await admin.from("address_quote_media").delete().eq("address_quote_id", params.quoteId);
+
+  const mediaRows: SubmittedQuoteMedia[] = [];
+
+  for (const [index, snapshotValue] of params.mapSnapshotValues.entries()) {
+    const url = await uploadMapSnapshot({
+      quoteId: params.quoteId,
+      contractorId: params.contractorId,
+      snapshotValue,
+    });
+    if (!url) continue;
+    mediaRows.push({
+      mediaType: "map_snapshot",
+      url,
+      caption: `Map screenshot ${index + 1}`,
+      displayOrder: mediaRows.length,
+    });
+  }
+
+  for (const media of params.existingMedia) {
+    if (media.mediaType === "map_snapshot") continue;
+    mediaRows.push({
+      ...media,
+      displayOrder: mediaRows.length,
+    });
+  }
+
+  for (const [index, file] of params.evidenceImages.entries()) {
+    const url = await uploadQuoteEvidenceImage({
+      quoteId: params.quoteId,
+      contractorId: params.contractorId,
+      file,
+      index,
+    });
+    if (!url) continue;
+    mediaRows.push({
+      mediaType: "uploaded_photo",
+      url,
+      caption: file.name || `Reference photo ${index + 1}`,
+      displayOrder: mediaRows.length,
+    });
+  }
+
+  if (mediaRows.length === 0) return null;
+
+  const { error } = await admin.from("address_quote_media").insert(
+    mediaRows.map((media) => ({
+      address_quote_id: params.quoteId,
+      contractor_id: params.contractorId,
+      media_type: media.mediaType,
+      url: media.url,
+      caption: media.caption,
+      display_order: media.displayOrder,
+    }))
+  );
+
+  if (error) {
+    console.error("Address quote media save failed:", error);
+    return null;
+  }
+
+  return mediaRows.find((media) => media.mediaType === "map_snapshot")?.url || null;
 }
 
 async function ensurePropertyAddress(params: {
@@ -565,6 +742,13 @@ export async function createManualAddressQuote(
   const mapSnapshotValue =
     getString(formData, "mapSnapshotUrl") ||
     getString(formData, "mapSnapshotDataUrl");
+  const mapSnapshotValues = Array.from(
+    new Set([
+      ...parseStringArray(getString(formData, "mapSnapshotUrlsJson")),
+      ...(mapSnapshotValue ? [mapSnapshotValue] : []),
+    ])
+  );
+  const evidenceImages = getQuoteEvidenceImages(formData);
   const areaMeasurements = submittedMeasurements.filter(
     (measurement) => measurement.measurementType === "polygon_area"
   );
@@ -674,10 +858,12 @@ export async function createManualAddressQuote(
     redirect("/bidder/address-quotes/new?error=save");
   }
 
-  const mapSnapshotUrl = await uploadMapSnapshot({
+  const mapSnapshotUrl = await replaceQuoteMedia({
     quoteId: quote.id,
     contractorId: user.id,
-    snapshotValue: mapSnapshotValue,
+    mapSnapshotValues,
+    existingMedia: [],
+    evidenceImages,
   });
 
   if (mapSnapshotUrl) {
@@ -748,6 +934,52 @@ export async function updateContractorAddressQuote(
   const pricingLineItems = parsePricingLineItems(
     getString(formData, "pricingLineItemsJson")
   );
+  const mapMeasuredAreaSqft = parsePositiveNumber(
+    getString(formData, "mapMeasuredAreaSqft")
+  );
+  const submittedMeasurements = parseMeasurements(
+    getString(formData, "measurementsJson")
+  );
+  const mapSnapshotValue =
+    getString(formData, "mapSnapshotUrl") ||
+    getString(formData, "mapSnapshotDataUrl");
+  const mapSnapshotValues = Array.from(
+    new Set([
+      ...parseStringArray(getString(formData, "mapSnapshotUrlsJson")),
+      ...(mapSnapshotValue ? [mapSnapshotValue] : []),
+    ])
+  );
+  const existingMedia = parseExistingQuoteMedia(
+    getString(formData, "existingQuoteMediaJson")
+  );
+  const evidenceImages = getQuoteEvidenceImages(formData);
+  const areaMeasurements = submittedMeasurements.filter(
+    (measurement) => measurement.measurementType === "polygon_area"
+  );
+  const lineMeasurements = submittedMeasurements.filter(
+    (measurement) => measurement.measurementType === "linear_length"
+  );
+  const savedAreaTotalSqft =
+    areaMeasurements.length > 0
+      ? Math.round(
+          areaMeasurements.reduce(
+            (total, measurement) => total + (measurement.areaSqft || 0),
+            0
+          ) * 100
+        ) / 100
+      : null;
+  const savedLengthTotalFt =
+    lineMeasurements.length > 0
+      ? Math.round(
+          lineMeasurements.reduce(
+            (total, measurement) => total + (measurement.lengthFt || 0),
+            0
+          ) * 100
+        ) / 100
+      : null;
+  const measuredAreaSqft = savedAreaTotalSqft ?? mapMeasuredAreaSqft;
+  const measurementSource =
+    submittedMeasurements.length > 0 || mapMeasuredAreaSqft ? "map_drawn" : "manual";
   const pricingLineItemsTotal = Math.round(
     pricingLineItems.reduce((total, item) => total + item.lineTotal, 0) * 100
   ) / 100;
@@ -768,7 +1000,7 @@ export async function updateContractorAddressQuote(
   const admin = createAdminClient();
   const { data: existingQuote } = await admin
     .from("address_quotes")
-    .select("id, property_address_id, contractor_id, status")
+    .select("id, property_address_id, contractor_id, status, map_snapshot_url")
     .eq("id", quoteId)
     .eq("contractor_id", user.id)
     .is("removed_at", null)
@@ -785,6 +1017,36 @@ export async function updateContractorAddressQuote(
       : shouldPublish
         ? undefined
         : null;
+  const mapSnapshotUrl = await replaceQuoteMedia({
+    quoteId,
+    contractorId: user.id,
+    mapSnapshotValues,
+    existingMedia,
+    evidenceImages,
+  });
+  const measurementSnapshot =
+    measuredAreaSqft !== null || savedLengthTotalFt !== null
+      ? {
+          measuredAreaSqft,
+          measuredLengthFt: savedLengthTotalFt,
+          unit: "mixed",
+          source: measurementSource,
+          areas:
+            areaMeasurements.length > 0
+              ? areaMeasurements.map((measurement) => ({
+                  label: measurement.label,
+                  areaSqft: measurement.areaSqft,
+                }))
+              : undefined,
+          lines:
+            lineMeasurements.length > 0
+              ? lineMeasurements.map((measurement) => ({
+                  label: measurement.label,
+                  lengthFt: measurement.lengthFt,
+                }))
+              : undefined,
+        }
+      : {};
 
   const updatePayload: Record<string, unknown> = {
     service_vertical: serviceVertical as AddressQuoteServiceVertical,
@@ -793,6 +1055,10 @@ export async function updateContractorAddressQuote(
     summary,
     scope_notes: scopeNotes,
     quote_total_cents: quoteTotalCents,
+    map_snapshot_url: mapSnapshotValues.length > 0
+      ? mapSnapshotUrl || existingQuote.map_snapshot_url || null
+      : null,
+    measurement_snapshot_json: measurementSnapshot,
     pricing_snapshot_json: {
       quoteTotalCents,
       source: "contractor_manual",
@@ -817,9 +1083,50 @@ export async function updateContractorAddressQuote(
     redirect(`/bidder/address-quotes/${quoteId}/edit?error=save`);
   }
 
+  const measurementIdByClientId = new Map<string, string>();
+  await admin
+    .from("address_quote_measurements")
+    .delete()
+    .eq("address_quote_id", quoteId);
+
+  if (submittedMeasurements.length > 0) {
+    const { data: insertedMeasurements } = await admin
+      .from("address_quote_measurements")
+      .insert(
+        submittedMeasurements.map((measurement) => ({
+          address_quote_id: quoteId,
+          measurement_type: measurement.measurementType,
+          label: measurement.label,
+          geometry_geojson: measurement.geometryGeojson,
+          area_sqft: measurement.areaSqft || null,
+          length_ft: measurement.lengthFt || null,
+          source: "map_drawn",
+          confidence: "contractor_confirmed",
+        }))
+      )
+      .select("id");
+
+    (insertedMeasurements || []).forEach((insertedMeasurement, index) => {
+      const clientId = submittedMeasurements[index]?.clientId;
+      if (clientId) measurementIdByClientId.set(clientId, insertedMeasurement.id);
+    });
+  } else if (measuredAreaSqft !== null) {
+    await admin.from("address_quote_measurements").insert({
+      address_quote_id: quoteId,
+      measurement_type: "manual_area",
+      label: "Map measured area",
+      geometry_geojson: null,
+      area_sqft: measuredAreaSqft,
+      length_ft: null,
+      source: measurementSource,
+      confidence: "contractor_confirmed",
+    });
+  }
+
   await replacePricingLineItems({
     quoteId,
     pricingLineItems,
+    measurementIdByClientId,
   });
 
   revalidatePath("/bidder/address-quotes");

@@ -6,6 +6,7 @@ import { BADGE_CONFIG } from "@/lib/badges";
 import { TRADE_LABELS, type BadgeLevel, type TradeCategory } from "@/types/database";
 import ProfileForm from "@/components/profile/ProfileForm";
 import AvatarUpload from "@/components/profile/AvatarUpload";
+import CompanyLogoUpload from "@/components/profile/CompanyLogoUpload";
 import PortfolioGallery from "@/components/profile/PortfolioGallery";
 import SocialLinksForm from "@/components/profile/SocialLinksForm";
 import { userHasRole } from "@/lib/auth/roles";
@@ -125,6 +126,13 @@ export default async function BidderProfilePage() {
             Member since {new Date(profile.created_at).toLocaleDateString()}
           </span>
         </div>
+      </div>
+
+      <div className="mb-8 rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
+        <CompanyLogoUpload
+          currentUrl={profile.company_logo_url}
+          businessName={profile.business_name}
+        />
       </div>
 
       {/* Profile Form */}

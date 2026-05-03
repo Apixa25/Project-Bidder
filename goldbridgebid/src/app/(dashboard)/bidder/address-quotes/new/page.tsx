@@ -133,6 +133,23 @@ export default async function NewBidderAddressQuotePage({
 
           <LawnAreaMeasurementMap />
 
+          <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-text-primary">
+              Reference Photos
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-text-secondary">
+              Add photos that help the customer understand exactly what property
+              or work area this quote references.
+            </p>
+            <input
+              name="quoteEvidenceImages"
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              multiple
+              className="mt-4 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text-primary file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-950"
+            />
+          </section>
+
           <AddressQuoteBidSheet />
 
           <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">

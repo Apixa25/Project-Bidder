@@ -124,6 +124,11 @@ export type AddressQuoteRemovalRequestStatus =
   | "rejected"
   | "restored";
 
+export type AddressQuoteMediaType =
+  | "map_snapshot"
+  | "uploaded_photo"
+  | "street_view";
+
 export type EstimatePackageStatus = "draft" | "published" | "archived";
 
 export type EstimatePackageType =
@@ -341,6 +346,7 @@ export interface Profile {
   zip: string;
   bio: string | null;
   avatar_url: string | null;
+  company_logo_url: string | null;
   website_url: string | null;
   facebook_url: string | null;
   linkedin_url: string | null;
@@ -1049,6 +1055,17 @@ export interface AddressQuotePricingLineItem {
   updated_at: string;
 }
 
+export interface AddressQuoteMedia {
+  id: string;
+  address_quote_id: string;
+  contractor_id: string;
+  media_type: AddressQuoteMediaType;
+  url: string;
+  caption: string | null;
+  display_order: number;
+  created_at: string;
+}
+
 export interface AddressQuoteRequest {
   id: string;
   property_address_id: string;
@@ -1117,6 +1134,7 @@ type ProfileInsert = {
   business_name?: string | null;
   bio?: string | null;
   avatar_url?: string | null;
+  company_logo_url?: string | null;
   website_url?: string | null;
   facebook_url?: string | null;
   linkedin_url?: string | null;
@@ -1535,6 +1553,15 @@ type AddressQuotePricingLineItemInsert = {
   line_total?: number;
   display_order?: number;
   is_custom?: boolean;
+};
+
+type AddressQuoteMediaInsert = {
+  address_quote_id: string;
+  contractor_id: string;
+  media_type: AddressQuoteMediaType;
+  url: string;
+  caption?: string | null;
+  display_order?: number;
 };
 
 type AddressQuoteRequestInsert = {
@@ -1998,6 +2025,14 @@ export interface Database {
         Insert: AddressQuotePricingLineItemInsert;
         Update: Partial<
           Omit<AddressQuotePricingLineItemInsert, "address_quote_id">
+        >;
+        Relationships: [];
+      };
+      address_quote_media: {
+        Row: AddressQuoteMedia;
+        Insert: AddressQuoteMediaInsert;
+        Update: Partial<
+          Omit<AddressQuoteMediaInsert, "address_quote_id" | "contractor_id">
         >;
         Relationships: [];
       };
