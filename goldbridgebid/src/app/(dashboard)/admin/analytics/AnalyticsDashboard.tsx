@@ -310,7 +310,7 @@ export default function AnalyticsDashboard({
       {/* Tables Row: Geographic + Top Projects */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <ChartCard title="Geographic Distribution">
-          <div className="max-h-72 overflow-y-auto">
+          <div className="max-h-72 overflow-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left">
@@ -355,7 +355,7 @@ export default function AnalyticsDashboard({
         </ChartCard>
 
         <ChartCard title="Top Projects by Bid Count">
-          <div className="max-h-72 overflow-y-auto">
+          <div className="max-h-72 overflow-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left">

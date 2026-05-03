@@ -52,7 +52,7 @@ export default async function CustomerConversationPage({
     : otherProfile?.full_name || "Unknown User";
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
+    <div className="flex h-[calc(100svh-12rem)] min-h-[420px] flex-col sm:h-[calc(100vh-8rem)]">
       <Link
         href="/customer/messages"
         className="mb-4 inline-flex items-center gap-1 text-sm text-text-muted hover:text-text-primary transition-colors"
@@ -61,7 +61,7 @@ export default async function CustomerConversationPage({
         Back to Messages
       </Link>
 
-      <div className="flex-1 rounded-xl border border-border bg-bg-warm shadow-sm overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-bg-warm shadow-sm">
         <ConversationView
           projectId={projectId}
           projectTitle={project.title}

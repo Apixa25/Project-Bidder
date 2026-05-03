@@ -663,10 +663,10 @@ export default async function ProjectDetailPage({
                   ];
 
                   return (
-                    <div key={bid.id} className="p-6">
+                    <div key={bid.id} className="p-4 sm:p-6">
                       {/* Bidder Header */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
+                      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex min-w-0 items-start gap-3">
                           <Link
                             href={`/profile/${bid.bidder_id}`}
                             className="shrink-0"
@@ -685,11 +685,11 @@ export default async function ProjectDetailPage({
                               </div>
                             )}
                           </Link>
-                          <div>
-                            <div className="flex items-center gap-2">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
                               <Link
                                 href={`/profile/${bid.bidder_id}`}
-                                className="font-semibold text-text-primary hover:text-primary transition-colors"
+                                className="min-w-0 break-words font-semibold text-text-primary transition-colors hover:text-primary"
                               >
                                 {profile?.full_name || "Unknown Bidder"}
                               </Link>
@@ -703,7 +703,7 @@ export default async function ProjectDetailPage({
                               )}
                             </div>
                             {profile?.business_name && (
-                              <p className="text-sm text-text-muted">
+                              <p className="break-words text-sm text-text-muted">
                                 {profile.business_name}
                               </p>
                             )}
@@ -722,14 +722,14 @@ export default async function ProjectDetailPage({
                             )}
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="rounded-lg bg-bg-warm px-4 py-3 sm:bg-transparent sm:px-0 sm:py-0 sm:text-right">
                           {project.awarded_bid_id === bid.id && (
                             <span className="mb-2 inline-flex items-center rounded-full bg-secondary/15 px-2.5 py-0.5 text-xs font-semibold text-secondary">
                               Winning Bid
                             </span>
                           )}
                           {claim && (
-                            <div className="mb-2 flex flex-col items-end gap-1">
+                            <div className="mb-2 flex flex-col items-start gap-1 sm:items-end">
                               <span
                                 className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                                   claim.claim_status === "paid_reserved"

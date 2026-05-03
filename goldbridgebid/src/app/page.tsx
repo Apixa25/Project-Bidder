@@ -179,24 +179,24 @@ export default function Home() {
               <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <Link
                   href="/signup?role=customer"
-                  className="flex items-center gap-2 rounded-lg bg-[#eab308] px-8 py-3.5 text-base font-semibold text-slate-950 shadow-lg transition-colors hover:bg-[#fde047]"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#eab308] px-5 py-3.5 text-center text-sm font-semibold text-slate-950 shadow-lg transition-colors hover:bg-[#fde047] sm:w-auto sm:px-8 sm:text-base"
                 >
                   Post a Project / Make a Customer Account
-                  <ArrowRight className="h-5 w-5" />
+                  <ArrowRight className="h-5 w-5 shrink-0" />
                 </Link>
                 <Link
                   href="/address-quotes"
-                  className="flex items-center gap-2 rounded-lg border-2 border-[#eab308]/70 bg-[#eab308]/10 px-8 py-3.5 text-base font-semibold text-[#fde047] shadow-lg transition-colors hover:bg-[#eab308]/20"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-[#eab308]/70 bg-[#eab308]/10 px-5 py-3.5 text-center text-sm font-semibold text-[#fde047] shadow-lg transition-colors hover:bg-[#eab308]/20 sm:w-auto sm:px-8 sm:text-base"
                 >
                   Search Address Quotes
-                  <ArrowRight className="h-5 w-5" />
+                  <ArrowRight className="h-5 w-5 shrink-0" />
                 </Link>
                 <Link
                   href="/signup?role=bidder"
-                  className="flex items-center gap-2 rounded-lg border-2 border-white/30 bg-white/10 px-8 py-3.5 text-base font-semibold text-white shadow-lg hover:bg-white/20 transition-colors backdrop-blur-sm"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-white/30 bg-white/10 px-5 py-3.5 text-center text-sm font-semibold text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-white/20 sm:w-auto sm:px-8 sm:text-base"
                 >
                   Look For Work / Make a Contractor Account
-                  <ArrowRight className="h-5 w-5" />
+                  <ArrowRight className="h-5 w-5 shrink-0" />
                 </Link>
               </div>
               <div className="mt-8 flex justify-center">

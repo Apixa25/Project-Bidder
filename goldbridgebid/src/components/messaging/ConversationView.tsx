@@ -69,15 +69,17 @@ export default function ConversationView({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b border-border bg-surface px-6 py-4">
-        <h2 className="font-semibold text-text-primary">{otherUserName}</h2>
-        <p className="text-xs text-text-muted">
+      <div className="border-b border-border bg-surface px-4 py-3 sm:px-6 sm:py-4">
+        <h2 className="break-words font-semibold text-text-primary">
+          {otherUserName}
+        </h2>
+        <p className="break-words text-xs text-text-muted">
           Re: {projectTitle}
         </p>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+      <div className="flex-1 space-y-3 overflow-y-auto px-3 py-4 sm:px-6">
         {messages.length === 0 && (
           <p className="text-center text-sm text-text-muted py-12">
             No messages yet. Start the conversation!
@@ -91,13 +93,15 @@ export default function ConversationView({
               className={`flex ${isMine ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${
+                className={`max-w-[88%] rounded-2xl px-4 py-2.5 sm:max-w-[70%] ${
                   isMine
                     ? "bg-secondary text-white rounded-br-md"
                     : "bg-surface border border-border text-text-primary rounded-bl-md"
                 }`}
               >
-                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                <p className="whitespace-pre-wrap break-words text-sm">
+                  {msg.content}
+                </p>
                 <p
                   className={`mt-1 text-xs ${
                     isMine ? "text-white/60" : "text-text-muted"
@@ -118,7 +122,7 @@ export default function ConversationView({
       {/* Input */}
       <form
         onSubmit={handleSend}
-        className="border-t border-border bg-surface px-6 py-4"
+        className="border-t border-border bg-surface px-3 py-3 sm:px-6 sm:py-4"
       >
         <div className="flex items-center gap-3">
           <input

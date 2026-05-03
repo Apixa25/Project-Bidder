@@ -61,7 +61,7 @@ function LoginForm() {
         </div>
       )}
 
-      <div className="rounded-xl border border-border bg-surface p-8 shadow-sm">
+      <div className="rounded-xl border border-border bg-surface p-5 shadow-sm sm:p-8">
         <p className="mb-3 text-center text-sm font-medium text-text-primary">
           Continue with Google — fastest way to sign in
         </p>
@@ -170,7 +170,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-bg-warm px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-bg-warm px-4 py-8">
       <Suspense
         fallback={
           <div className="flex items-center gap-2 text-text-muted">

@@ -93,10 +93,15 @@ export default async function BidderMessagesPage() {
                   <MessageSquare className="h-5 w-5 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold text-text-primary truncate">
                       {profile?.full_name || "Unknown User"}
                     </h3>
+                    {profile?.business_name && (
+                      <span className="min-w-0 truncate text-xs text-text-muted">
+                        ({profile.business_name})
+                      </span>
+                    )}
                     {conv.unreadCount > 0 && (
                       <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-slate-950">
                         {conv.unreadCount}

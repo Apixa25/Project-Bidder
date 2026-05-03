@@ -112,7 +112,7 @@ export default async function MyProjectsPage({
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
             My Projects 📋
@@ -123,7 +123,7 @@ export default async function MyProjectsPage({
         </div>
         <Link
           href="/customer/projects/new"
-          className="flex items-center gap-2 rounded-lg bg-accent-light px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-110"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-accent-light px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-110 sm:w-auto sm:py-2.5"
         >
           <Plus className="h-4 w-4" />
           Post New Project
@@ -195,7 +195,7 @@ export default async function MyProjectsPage({
               {/* Print button overlay — sits ABOVE the card link so clicking
                   it opens the printable summary instead of navigating into
                   the project. Reveals on hover for a clean default look. */}
-              <div className="pointer-events-none absolute right-4 top-4 z-10 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="pointer-events-none absolute right-4 top-4 z-10 hidden opacity-0 transition-opacity group-hover:opacity-100 sm:block">
                 <div className="pointer-events-auto">
                   <PrintProjectButton
                     projectId={project.id}
@@ -207,11 +207,11 @@ export default async function MyProjectsPage({
               </div>
             <Link
               href={`/customer/projects/${project.id}`}
-              className="block rounded-xl border border-border bg-surface p-6 shadow-sm hover:shadow-md hover:border-primary/30 transition-all"
+              className="block rounded-xl border border-border bg-surface p-4 shadow-sm transition-all hover:border-primary/30 hover:shadow-md sm:p-6"
             >
-              <div className="flex items-start gap-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
                 {/* Project Thumbnail */}
-                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-border bg-bg-warm">
+                <div className="relative h-44 w-full overflow-hidden rounded-lg border border-border bg-bg-warm sm:h-20 sm:w-20 sm:shrink-0">
                   {thumbUrl ? (
                     <img
                       src={thumbUrl}
@@ -231,8 +231,8 @@ export default async function MyProjectsPage({
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-lg font-semibold text-text-primary truncate">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                    <h2 className="text-lg font-semibold leading-tight text-text-primary sm:truncate">
                       {project.title}
                     </h2>
                     <span
@@ -318,8 +318,8 @@ export default async function MyProjectsPage({
                   </div>
                 </div>
 
-                <div className="ml-6 text-center shrink-0">
-                  <p className="text-3xl font-bold text-text-primary">
+                <div className="rounded-lg bg-bg-warm px-4 py-3 text-center sm:ml-6 sm:shrink-0 sm:bg-transparent sm:px-0 sm:py-0">
+                  <p className="text-2xl font-bold text-text-primary sm:text-3xl">
                     {bidsShown}
                   </p>
                   <p className="text-xs text-text-muted">

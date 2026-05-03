@@ -336,7 +336,7 @@ export default function BidForm({
       <button
         type="submit"
         disabled={submitting}
-        className="w-full rounded-lg bg-secondary px-6 py-3 text-base font-bold text-white shadow-sm hover:bg-secondary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="flex w-full items-center justify-center gap-2 whitespace-normal rounded-lg bg-secondary px-3 py-3 text-center text-sm font-bold text-white shadow-sm transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:text-base"
       >
         {submitting ? (
           <>

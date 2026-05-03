@@ -101,7 +101,7 @@ export default async function BidderDashboard() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
             Welcome back, {profile.full_name.split(" ")[0]}! 👷
@@ -112,7 +112,7 @@ export default async function BidderDashboard() {
         </div>
         <Link
           href="/bidder/projects"
-          className="flex items-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-secondary-dark transition-colors"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-secondary-dark sm:w-auto sm:py-2.5"
         >
           <FolderOpen className="h-4 w-4" />
           Browse Projects
@@ -122,8 +122,8 @@ export default async function BidderDashboard() {
       {/* Badge & Credential Status */}
       {credentials && (
         <div className="mb-8 rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
               {badgeInfo ? (
                 <div
                   className={`flex items-center gap-2 rounded-full ${badgeInfo.bgColor} px-4 py-2`}
@@ -148,7 +148,7 @@ export default async function BidderDashboard() {
             </div>
             <Link
               href="/bidder/credentials"
-              className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-dark transition-colors"
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-colors hover:text-primary-dark"
             >
               Manage Credentials
               <ArrowRight className="h-4 w-4" />
@@ -270,7 +270,7 @@ export default async function BidderDashboard() {
 
       {/* Recent Bids */}
       <div className="rounded-xl border border-border bg-surface shadow-sm">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
           <h2 className="text-lg font-semibold text-text-primary">
             Recent Bids
           </h2>
@@ -301,7 +301,7 @@ export default async function BidderDashboard() {
               return (
                 <div
                   key={bid.id}
-                  className="flex items-center justify-between px-6 py-4 hover:bg-surface-hover transition-colors"
+                  className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-surface-hover sm:flex-row sm:items-center sm:justify-between sm:px-6"
                 >
                   <div className="min-w-0 flex-1">
                     <h3 className="text-sm font-medium text-text-primary truncate">
@@ -313,7 +313,7 @@ export default async function BidderDashboard() {
                       {new Date(bid.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <div className="ml-4 flex items-center gap-4">
+                  <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:ml-4 sm:w-auto sm:justify-start sm:gap-4">
                     <span className="text-money text-sm font-semibold">
                       ${Number(bid.price).toLocaleString()}
                     </span>

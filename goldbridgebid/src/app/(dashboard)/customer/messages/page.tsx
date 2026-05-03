@@ -89,18 +89,18 @@ export default async function CustomerMessagesPage() {
               <Link
                 key={`${conv.projectId}:${conv.otherUserId}`}
                 href={`/customer/messages/${conv.projectId}/${conv.otherUserId}`}
-                className="flex items-center gap-4 px-6 py-4 hover:bg-surface-hover transition-colors"
+                className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-surface-hover sm:flex-row sm:items-center sm:gap-4 sm:px-6"
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary/10 shrink-0">
                   <MessageSquare className="h-5 w-5 text-secondary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold text-text-primary truncate">
                       {profile?.full_name || "Unknown User"}
                     </h3>
                     {profile?.business_name && (
-                      <span className="text-xs text-text-muted">
+                      <span className="min-w-0 truncate text-xs text-text-muted">
                         ({profile.business_name})
                       </span>
                     )}
@@ -118,7 +118,7 @@ export default async function CustomerMessagesPage() {
                     {conv.lastMessage}
                   </p>
                 </div>
-                <span className="shrink-0 text-xs text-text-muted">
+                <span className="text-xs text-text-muted sm:shrink-0">
                   {new Date(conv.lastDate).toLocaleDateString()}
                 </span>
               </Link>

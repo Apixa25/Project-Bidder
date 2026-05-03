@@ -421,8 +421,8 @@ export default function NewProjectPage() {
         </p>
       </div>
 
-      <section className="mb-6 rounded-xl border border-border bg-surface p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
+      <section className="mb-6 rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
               Project Type
@@ -507,7 +507,7 @@ export default function NewProjectPage() {
           value={serializedDraftCustomScopeItems}
         />
         {/* Project Basics */}
-        <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
           <h2 className="mb-5 text-lg font-semibold text-text-primary">
             Project Details
           </h2>
@@ -802,7 +802,7 @@ export default function NewProjectPage() {
               type="button"
               onClick={handleAiScopeCheck}
               disabled={aiLoading}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-primary-dark disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-primary-dark disabled:opacity-60 sm:w-auto"
             >
               {aiLoading ? (
                 <>
@@ -1103,7 +1103,7 @@ export default function NewProjectPage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-border bg-surface p-6 shadow-sm ring-1 ring-amber-200">
+        <section className="rounded-xl border border-border bg-surface p-4 shadow-sm ring-1 ring-amber-200 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
@@ -1454,7 +1454,7 @@ export default function NewProjectPage() {
         </section>
 
         {/* Submit */}
-        <div className="flex items-center justify-between rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <p className="text-sm text-text-muted">
             {enablePaidEstimate
               ? "Your project will be posted first, then Stripe Checkout will open so you can fund the paid estimate offer."
@@ -1463,7 +1463,7 @@ export default function NewProjectPage() {
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center gap-2 rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-slate-950 shadow-sm hover:bg-primary-dark transition-colors disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-slate-950 shadow-sm transition-colors hover:bg-primary-dark disabled:opacity-60 sm:w-auto sm:px-8"
           >
             {compressing ? (
               <>

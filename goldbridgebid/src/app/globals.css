@@ -54,13 +54,27 @@
 body {
   background: var(--color-bg-warm);
   color: var(--color-text-primary);
+  overflow-x: clip;
 }
 
 .text-money {
   color: var(--color-secondary);
 }
 
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* Rich text editor & renderer styles */
+.rich-text-display,
+.tiptap {
+  overflow-wrap: anywhere;
+}
+
 .rich-text-display h2 {
   font-size: 1.25rem;
   font-weight: 700;

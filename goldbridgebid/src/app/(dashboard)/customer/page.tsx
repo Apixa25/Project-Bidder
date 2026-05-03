@@ -71,17 +71,17 @@ export default async function CustomerDashboard() {
             Here&apos;s what&apos;s happening with your projects.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="grid gap-3 sm:flex sm:flex-wrap">
           <Link
             href="/customer/contractors"
-            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-5 py-2.5 text-sm font-semibold text-text-primary shadow-sm hover:bg-surface-hover transition-colors"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface px-5 py-3 text-sm font-semibold text-text-primary shadow-sm transition-colors hover:bg-surface-hover sm:py-2.5"
           >
             <Users className="h-4 w-4" />
             Find Contractors
           </Link>
           <Link
             href="/customer/projects/new"
-            className="flex items-center gap-2 rounded-lg bg-accent-light px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-110"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent-light px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:brightness-110 sm:py-2.5"
           >
             <Plus className="h-4 w-4" />
             Post New Project
@@ -147,7 +147,7 @@ export default async function CustomerDashboard() {
 
       {/* Recent Projects */}
       <div className="rounded-xl border border-border bg-surface shadow-sm">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
           <h2 className="text-lg font-semibold text-text-primary">
             Recent Projects
           </h2>
@@ -171,7 +171,7 @@ export default async function CustomerDashboard() {
                 <Link
                   key={project.id}
                   href={`/customer/projects/${project.id}`}
-                  className="flex items-center gap-4 px-6 py-4 hover:bg-surface-hover transition-colors"
+                  className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-surface-hover sm:flex-row sm:items-center sm:gap-4 sm:px-6"
                 >
                   {/* Project Thumbnail */}
                   <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border bg-bg-warm">
@@ -227,7 +227,7 @@ export default async function CustomerDashboard() {
                   </div>
 
                   {/* Status */}
-                  <div className="ml-4 flex items-center gap-4 shrink-0">
+                  <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:ml-4 sm:w-auto sm:shrink-0 sm:justify-start sm:gap-4">
                     <span className="text-sm font-medium text-text-secondary">
                       {bidsShown}{" "}
                       {bidsShown === 1 ? "bid" : "bids"}

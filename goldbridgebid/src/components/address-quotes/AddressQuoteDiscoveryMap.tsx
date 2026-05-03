@@ -135,7 +135,7 @@ export default function AddressQuoteDiscoveryMap({
       </div>
       <div
         ref={mapContainerRef}
-        className="h-[420px] w-full bg-bg-warm"
+        className="h-[320px] w-full bg-bg-warm sm:h-[420px]"
         aria-label="Map of addresses with public quotes"
       />
       {markers.length === 0 && (

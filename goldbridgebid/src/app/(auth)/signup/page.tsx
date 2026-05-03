@@ -75,7 +75,7 @@ function SignupForm() {
         <button
           type="button"
           onClick={() => setRole("customer")}
-          className={`group flex flex-col items-center gap-3 rounded-xl border-2 p-6 text-center transition-all ${
+          className={`group flex flex-col items-center gap-3 rounded-xl border-2 p-4 text-center transition-all sm:p-6 ${
             role === "customer"
               ? "border-primary bg-primary/5"
               : "border-border bg-surface hover:border-primary/40"
@@ -92,7 +92,7 @@ function SignupForm() {
         <button
           type="button"
           onClick={() => setRole("bidder")}
-          className={`group flex flex-col items-center gap-3 rounded-xl border-2 p-6 text-center transition-all ${
+          className={`group flex flex-col items-center gap-3 rounded-xl border-2 p-4 text-center transition-all sm:p-6 ${
             role === "bidder"
               ? "border-secondary bg-secondary/5"
               : "border-border bg-surface hover:border-secondary/40"
@@ -109,7 +109,7 @@ function SignupForm() {
         <button
           type="button"
           onClick={() => setRole("estimator")}
-          className={`group flex flex-col items-center gap-3 rounded-xl border-2 p-6 text-center transition-all ${
+          className={`group flex flex-col items-center gap-3 rounded-xl border-2 p-4 text-center transition-all sm:p-6 ${
             role === "estimator"
               ? "border-accent bg-accent/5"
               : "border-border bg-surface hover:border-accent/40"
@@ -131,7 +131,7 @@ function SignupForm() {
         </div>
       )}
 
-      <div className="rounded-xl border border-border bg-surface p-8 shadow-sm">
+      <div className="rounded-xl border border-border bg-surface p-5 shadow-sm sm:p-8">
         <p className="mb-3 text-center text-sm font-medium text-text-primary">
           Continue with Google — fastest way to get started
         </p>
