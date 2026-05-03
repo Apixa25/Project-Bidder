@@ -9,6 +9,7 @@ import { userHasRole } from "@/lib/auth/roles";
 import {
   ADDRESS_QUOTE_SERVICE_LABELS,
   isAddressQuoteServiceVertical,
+  isAddressQuoteRequestServiceVertical,
   type AddressQuoteServiceVertical,
 } from "@/lib/address-quotes/service-verticals";
 import type {
@@ -19,6 +20,7 @@ import type {
 } from "@/types/database";
 
 const MAX_ACTIVE_ADDRESS_CLAIMS = 3;
+const MAX_CUSTOMER_ADDRESS_CLAIMS = 1;
 const NEARBY_QUOTE_SEARCH_RADIUS_METERS = 350;
 
 function normalizeAddress(value: string) {
@@ -137,7 +139,7 @@ function getRequestedServices(formData: FormData) {
   return formData
     .getAll("services")
     .filter((value): value is string => typeof value === "string")
-    .filter(isAddressQuoteServiceVertical);
+    .filter(isAddressQuoteRequestServiceVertical);
 }
 
 type SubmittedMeasurement = {
@@ -840,6 +842,19 @@ async function hasVerifiedAddressClaim(userId: string, propertyAddressId: string
   return Boolean(data);
 }
 
+async function hasCustomerAddressAccess(userId: string, propertyAddressId: string) {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("property_address_claims")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("property_address_id", propertyAddressId)
+    .in("status", ["pending", "verified"])
+    .maybeSingle();
+
+  return Boolean(data);
+}
+
 export async function searchPublicAddressQuotes(formData: FormData) {
   const displayAddress = getString(formData, "displayAddress");
   const address = await ensurePropertyAddress({
@@ -888,23 +903,32 @@ export async function claimPropertyAddress(
   }
 
   const admin = createAdminClient();
-  const { count } = await admin
+  const isCustomer = await userHasRole(user.id, "customer");
+  const { data: activeClaims } = await admin
     .from("property_address_claims")
-    .select("*", { count: "exact", head: true })
+    .select("id, property_address_id")
     .eq("user_id", user.id)
     .in("status", ["pending", "verified"]);
+  const existingClaimForAddress = (activeClaims || []).find(
+    (claim) => claim.property_address_id === propertyAddressId
+  );
+  const claimLimit = isCustomer
+    ? MAX_CUSTOMER_ADDRESS_CLAIMS
+    : MAX_ACTIVE_ADDRESS_CLAIMS;
 
-  if ((count || 0) >= MAX_ACTIVE_ADDRESS_CLAIMS) {
+  if ((activeClaims || []).length >= claimLimit && !existingClaimForAddress) {
     redirect(`/address-quotes/${propertyAddressId}?error=claim-limit`);
   }
 
+  const now = new Date().toISOString();
   const { error } = await admin.from("property_address_claims").upsert(
     {
       property_address_id: propertyAddressId,
       user_id: user.id,
-      status: "pending",
-      verification_method: "admin_review",
+      status: isCustomer ? "verified" : "pending",
+      verification_method: isCustomer ? "manual_admin" : "admin_review",
       evidence_notes: evidenceNotes,
+      verified_at: isCustomer ? now : null,
     },
     { onConflict: "property_address_id,user_id" }
   );
@@ -915,7 +939,11 @@ export async function claimPropertyAddress(
   }
 
   revalidatePath(`/address-quotes/${propertyAddressId}`);
-  redirect(`/address-quotes/${propertyAddressId}?claim=pending`);
+  redirect(
+    `/address-quotes/${propertyAddressId}?claim=${
+      isCustomer ? "verified" : "pending"
+    }`
+  );
 }
 
 export async function requestQuotesForClaimedAddress(
@@ -923,6 +951,7 @@ export async function requestQuotesForClaimedAddress(
 ): Promise<void> {
   const user = await requireUser();
   if (!user) redirect("/login");
+  if (!(await userHasRole(user.id, "customer"))) redirect("/login");
 
   const propertyAddressId = getString(formData, "propertyAddressId");
   const services = getRequestedServices(formData);
@@ -932,7 +961,7 @@ export async function requestQuotesForClaimedAddress(
     redirect(`/address-quotes/${propertyAddressId}?error=services`);
   }
 
-  if (!(await hasVerifiedAddressClaim(user.id, propertyAddressId))) {
+  if (!(await hasCustomerAddressAccess(user.id, propertyAddressId))) {
     redirect(`/address-quotes/${propertyAddressId}?error=claim-required`);
   }
 
@@ -953,6 +982,259 @@ export async function requestQuotesForClaimedAddress(
 
   revalidatePath(`/address-quotes/${propertyAddressId}`);
   redirect(`/address-quotes/${propertyAddressId}?request=created`);
+}
+
+export async function createCustomerAddressQuoteRequest(
+  formData: FormData
+): Promise<void> {
+  const user = await requireUser();
+  if (!user) redirect("/login");
+
+  if (!(await userHasRole(user.id, "customer"))) {
+    redirect("/login");
+  }
+
+  const propertyAddressId = getString(formData, "propertyAddressId");
+  const services = getRequestedServices(formData);
+
+  if (!propertyAddressId) {
+    redirect("/customer/address-requests?error=address");
+  }
+  if (services.length === 0) {
+    redirect("/customer/address-requests?error=services");
+  }
+
+  if (!(await hasCustomerAddressAccess(user.id, propertyAddressId))) {
+    redirect("/customer/address-requests?error=claim-required");
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("address_quote_requests").insert({
+    property_address_id: propertyAddressId,
+    requester_user_id: user.id,
+    requester_email: user.email || null,
+    requested_services_json: services,
+    notes: getOptionalString(formData, "notes"),
+    status: "open",
+  });
+
+  if (error) {
+    console.error("Customer address quote request failed:", error);
+    redirect("/customer/address-requests?error=request");
+  }
+
+  revalidatePath("/customer/address-requests");
+  revalidatePath(`/address-quotes/${propertyAddressId}`);
+  redirect("/customer/address-requests?request=created");
+}
+
+export async function saveCustomerAddressForRequests(
+  formData: FormData
+): Promise<void> {
+  const user = await requireUser();
+  if (!user) redirect("/login");
+  if (!(await userHasRole(user.id, "customer"))) redirect("/login");
+
+  const displayAddress = getString(formData, "displayAddress");
+  const street = getOptionalString(formData, "street");
+  const city = getOptionalString(formData, "city");
+  const state = getOptionalString(formData, "state");
+  const zip = getOptionalString(formData, "zip");
+  const mapLatitude = parseCoordinate(getString(formData, "mapLatitude"));
+  const mapLongitude = parseCoordinate(getString(formData, "mapLongitude"));
+
+  const address = await ensurePropertyAddress({
+    displayAddress,
+    street,
+    city,
+    state,
+    zip,
+    latitude: mapLatitude,
+    longitude: mapLongitude,
+    source: "customer_entry",
+  });
+
+  if (!address) {
+    redirect("/customer/address-requests?error=address");
+  }
+
+  const admin = createAdminClient();
+  const { data: activeClaims } = await admin
+    .from("property_address_claims")
+    .select("id, property_address_id")
+    .eq("user_id", user.id)
+    .in("status", ["pending", "verified"]);
+  const existingClaimForAddress = (activeClaims || []).find(
+    (claim) => claim.property_address_id === address.id
+  );
+
+  if (
+    (activeClaims || []).length >= MAX_CUSTOMER_ADDRESS_CLAIMS &&
+    !existingClaimForAddress
+  ) {
+    redirect("/customer/address-requests?error=address-limit");
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await admin.from("property_address_claims").upsert(
+    {
+      property_address_id: address.id,
+      user_id: user.id,
+      status: "verified",
+      verification_method: "manual_admin",
+      evidence_notes: "Customer saved this as their address request address.",
+      verified_at: now,
+    },
+    { onConflict: "property_address_id,user_id" }
+  );
+
+  if (error) {
+    console.error("Customer address save failed:", error);
+    redirect("/customer/address-requests?error=address");
+  }
+
+  revalidatePath("/customer/address-requests");
+  revalidatePath(`/address-quotes/${address.id}`);
+  redirect("/customer/address-requests?address=saved");
+}
+
+export async function submitAddressQuoteRequestResponse(
+  formData: FormData
+): Promise<void> {
+  const user = await requireUser();
+  if (!user) redirect("/login");
+  if (!(await userHasRole(user.id, "bidder"))) redirect("/login");
+
+  const requestId = getString(formData, "requestId");
+  const quoteTotalCents = parseDollarsToCents(getString(formData, "quoteTotalDollars"));
+  const timeline = getString(formData, "timeline");
+  const message = getOptionalString(formData, "message");
+
+  if (!requestId) redirect("/bidder/address-requests?error=request");
+  if (quoteTotalCents === null || quoteTotalCents <= 0) {
+    redirect(`/bidder/address-requests/${requestId}?error=price`);
+  }
+  if (!timeline) {
+    redirect(`/bidder/address-requests/${requestId}?error=timeline`);
+  }
+
+  const admin = createAdminClient();
+  const { data: request } = await admin
+    .from("address_quote_requests")
+    .select("id, property_address_id, status")
+    .eq("id", requestId)
+    .eq("status", "open")
+    .maybeSingle();
+
+  if (!request) {
+    redirect(`/bidder/address-requests/${requestId}?error=request`);
+  }
+
+  const { data: existingResponse } = await admin
+    .from("address_quote_request_responses")
+    .select("id")
+    .eq("request_id", requestId)
+    .eq("contractor_id", user.id)
+    .eq("status", "submitted")
+    .maybeSingle();
+
+  if (existingResponse) {
+    redirect(`/bidder/address-requests/${requestId}?error=duplicate`);
+  }
+
+  const { error } = await admin.from("address_quote_request_responses").insert({
+    request_id: requestId,
+    property_address_id: request.property_address_id,
+    contractor_id: user.id,
+    quote_total_cents: quoteTotalCents,
+    timeline,
+    message,
+    status: "submitted",
+  });
+
+  if (error) {
+    console.error("Address quote request response failed:", error);
+    redirect(`/bidder/address-requests/${requestId}?error=response`);
+  }
+
+  revalidatePath(`/bidder/address-requests/${requestId}`);
+  revalidatePath("/bidder/address-requests");
+  revalidatePath("/customer/address-requests");
+  redirect(`/bidder/address-requests/${requestId}?response=submitted`);
+}
+
+export async function selectAddressQuoteRequestResponse(
+  formData: FormData
+): Promise<void> {
+  const user = await requireUser();
+  if (!user) redirect("/login");
+  if (!(await userHasRole(user.id, "customer"))) redirect("/login");
+
+  const requestId = getString(formData, "requestId");
+  const responseId = getString(formData, "responseId");
+  if (!requestId || !responseId) {
+    redirect("/customer/address-requests?error=response");
+  }
+
+  const admin = createAdminClient();
+  const { data: request } = await admin
+    .from("address_quote_requests")
+    .select("id, requester_user_id, status")
+    .eq("id", requestId)
+    .eq("requester_user_id", user.id)
+    .maybeSingle();
+
+  if (!request || request.status !== "open") {
+    redirect("/customer/address-requests?error=request");
+  }
+
+  const { data: response } = await admin
+    .from("address_quote_request_responses")
+    .select("id")
+    .eq("id", responseId)
+    .eq("request_id", requestId)
+    .eq("status", "submitted")
+    .maybeSingle();
+
+  if (!response) {
+    redirect("/customer/address-requests?error=response");
+  }
+
+  const now = new Date().toISOString();
+  const { error: responseError } = await admin
+    .from("address_quote_request_responses")
+    .update({ status: "selected", selected_at: now })
+    .eq("id", responseId)
+    .eq("request_id", requestId);
+
+  if (responseError) {
+    console.error("Address quote response selection failed:", responseError);
+    redirect("/customer/address-requests?error=response");
+  }
+
+  await admin
+    .from("address_quote_request_responses")
+    .update({ status: "declined" })
+    .eq("request_id", requestId)
+    .eq("status", "submitted");
+
+  const { error: requestError } = await admin
+    .from("address_quote_requests")
+    .update({
+      status: "closed",
+      selected_response_id: responseId,
+    })
+    .eq("id", requestId)
+    .eq("requester_user_id", user.id);
+
+  if (requestError) {
+    console.error("Address quote request close failed:", requestError);
+    redirect("/customer/address-requests?error=request");
+  }
+
+  revalidatePath("/customer/address-requests");
+  revalidatePath("/bidder/address-requests");
+  redirect("/customer/address-requests?response=selected");
 }
 
 export async function removeQuoteFromClaimedAddress(

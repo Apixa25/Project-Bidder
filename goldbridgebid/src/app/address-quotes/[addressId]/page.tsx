@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { userHasRole } from "@/lib/auth/roles";
 import {
   claimPropertyAddress,
   removeQuoteFromClaimedAddress,
@@ -19,8 +20,9 @@ import {
 } from "@/lib/address-quotes/actions";
 import {
   ADDRESS_QUOTE_SERVICE_LABELS,
-  ADDRESS_QUOTE_SERVICE_VERTICALS,
-  type AddressQuoteServiceVertical,
+  ADDRESS_QUOTE_REQUEST_SERVICE_LABELS,
+  ADDRESS_QUOTE_REQUEST_SERVICE_VERTICALS,
+  formatAddressQuoteRequestServices,
 } from "@/lib/address-quotes/service-verticals";
 import { BrowserBackButton } from "@/components/BrowserBackButton";
 import type {
@@ -45,13 +47,7 @@ function formatMoney(cents: number | null) {
 }
 
 function formatServices(services: unknown) {
-  if (!Array.isArray(services)) return "Requested services";
-  return services
-    .filter((service): service is AddressQuoteServiceVertical =>
-      ADDRESS_QUOTE_SERVICE_VERTICALS.includes(service as AddressQuoteServiceVertical)
-    )
-    .map((service) => ADDRESS_QUOTE_SERVICE_LABELS[service])
-    .join(", ");
+  return formatAddressQuoteRequestServices(services);
 }
 
 function formatContractorAddress(contractor: Profile | undefined) {
@@ -172,7 +168,12 @@ export default async function AddressQuoteDetailPage({
     : { data: [] };
 
   const currentClaim = ((userClaims || []) as PropertyAddressClaim[])[0] || null;
+  const isCustomerUser = user ? await userHasRole(user.id, "customer") : false;
   const isVerifiedClaimant = currentClaim?.status === "verified";
+  const hasCustomerAddressAccess =
+    isVerifiedClaimant ||
+    (isCustomerUser &&
+      (currentClaim?.status === "pending" || currentClaim?.status === "verified"));
 
   const { count: activeClaimCount } = user
     ? await admin
@@ -182,7 +183,7 @@ export default async function AddressQuoteDetailPage({
         .in("status", ["pending", "verified"])
     : { count: 0 };
 
-  const { data: quoteRequests } = isVerifiedClaimant
+  const { data: quoteRequests } = hasCustomerAddressAccess
     ? await admin
         .from("address_quote_requests")
         .select("*")
@@ -190,17 +191,26 @@ export default async function AddressQuoteDetailPage({
         .order("created_at", { ascending: false })
     : { data: [] };
 
-  const canClaim = Boolean(user) && !currentClaim && (activeClaimCount || 0) < 3;
+  const claimLimit = isCustomerUser ? 1 : 3;
+  const canClaim =
+    Boolean(user) &&
+    !hasCustomerAddressAccess &&
+    (Boolean(currentClaim) || (activeClaimCount || 0) < claimLimit);
   const feedback =
     query.claim === "pending"
       ? {
           tone: "success",
           message: "Address claim submitted. Admin verification is required before controls unlock.",
         }
+      : query.claim === "verified"
+        ? {
+            tone: "success",
+            message: "Address saved. You can request quick quotes now.",
+          }
       : query.request === "created"
         ? {
             tone: "success",
-            message: "Quote request created for this verified address.",
+            message: "Quote request created for this address.",
           }
         : query.quote === "removed"
           ? {
@@ -212,9 +222,11 @@ export default async function AddressQuoteDetailPage({
                 tone: "error",
                 message:
                   query.error === "claim-limit"
-                    ? "You can claim at most 3 active addresses."
+                    ? isCustomerUser
+                      ? "Customers can use one address for quick quote requests."
+                      : "You can claim at most 3 active addresses."
                     : query.error === "claim-required"
-                      ? "This action requires a verified address claim."
+                      ? "Save this address before requesting quick quotes."
                       : query.error === "services"
                         ? "Choose at least one quote category."
                         : "That action could not be completed. Please try again.",
@@ -251,8 +263,8 @@ export default async function AddressQuoteDetailPage({
                 {(address as PropertyAddress).display_address}
               </h1>
               <p className="mt-2 max-w-3xl text-text-secondary">
-                Anyone can view published quotes for this address. Claiming the
-                address is only needed to request new quotes or remove quotes.
+                Anyone can view published quotes for this address. Customers can
+                save one address to request quick quotes from contractors.
               </p>
             </div>
             <div className="rounded-xl border border-border bg-bg-warm px-4 py-3 text-sm text-text-secondary">
@@ -292,8 +304,8 @@ export default async function AddressQuoteDetailPage({
                 No public quotes for this address yet
               </h2>
               <p className="mx-auto mt-2 max-w-xl text-sm text-text-secondary">
-                Contractors can still leave free quotes here, and verified
-                address claimants can request quote categories.
+                Contractors can still leave free quotes here, and customers can
+                save one address to request quote categories.
               </p>
             </div>
           ) : (
@@ -580,12 +592,12 @@ export default async function AddressQuoteDetailPage({
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-secondary" />
               <h2 className="font-semibold text-text-primary">
-                Claim this address
+                Save this address
               </h2>
             </div>
             <p className="mt-2 text-sm leading-6 text-text-secondary">
-              Viewing quotes is public. Claiming is only for address control:
-              requesting quote categories or removing unwanted quotes.
+              Viewing quotes is public. Customers can save one address for
+              quick quote requests.
             </p>
 
             {!user ? (
@@ -599,13 +611,23 @@ export default async function AddressQuoteDetailPage({
               <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
                 <div className="flex items-center gap-2 font-semibold">
                   <CheckCircle2 className="h-4 w-4" />
-                  Verified address
+                  Saved address
                 </div>
                 <p className="mt-1">
                   You can request quotes and remove quotes for this address.
                 </p>
               </div>
-            ) : currentClaim ? (
+            ) : hasCustomerAddressAccess ? (
+              <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                <div className="flex items-center gap-2 font-semibold">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Saved customer address
+                </div>
+                <p className="mt-1">
+                  You can request quick quotes for this address.
+                </p>
+              </div>
+            ) : currentClaim && !canClaim ? (
               <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 Your address claim is {currentClaim.status}. Admin approval is
                 required before quote requests or removals are enabled.
@@ -614,32 +636,32 @@ export default async function AddressQuoteDetailPage({
               <form action={claimPropertyAddress} className="mt-4 space-y-3">
                 <input type="hidden" name="propertyAddressId" value={addressId} />
                 <label className="block text-sm font-semibold text-text-primary">
-                  Claim note
+                  Address note
                 </label>
                 <textarea
                   name="evidenceNotes"
                   rows={3}
-                  placeholder="Example: This is my home address. I can verify if needed."
+                  placeholder="Example: This is my home address."
                   className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
                 <button
                   type="submit"
                   className="w-full rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark"
                 >
-                  Submit Address Claim
+                  Save This Address
                 </button>
                 <p className="text-xs text-text-muted">
-                  You can have up to 3 active claimed addresses.
+                  Customers can use one address for quick quote requests.
                 </p>
               </form>
             ) : (
               <div className="mt-4 rounded-lg border border-border bg-bg-warm px-4 py-3 text-sm text-text-secondary">
-                You already have 3 active address claims.
+                You already have an active customer address.
               </div>
             )}
           </section>
 
-          {isVerifiedClaimant && (
+          {hasCustomerAddressAccess && (
             <section className="rounded-xl border border-border bg-surface p-5 shadow-sm">
               <div className="flex items-center gap-2">
                 <BadgeDollarSign className="h-5 w-5 text-primary" />
@@ -650,7 +672,7 @@ export default async function AddressQuoteDetailPage({
               <form action={requestQuotesForClaimedAddress} className="mt-4 space-y-3">
                 <input type="hidden" name="propertyAddressId" value={addressId} />
                 <div className="space-y-2">
-                  {ADDRESS_QUOTE_SERVICE_VERTICALS.map((service) => (
+                  {ADDRESS_QUOTE_REQUEST_SERVICE_VERTICALS.map((service) => (
                     <label
                       key={service}
                       className="flex items-center gap-2 rounded-lg border border-border bg-bg-warm px-3 py-2 text-sm text-text-primary"
@@ -661,7 +683,7 @@ export default async function AddressQuoteDetailPage({
                         value={service}
                         className="rounded border-border text-secondary"
                       />
-                      {ADDRESS_QUOTE_SERVICE_LABELS[service]}
+                      {ADDRESS_QUOTE_REQUEST_SERVICE_LABELS[service]}
                     </label>
                   ))}
                 </div>

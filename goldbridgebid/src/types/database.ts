@@ -61,6 +61,13 @@ export type AddressQuoteServiceVertical =
   | "window_washing"
   | "yard_debris_cleanup";
 
+export type AddressQuoteRequestServiceVertical =
+  | AddressQuoteServiceVertical
+  | "lawn_mowing"
+  | "snow_removal"
+  | "weed_pulling"
+  | "leaf_raking";
+
 export type PropertyAddressSource =
   | "user_search"
   | "contractor_entry"
@@ -117,6 +124,12 @@ export type AddressQuoteMeasurementConfidence =
   | "admin_verified";
 
 export type AddressQuoteRequestStatus = "open" | "closed" | "removed";
+
+export type AddressQuoteRequestResponseStatus =
+  | "submitted"
+  | "withdrawn"
+  | "selected"
+  | "declined";
 
 export type AddressQuoteRemovalRequestStatus =
   | "auto_hidden"
@@ -1071,9 +1084,25 @@ export interface AddressQuoteRequest {
   property_address_id: string;
   requester_user_id: string;
   requester_email: string | null;
-  requested_services_json: AddressQuoteServiceVertical[];
+  requested_services_json: AddressQuoteRequestServiceVertical[];
   notes: string | null;
   status: AddressQuoteRequestStatus;
+  selected_response_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AddressQuoteRequestResponse {
+  id: string;
+  request_id: string;
+  property_address_id: string;
+  contractor_id: string;
+  quote_total_cents: number;
+  timeline: string;
+  message: string | null;
+  status: AddressQuoteRequestResponseStatus;
+  withdrawn_at: string | null;
+  selected_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1568,9 +1597,22 @@ type AddressQuoteRequestInsert = {
   property_address_id: string;
   requester_user_id: string;
   requester_email?: string | null;
-  requested_services_json?: AddressQuoteServiceVertical[];
+  requested_services_json?: AddressQuoteRequestServiceVertical[];
   notes?: string | null;
   status?: AddressQuoteRequestStatus;
+  selected_response_id?: string | null;
+};
+
+type AddressQuoteRequestResponseInsert = {
+  request_id: string;
+  property_address_id: string;
+  contractor_id: string;
+  quote_total_cents: number;
+  timeline: string;
+  message?: string | null;
+  status?: AddressQuoteRequestResponseStatus;
+  withdrawn_at?: string | null;
+  selected_at?: string | null;
 };
 
 type AddressQuoteRemovalRequestInsert = {
@@ -2041,6 +2083,17 @@ export interface Database {
         Insert: AddressQuoteRequestInsert;
         Update: Partial<
           Omit<AddressQuoteRequestInsert, "property_address_id" | "requester_user_id">
+        >;
+        Relationships: [];
+      };
+      address_quote_request_responses: {
+        Row: AddressQuoteRequestResponse;
+        Insert: AddressQuoteRequestResponseInsert;
+        Update: Partial<
+          Omit<
+            AddressQuoteRequestResponseInsert,
+            "request_id" | "property_address_id" | "contractor_id"
+          >
         >;
         Relationships: [];
       };

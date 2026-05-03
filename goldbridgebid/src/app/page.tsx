@@ -126,9 +126,16 @@ export default function Home() {
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-4">
             <Link
               href="/address-quotes"
-              className="hidden text-sm font-medium text-text-secondary transition-colors hover:text-text-primary sm:inline-flex"
+              className="hidden items-center gap-2 rounded-xl border border-primary/25 bg-primary/10 px-3 py-2 text-sm font-semibold text-text-primary shadow-sm transition-colors hover:border-primary/50 hover:bg-primary/20 sm:inline-flex"
             >
-              Address Quotes
+              <Image
+                src="/address-lookup-map.svg"
+                alt=""
+                width={56}
+                height={34}
+                className="h-8 w-12 rounded-lg object-cover"
+              />
+              <span>Look Up Your Address</span>
             </Link>
             <Link
               href="/how-it-works"
@@ -186,9 +193,16 @@ export default function Home() {
                 </Link>
                 <Link
                   href="/address-quotes"
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-[#eab308]/70 bg-[#eab308]/10 px-5 py-3.5 text-center text-sm font-semibold text-[#fde047] shadow-lg transition-colors hover:bg-[#eab308]/20 sm:w-auto sm:px-8 sm:text-base"
+                  className="group flex w-full items-center justify-center gap-3 rounded-lg border-2 border-[#eab308]/70 bg-[#eab308]/10 px-5 py-3 text-center text-sm font-semibold text-[#fde047] shadow-lg transition-colors hover:bg-[#eab308]/20 sm:w-auto sm:px-6 sm:text-base"
                 >
-                  Search Address Quotes
+                  <Image
+                    src="/address-lookup-map.svg"
+                    alt=""
+                    width={96}
+                    height={58}
+                    className="h-12 w-20 rounded-lg border border-white/20 object-cover shadow-sm transition-transform group-hover:scale-105"
+                  />
+                  <span>Look Up Your Address</span>
                   <ArrowRight className="h-5 w-5 shrink-0" />
                 </Link>
                 <Link

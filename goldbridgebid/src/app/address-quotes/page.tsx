@@ -129,12 +129,12 @@ export default async function AddressQuotesSearchPage({
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-secondary" />
               <h2 className="font-semibold text-text-primary">
-                Control requires a claim
+                Save one customer address
               </h2>
             </div>
             <p className="mt-2 text-sm leading-6 text-text-secondary">
-              To request quotes or remove quotes, a homeowner claims the address.
-              Each user can have at most 3 active claimed addresses.
+              To request quick quotes, a customer saves one address to their
+              account. Contractors can then see that address and respond.
             </p>
           </div>
         </div>

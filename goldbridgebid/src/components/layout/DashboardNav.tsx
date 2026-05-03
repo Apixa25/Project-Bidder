@@ -48,6 +48,11 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
     { href: "/customer/projects", label: "My Projects", icon: FolderOpen },
     { href: "/customer/bids", label: "My Bids", icon: ClipboardList },
     { href: "/address-quotes", label: "Address Quotes", icon: MapPin },
+    {
+      href: "/customer/address-requests",
+      label: "My Address Requests",
+      icon: BadgeDollarSign,
+    },
     { href: "/customer/contractors", label: "Find Contractors", icon: Users },
     { href: "/estimate-packages", label: "Estimate Library", icon: LibraryBig },
     { href: "/estimate-packages/purchases", label: "My Estimate Packages", icon: ReceiptText },
@@ -59,6 +64,11 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof La
     { href: "/bidder/bids", label: "My Bids", icon: ClipboardList },
     { href: "/bidder/projects", label: "Browse Projects", icon: FolderOpen },
     { href: "/bidder/address-quotes", label: "Address Quotes", icon: MapPin },
+    {
+      href: "/bidder/address-requests",
+      label: "Open Address Requests",
+      icon: BadgeDollarSign,
+    },
     { href: "/estimate-packages", label: "Estimate Library", icon: LibraryBig },
     { href: "/estimate-packages/purchases", label: "My Estimate Packages", icon: ReceiptText },
     { href: "/bidder/payouts", label: "Payouts", icon: WalletCards },
