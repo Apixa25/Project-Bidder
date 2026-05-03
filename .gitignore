@@ -18,3 +18,4 @@ Desktop.ini
 # build/
 # __pycache__/
 # .venv/
+.vercel
