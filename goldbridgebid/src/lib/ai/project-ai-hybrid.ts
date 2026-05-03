@@ -199,44 +199,46 @@ export async function analyzeProjectAiHybrid(
     return buildRulesResult(rulesAnalysis);
   }
 
+  const [classifyResult, llmResult] = await Promise.allSettled([
+    classifyProjectWithLlm(input),
+    analyzeProjectWithLlm({
+      input,
+      rulesAnalysis,
+    }),
+  ]);
+
   let classification: ProjectAiClassifyOutput | null = null;
   let llmFailed = false;
 
-  // ── Call 1: Classification + Requirements ──────────────────────────
-  try {
-    const classifyResult = await classifyProjectWithLlm(input);
-    classification = classifyResult.classification;
+  if (classifyResult.status === "fulfilled") {
+    classification = classifyResult.value.classification;
     console.log(
       `[hybrid] Classification succeeded: type="${classification.project_classification.project_type_label}", ` +
-      `sector="${classification.project_classification.construction_sector}", ` +
-      `${classification.standard_requirements.length} requirements, ` +
-      `${classification.recommended_questions.length} questions, ` +
-      `confidence=${classification.confidence_level}`
+        `sector="${classification.project_classification.construction_sector}", ` +
+        `${classification.standard_requirements.length} requirements, ` +
+        `${classification.recommended_questions.length} questions, ` +
+        `confidence=${classification.confidence_level}`
     );
-  } catch (error) {
+  } else {
     console.error(
       "[hybrid] Classification LLM call failed — proceeding without classification.",
-      error
+      classifyResult.reason
     );
     llmFailed = true;
   }
 
-  // ── Call 2: Detailed analysis (questions, labor hours, summary) ────
-  try {
-    const llmResult = await analyzeProjectWithLlm({
-      input,
-      rulesAnalysis,
-    });
+  if (llmResult.status === "fulfilled") {
+    const llmAnalysis = llmResult.value;
 
     const classifyQuestions = classification?.recommended_questions || [];
     const merged = mergeQuestions({
       classifyQuestions,
-      llmQuestions: llmResult.analysis.recommended_questions,
+      llmQuestions: llmAnalysis.analysis.recommended_questions,
       rulesQuestions: rulesAnalysis.recommended_questions,
       maxQuestions: settings.maxQuestions,
     });
 
-    const laborEstimate = llmResult.analysis.labor_hour_estimate ?? null;
+    const laborEstimate = llmAnalysis.analysis.labor_hour_estimate ?? null;
 
     // Merge missing items from classification scope gaps
     const classificationMissingItems = (
@@ -247,13 +249,13 @@ export async function analyzeProjectAiHybrid(
 
     return {
       ...rulesAnalysis,
-      confidence_level: llmResult.analysis.confidence_level,
-      summary: llmResult.analysis.summary || rulesAnalysis.summary,
+      confidence_level: llmAnalysis.analysis.confidence_level,
+      summary: llmAnalysis.analysis.summary || rulesAnalysis.summary,
       missing_items: uniqStrings(
         [
           ...classificationCriticalInfo,
           ...classificationMissingItems,
-          ...llmResult.analysis.missing_items,
+          ...llmAnalysis.analysis.missing_items,
           ...rulesAnalysis.missing_items,
         ],
         12
@@ -261,56 +263,57 @@ export async function analyzeProjectAiHybrid(
       assumptions: uniqStrings(
         [
           ...rulesAnalysis.assumptions,
-          ...llmResult.analysis.assumptions,
+          ...llmAnalysis.analysis.assumptions,
         ],
         10
       ),
       exclusions: uniqStrings(
         [
           ...rulesAnalysis.exclusions,
-          ...llmResult.analysis.exclusions,
+          ...llmAnalysis.analysis.exclusions,
         ],
         10
       ),
       recommended_questions: merged,
       analysis_version: "v2-openai-hybrid",
-      model_name: llmResult.modelName,
+      model_name: llmAnalysis.modelName,
       provider_name: "openai",
       fallback_used: llmFailed,
-      prompt_version: llmResult.promptVersion,
+      prompt_version: llmAnalysis.promptVersion,
       llm_labor_hour_estimate: laborEstimate,
       classification,
     };
-  } catch (error) {
-    console.error("[hybrid] Call 2 LLM FAILED — falling back to rules.", error);
-
-    // If Call 1 succeeded but Call 2 failed, still return classification
-    if (classification) {
-      const classifyQuestions = classification.recommended_questions || [];
-      const merged = mergeQuestions({
-        classifyQuestions,
-        llmQuestions: [],
-        rulesQuestions: rulesAnalysis.recommended_questions,
-        maxQuestions: settings.maxQuestions,
-      });
-
-      return {
-        ...rulesAnalysis,
-        recommended_questions: merged,
-        analysis_version: "v2-classify-only",
-        model_name: `fallback:${rulesAnalysis.analysis_version}`,
-        provider_name: "openai",
-        fallback_used: true,
-        prompt_version: settings.promptVersion,
-        llm_labor_hour_estimate: null,
-        classification,
-      };
-    }
-
-    return buildRulesResult(rulesAnalysis, {
-      modelName: `fallback:${rulesAnalysis.analysis_version}`,
-      fallbackUsed: true,
-      promptVersion: settings.promptVersion,
-    });
   }
+
+  console.error("[hybrid] Call 2 LLM FAILED — falling back to rules.", llmResult.reason);
+
+  // If classification succeeded but detailed analysis failed, still return
+  // classification-driven scope items/questions instead of waiting on OpenAI.
+  if (classification) {
+    const classifyQuestions = classification.recommended_questions || [];
+    const merged = mergeQuestions({
+      classifyQuestions,
+      llmQuestions: [],
+      rulesQuestions: rulesAnalysis.recommended_questions,
+      maxQuestions: settings.maxQuestions,
+    });
+
+    return {
+      ...rulesAnalysis,
+      recommended_questions: merged,
+      analysis_version: "v2-classify-only",
+      model_name: `fallback:${rulesAnalysis.analysis_version}`,
+      provider_name: "openai",
+      fallback_used: true,
+      prompt_version: settings.promptVersion,
+      llm_labor_hour_estimate: null,
+      classification,
+    };
+  }
+
+  return buildRulesResult(rulesAnalysis, {
+    modelName: `fallback:${rulesAnalysis.analysis_version}`,
+    fallbackUsed: true,
+    promptVersion: settings.promptVersion,
+  });
 }

@@ -277,71 +277,77 @@ export default function NewProjectPage() {
     setAiLoading(true);
     setAiError(null);
 
-    const result = await analyzeProjectDraft({
-      title: (formData.get("title") as string) || "",
-      description: (formData.get("description") as string) || "",
-      completionCriteria: (formData.get("completionCriteria") as string) || "",
-      trades: [],
-      expertiseLevel: expertiseLevel || undefined,
-      locationAddress: (formData.get("locationAddress") as string) || "",
-      locationCity: (formData.get("locationCity") as string) || "",
-      locationState: (formData.get("locationState") as string) || "",
-      locationZip: (formData.get("locationZip") as string) || "",
-      budgetMin: formData.get("budgetMin")
-        ? Number(formData.get("budgetMin"))
-        : null,
-      budgetMax: formData.get("budgetMax")
-        ? Number(formData.get("budgetMax"))
-        : null,
-      desiredStartDate: (formData.get("desiredStartDate") as string) || "",
-      timeline: (formData.get("timeline") as string) || "",
-      files: files.map((file) => ({
-        file_name: file.name,
-        file_type: file.type,
-      })),
-      clarificationAnswers: draftClarificationPayload.map((clarification) => ({
-        question_key: clarification.question_key,
-        answer_value_json: clarification.answer_value_json,
-        status: clarification.status as "pending" | "answered",
-      })).concat(
-        draftScopeItemClarificationPayload.map((clarification) => ({
+    try {
+      const result = await analyzeProjectDraft({
+        title: (formData.get("title") as string) || "",
+        description: (formData.get("description") as string) || "",
+        completionCriteria: (formData.get("completionCriteria") as string) || "",
+        trades: [],
+        expertiseLevel: expertiseLevel || undefined,
+        locationAddress: (formData.get("locationAddress") as string) || "",
+        locationCity: (formData.get("locationCity") as string) || "",
+        locationState: (formData.get("locationState") as string) || "",
+        locationZip: (formData.get("locationZip") as string) || "",
+        budgetMin: formData.get("budgetMin")
+          ? Number(formData.get("budgetMin"))
+          : null,
+        budgetMax: formData.get("budgetMax")
+          ? Number(formData.get("budgetMax"))
+          : null,
+        desiredStartDate: (formData.get("desiredStartDate") as string) || "",
+        timeline: (formData.get("timeline") as string) || "",
+        files: files.map((file) => ({
+          file_name: file.name,
+          file_type: file.type,
+        })),
+        clarificationAnswers: draftClarificationPayload.map((clarification) => ({
           question_key: clarification.question_key,
           answer_value_json: clarification.answer_value_json,
-          status: clarification.status,
-        }))
-      ),
-    });
+          status: clarification.status as "pending" | "answered",
+        })).concat(
+          draftScopeItemClarificationPayload.map((clarification) => ({
+            question_key: clarification.question_key,
+            answer_value_json: clarification.answer_value_json,
+            status: clarification.status,
+          }))
+        ),
+      });
 
-    if (result.error) {
-      setAiError(result.error);
-      setAiLoading(false);
-      return;
-    }
-
-    if (!result.analysis) {
-      setAiError("AI Scope Check did not return an analysis.");
-      setAiLoading(false);
-      return;
-    }
-
-    setAiAnalysis(result.analysis);
-    if (result.scopeItemDrafts) {
-      setDraftScopeItems(result.scopeItemDrafts);
-      setDraftExcludedKeys(new Set());
-      setDraftConfirmedKeys(new Set());
-    }
-    setDraftClarificationAnswers((prev) => {
-      const nextState = { ...prev };
-
-      for (const question of result.analysis.recommended_questions) {
-        if (!nextState[question.question_key]) {
-          nextState[question.question_key] = [];
-        }
+      if (result.error) {
+        setAiError(result.error);
+        return;
       }
 
-      return nextState;
-    });
-    setAiLoading(false);
+      if (!result.analysis) {
+        setAiError("AI Scope Check did not return an analysis.");
+        return;
+      }
+
+      setAiAnalysis(result.analysis);
+      if (result.scopeItemDrafts) {
+        setDraftScopeItems(result.scopeItemDrafts);
+        setDraftExcludedKeys(new Set());
+        setDraftConfirmedKeys(new Set());
+      }
+      setDraftClarificationAnswers((prev) => {
+        const nextState = { ...prev };
+
+        for (const question of result.analysis.recommended_questions) {
+          if (!nextState[question.question_key]) {
+            nextState[question.question_key] = [];
+          }
+        }
+
+        return nextState;
+      });
+    } catch (error) {
+      console.error("AI Scope Check failed:", error);
+      setAiError(
+        "AI Scope Check could not finish. Please try again, or save the project and refresh the AI estimate from the project page."
+      );
+    } finally {
+      setAiLoading(false);
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

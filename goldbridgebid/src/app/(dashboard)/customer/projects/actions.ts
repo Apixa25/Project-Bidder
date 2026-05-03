@@ -866,24 +866,38 @@ export async function analyzeProjectDraft(input: ProjectAiAnalysisInput) {
     };
   }
 
-  const enrichedInput = {
-    ...input,
-    files: input.files ? await enrichProjectAiFileSignals(input.files) : input.files,
-  };
-  const analysis = await analyzeProjectAiHybrid(enrichedInput, await getCostEstimates());
+  try {
+    const enrichedInput = {
+      ...input,
+      files: input.files ? await enrichProjectAiFileSignals(input.files) : input.files,
+    };
+    const startedAt = Date.now();
+    const analysis = await analyzeProjectAiHybrid(enrichedInput, await getCostEstimates());
+    console.log(
+      `[ai-scope-check] Draft analysis completed in ${Date.now() - startedAt}ms; ` +
+        `model=${analysis.model_name}; fallback=${analysis.fallback_used}`
+    );
 
-  const scopeItemDrafts = buildProjectAiScopeItems({
-    input: enrichedInput,
-    analysis,
-    classification: analysis.classification || null,
-  });
+    const scopeItemDrafts = buildProjectAiScopeItems({
+      input: enrichedInput,
+      analysis,
+      classification: analysis.classification || null,
+    });
 
-  return {
-    error: null,
-    analysis,
-    classification: analysis.classification,
-    scopeItemDrafts,
-  };
+    return {
+      error: null,
+      analysis,
+      classification: analysis.classification,
+      scopeItemDrafts,
+    };
+  } catch (error) {
+    console.error("[ai-scope-check] Draft analysis failed:", error);
+    return {
+      error:
+        "AI Scope Check could not finish. Please try again, or save the project and refresh the AI estimate from the project page.",
+      analysis: null,
+    };
+  }
 }
 
 export async function refreshProjectAiEstimate(projectId: string) {
