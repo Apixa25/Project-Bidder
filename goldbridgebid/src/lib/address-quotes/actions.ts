@@ -1125,16 +1125,13 @@ export async function removeCustomerAddressQuoteRequest(
 
   const { error } = await admin
     .from("address_quote_requests")
-    .update({
-      status: "removed",
-      selected_response_id: null,
-    })
+    .delete()
     .eq("id", requestId)
     .eq("requester_user_id", user.id)
     .eq("status", "open");
 
   if (error) {
-    console.error("Customer address quote request removal failed:", error);
+    console.error("Customer address quote request delete failed:", error);
     redirect("/customer/address-requests?error=request");
   }
 

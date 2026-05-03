@@ -725,24 +725,20 @@ export default async function AddressQuoteDetailPage({
                 </button>
               </form>
 
-              {((quoteRequests || []) as AddressQuoteRequest[]).filter(
-                (request) => request.status !== "removed"
-              ).length > 0 && (
+              {((quoteRequests || []) as AddressQuoteRequest[]).length > 0 && (
                 <div className="mt-5 border-t border-border pt-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
                     Existing requests
                   </p>
                   <div className="mt-2 space-y-2">
-                    {((quoteRequests || []) as AddressQuoteRequest[])
-                      .filter((request) => request.status !== "removed")
-                      .map((request) => (
-                        <div
-                          key={request.id}
-                          className="rounded-lg bg-bg-warm px-3 py-2 text-sm text-text-secondary"
-                        >
-                          {formatServices(request.requested_services_json)}
-                        </div>
-                      ))}
+                    {((quoteRequests || []) as AddressQuoteRequest[]).map((request) => (
+                      <div
+                        key={request.id}
+                        className="rounded-lg bg-bg-warm px-3 py-2 text-sm text-text-secondary"
+                      >
+                        {formatServices(request.requested_services_json)}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

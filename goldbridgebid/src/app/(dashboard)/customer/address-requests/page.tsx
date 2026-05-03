@@ -167,9 +167,6 @@ export default async function CustomerAddressRequestsPage({
   const customerAddressClaims = claims.filter(
     (claim) => claim.status === "pending" || claim.status === "verified"
   );
-  const visibleRequests = requests.filter(
-    (request) => request.status !== "removed"
-  );
   const activeRequests = requests.filter((request) => request.status === "open");
 
   const feedback = query.request
@@ -372,7 +369,7 @@ export default async function CustomerAddressRequestsPage({
               </p>
             </div>
 
-            {visibleRequests.length === 0 ? (
+            {requests.length === 0 ? (
               <div className="px-6 py-10 text-center">
                 <BadgeDollarSign className="mx-auto mb-4 h-10 w-10 text-text-muted" />
                 <h3 className="font-semibold text-text-primary">
@@ -386,7 +383,7 @@ export default async function CustomerAddressRequestsPage({
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {visibleRequests.map((request) => {
+                {requests.map((request) => {
                   const address = addressMap.get(request.property_address_id);
                   const requestResponses =
                     responsesByRequest.get(request.id) || [];
