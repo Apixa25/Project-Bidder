@@ -101,6 +101,11 @@ export default async function AddressQuotesSearchPage({
               Search Quotes
             </button>
           </div>
+          <p className="mt-3 text-sm leading-6 text-text-secondary">
+            If we do not find an exact published quote for the address you type,
+            we will also check for nearby quote addresses so a close map pin does
+            not hide an estimate meant for your property.
+          </p>
           {params.error === "address" && (
             <p className="mt-3 text-sm text-red-600">
               Please enter a fuller address so we can create the quote page.

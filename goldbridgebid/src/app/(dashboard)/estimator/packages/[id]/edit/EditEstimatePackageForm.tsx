@@ -71,8 +71,8 @@ export default function EditEstimatePackageForm({
     startTransition(async () => {
       const result = await updateEstimatePackage(formData);
 
-      if (result?.error) {
-        setError(result.error);
+      if (result && "error" in result) {
+        setError(result.error || "Unable to update estimate package.");
         return;
       }
 

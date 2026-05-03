@@ -19,6 +19,7 @@ import type {
 } from "@/types/database";
 
 const MAX_ACTIVE_ADDRESS_CLAIMS = 3;
+const NEARBY_QUOTE_SEARCH_RADIUS_METERS = 350;
 
 function normalizeAddress(value: string) {
   return value
@@ -30,6 +31,24 @@ function normalizeAddress(value: string) {
 
 function hashAddress(normalizedAddress: string) {
   return crypto.createHash("sha256").update(normalizedAddress).digest("hex");
+}
+
+function getDistanceMeters(
+  first: { latitude: number; longitude: number },
+  second: { latitude: number; longitude: number }
+) {
+  const earthRadiusMeters = 6_371_000;
+  const firstLat = (first.latitude * Math.PI) / 180;
+  const secondLat = (second.latitude * Math.PI) / 180;
+  const deltaLat = ((second.latitude - first.latitude) * Math.PI) / 180;
+  const deltaLon = ((second.longitude - first.longitude) * Math.PI) / 180;
+  const haversine =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(firstLat) * Math.cos(secondLat) * Math.sin(deltaLon / 2) ** 2;
+
+  return (
+    2 * earthRadiusMeters * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
+  );
 }
 
 async function geocodePropertyAddress(displayAddress: string) {
@@ -735,6 +754,70 @@ async function ensurePropertyAddress(params: {
   return inserted as PropertyAddress;
 }
 
+async function findNearbyPublishedQuoteAddress(address: PropertyAddress) {
+  if (address.latitude === null || address.longitude === null) return null;
+
+  const admin = createAdminClient();
+  const { data: publishedQuotes } = await admin
+    .from("address_quotes")
+    .select("property_address_id")
+    .eq("status", "published")
+    .is("removed_at", null);
+  const publishedAddressIds = Array.from(
+    new Set(
+      ((publishedQuotes || []) as Array<{ property_address_id: string }>).map(
+        (quote) => quote.property_address_id
+      )
+    )
+  ).filter((addressId) => addressId !== address.id);
+
+  if (publishedAddressIds.length === 0) return null;
+
+  const { data: nearbyCandidates } = await admin
+    .from("property_addresses")
+    .select("id, latitude, longitude")
+    .in("id", publishedAddressIds)
+    .not("latitude", "is", null)
+    .not("longitude", "is", null);
+
+  const searchPoint = {
+    latitude: Number(address.latitude),
+    longitude: Number(address.longitude),
+  };
+  if (!Number.isFinite(searchPoint.latitude) || !Number.isFinite(searchPoint.longitude)) {
+    return null;
+  }
+
+  return ((nearbyCandidates || []) as Array<{
+    id: string;
+    latitude: number | null;
+    longitude: number | null;
+  }>)
+    .map((candidate) => {
+      const candidatePoint = {
+        latitude: Number(candidate.latitude),
+        longitude: Number(candidate.longitude),
+      };
+      if (
+        !Number.isFinite(candidatePoint.latitude) ||
+        !Number.isFinite(candidatePoint.longitude)
+      ) {
+        return null;
+      }
+
+      return {
+        id: candidate.id,
+        distanceMeters: getDistanceMeters(searchPoint, candidatePoint),
+      };
+    })
+    .filter(
+      (candidate): candidate is { id: string; distanceMeters: number } =>
+        candidate !== null &&
+        candidate.distanceMeters <= NEARBY_QUOTE_SEARCH_RADIUS_METERS
+    )
+    .sort((first, second) => first.distanceMeters - second.distanceMeters)[0];
+}
+
 async function requireUser() {
   const supabase = await createClient();
   const {
@@ -766,6 +849,26 @@ export async function searchPublicAddressQuotes(formData: FormData) {
 
   if (!address) {
     redirect("/address-quotes?error=address");
+  }
+
+  const admin = createAdminClient();
+  const { count: exactQuoteCount } = await admin
+    .from("address_quotes")
+    .select("*", { count: "exact", head: true })
+    .eq("property_address_id", address.id)
+    .eq("status", "published")
+    .is("removed_at", null);
+
+  if ((exactQuoteCount || 0) === 0) {
+    const nearbyAddress = await findNearbyPublishedQuoteAddress(address);
+    if (nearbyAddress) {
+      const query = new URLSearchParams({
+        nearby: "1",
+        searched: displayAddress,
+        distance: String(Math.round(nearbyAddress.distanceMeters)),
+      });
+      redirect(`/address-quotes/${nearbyAddress.id}?${query}`);
+    }
   }
 
   redirect(`/address-quotes/${address.id}`);

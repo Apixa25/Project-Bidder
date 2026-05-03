@@ -92,7 +92,6 @@ export default async function PrintProjectPhotosPage({
                   key={file.id}
                   className="page-break-avoid border border-slate-300 p-2"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={displayUrl}
                     alt={file.file_name}

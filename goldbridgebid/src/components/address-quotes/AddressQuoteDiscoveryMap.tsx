@@ -141,7 +141,8 @@ export default function AddressQuoteDiscoveryMap({
         </div>
       )}
       <div className="border-t border-border px-5 py-3 text-xs text-text-muted">
-        Prefer typing? Use the address search above, or open{" "}
+        Map pins may be approximate for older quotes. Prefer typing? Use the
+        address search above, or open{" "}
         <Link href="/address-quotes" className="font-semibold text-primary">
           public address quotes
         </Link>

@@ -73,6 +73,9 @@ export default async function AddressQuoteDetailPage({
     claim?: string;
     request?: string;
     quote?: string;
+    nearby?: string;
+    searched?: string;
+    distance?: string;
   }>;
 }) {
   const { addressId } = await params;
@@ -237,6 +240,18 @@ export default async function AddressQuoteDetailPage({
                 <MapPin className="h-4 w-4" />
                 Public address quote page
               </div>
+              {query.nearby === "1" && (
+                <div className="mt-4 rounded-xl border-2 border-primary bg-primary/10 px-4 py-3 text-sm font-semibold text-text-primary">
+                  We did not find an exact quote for{" "}
+                  <span className="text-primary-dark">
+                    {query.searched || "that searched address"}
+                  </span>
+                  , so we opened the nearest published quote nearby
+                  {query.distance ? `, about ${query.distance} meters away` : ""}.
+                  Check the address, map, and property photos before treating it
+                  as your property.
+                </div>
+              )}
               <h1 className="mt-2 text-3xl font-bold text-text-primary">
                 {(address as PropertyAddress).display_address}
               </h1>

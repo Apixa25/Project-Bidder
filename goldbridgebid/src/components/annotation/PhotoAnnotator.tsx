@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   X,
   Pencil,
@@ -530,8 +530,6 @@ function drawAnnotationOnContext(
 
 function pinchDistance(points: Map<number, { cx: number; cy: number }>) {
   if (points.size < 2) return 0;
-  const [, a, , b] = [...points.entries()].slice(0, 2).flat();
-  void a;
   const vals = [...points.values()];
   const p0 = vals[0];
   const p1 = vals[1];
@@ -575,6 +573,7 @@ export default function PhotoAnnotator({
   const [redactStyle, setRedactStyle] = useState<RedactStyle>("solid");
   const [textFontSize, setTextFontSize] = useState(22);
   const [textUseBackdrop, setTextUseBackdrop] = useState(true);
+  const [blurStrengthPx, setBlurStrengthPx] = useState(14);
 
   const isDrawing = useRef(false);
   const currentAnnotation = useRef<Annotation | null>(null);
@@ -592,22 +591,9 @@ export default function PhotoAnnotator({
 
   const genId = () => Math.random().toString(36).slice(2, 10);
 
-  const blurStrengthPx = useMemo(() => {
-    const im = imgRef.current;
-    if (!im?.width) return 14;
-    return Math.max(10, Math.min(im.width, im.height) * 0.014);
-  }, [imageLoaded, imageUrl]);
-
   useEffect(() => {
     viewScaleRef.current = viewScale;
   }, [viewScale]);
-
-  useEffect(() => {
-    if (interactionMode !== "annotate") {
-      setCalloutDraft(null);
-      setCalloutCaptionInput("");
-    }
-  }, [interactionMode]);
 
   function layoutImageToCanvases() {
     const container = containerRef.current;
@@ -623,6 +609,11 @@ export default function PhotoAnnotator({
 
     const w = Math.round(img.width * layoutScale);
     const h = Math.round(img.height * layoutScale);
+    const nextBlurStrengthPx = Math.max(10, Math.min(img.width, img.height) * 0.014);
+
+    setBlurStrengthPx((current) =>
+      current === nextBlurStrengthPx ? current : nextBlurStrengthPx
+    );
 
     canvas.width = w;
     canvas.height = h;
@@ -1171,7 +1162,10 @@ export default function PhotoAnnotator({
             </button>
             <button
               type="button"
-              onClick={() => setInteractionMode("navigate")}
+              onClick={() => {
+                discardCalloutDraft();
+                setInteractionMode("navigate");
+              }}
               title="Pan and zoom photo"
               className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                 interactionMode === "navigate"
