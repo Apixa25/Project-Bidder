@@ -27,6 +27,7 @@ export default function DashboardShell({
 }: DashboardShellProps) {
   const pathname = usePathname();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   const currentRole = pathname.startsWith("/bidder")
     ? "bidder"
@@ -37,6 +38,27 @@ export default function DashboardShell({
         : pathname.startsWith("/customer")
           ? "customer"
           : defaultRole;
+
+  useEffect(() => {
+    const mobileMedia = window.matchMedia("(max-width: 1023px)");
+
+    function syncViewport() {
+      const isMobile = mobileMedia.matches || window.innerWidth < 1024;
+      setIsMobileViewport(isMobile);
+      if (!isMobile) {
+        setIsMobileNavOpen(false);
+      }
+    }
+
+    syncViewport();
+    mobileMedia.addEventListener("change", syncViewport);
+    window.addEventListener("resize", syncViewport);
+
+    return () => {
+      mobileMedia.removeEventListener("change", syncViewport);
+      window.removeEventListener("resize", syncViewport);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isMobileNavOpen) {
@@ -57,8 +79,8 @@ export default function DashboardShell({
         type="button"
         onClick={() => setIsMobileNavOpen(false)}
         aria-label="Close navigation overlay"
-        className={`fixed inset-0 z-30 bg-stone-950/40 backdrop-blur-[1px] transition-opacity duration-300 lg:hidden ${
-          isMobileNavOpen
+        className={`fixed inset-0 z-30 bg-stone-950/40 backdrop-blur-[1px] transition-opacity duration-300 ${
+          isMobileViewport && isMobileNavOpen
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0"
         }`}
@@ -71,6 +93,7 @@ export default function DashboardShell({
         avatarUrl={avatarUrl}
         unreadNotifications={unreadNotifications}
         isMobileOpen={isMobileNavOpen}
+        isMobileViewport={isMobileViewport}
         onClose={() => setIsMobileNavOpen(false)}
       />
 
@@ -79,7 +102,8 @@ export default function DashboardShell({
           className="pointer-events-none absolute inset-0 bg-[url('/grid.svg')] bg-[length:40px_40px] opacity-10 text-white"
           aria-hidden
         />
-        <header className="relative z-20 sticky top-0 border-b border-border bg-surface/95 backdrop-blur lg:hidden">
+        {isMobileViewport && (
+        <header className="sticky top-0 z-20 border-b border-border bg-surface/95 backdrop-blur">
           <div className="flex items-center justify-between gap-3 px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <Link
@@ -135,6 +159,7 @@ export default function DashboardShell({
             </Link>
           </div>
         </header>
+        )}
 
         <main className="relative z-10 min-w-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8 [&_h1.text-text-primary]:text-white [&_h1.text-text-primary+p.text-text-secondary]:text-zinc-200/90">

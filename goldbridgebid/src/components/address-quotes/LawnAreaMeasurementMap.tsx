@@ -54,6 +54,7 @@ interface LawnAreaMeasurementMapProps {
   initialMapSnapshotUrl?: string | null;
   initialMapSnapshotUrls?: string[];
   initialSearchAddress?: string | null;
+  manageAddressFields?: boolean;
 }
 
 const DEFAULT_CENTER: LngLatPoint = [-124.2026, 41.7558];
@@ -186,6 +187,7 @@ export default function LawnAreaMeasurementMap({
   initialMapSnapshotUrl = null,
   initialMapSnapshotUrls = [],
   initialSearchAddress = null,
+  manageAddressFields = false,
 }: LawnAreaMeasurementMapProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -236,6 +238,11 @@ export default function LawnAreaMeasurementMap({
   });
   const [snapshotStatus, setSnapshotStatus] = useState<string | null>(null);
   const [mapSearchAddress, setMapSearchAddress] = useState(initialSearchAddress || "");
+  const [displayAddress, setDisplayAddress] = useState(initialSearchAddress || "");
+  const [street, setStreet] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [zip, setZip] = useState("");
   const [geocodeStatus, setGeocodeStatus] = useState<string | null>(null);
   const [isLocatingUser, setIsLocatingUser] = useState(false);
   const [pickedAddressPoint, setPickedAddressPoint] = useState<{
@@ -266,12 +273,7 @@ export default function LawnAreaMeasurementMap({
     () => savedAreas.reduce((total, areaRow) => total + areaRow.areaSqft, 0),
     [savedAreas]
   );
-  const savedLineTotalFt = useMemo(
-    () => savedLines.reduce((total, lineRow) => total + lineRow.lengthFt, 0),
-    [savedLines]
-  );
   const submittedAreaSqft = savedAreas.length > 0 ? savedAreaTotalSqft : measuredAreaSqft;
-  const submittedLengthFt = savedLines.length > 0 ? savedLineTotalFt : 0;
   const savedMeasurements: SavedMeasurement[] = useMemo(
     () => [...savedAreas, ...savedLines],
     [savedAreas, savedLines]
@@ -293,17 +295,28 @@ export default function LawnAreaMeasurementMap({
     );
   }, [savedMeasurements]);
 
-  const setFormField = useCallback(
+  const setAddressField = useCallback(
     (name: string, value: string | null | undefined) => {
+      const nextValue = value || "";
+
+      if (manageAddressFields) {
+        if (name === "displayAddress") setDisplayAddress(nextValue);
+        if (name === "street") setStreet(nextValue);
+        if (name === "city") setCity(nextValue);
+        if (name === "state") setState(nextValue);
+        if (name === "zip") setZip(nextValue);
+        return;
+      }
+
       const field = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
         `[name="${name}"]`
       );
       if (!field || !value) return;
-      field.value = value;
+      field.value = nextValue;
       field.dispatchEvent(new Event("input", { bubbles: true }));
       field.dispatchEvent(new Event("change", { bubbles: true }));
     },
-    []
+    [manageAddressFields]
   );
 
   const reverseGeocodePoint = useCallback(
@@ -346,11 +359,11 @@ export default function LawnAreaMeasurementMap({
           return;
         }
 
-        setFormField("displayAddress", data.displayAddress);
-        setFormField("street", data.street);
-        setFormField("city", data.city);
-        setFormField("state", data.state);
-        setFormField("zip", data.zip);
+        setAddressField("displayAddress", data.displayAddress);
+        setAddressField("street", data.street);
+        setAddressField("city", data.city);
+        setAddressField("state", data.state);
+        setAddressField("zip", data.zip);
         setMapSearchAddress(data.displayAddress);
         setGeocodeStatus(copy.successStatus);
         setInteractionMode("draw");
@@ -358,7 +371,7 @@ export default function LawnAreaMeasurementMap({
         setGeocodeStatus(copy.failureStatus);
       }
     },
-    [setFormField]
+    [setAddressField]
   );
 
   useEffect(() => {
@@ -651,6 +664,12 @@ export default function LawnAreaMeasurementMap({
       zoom: 18,
       essential: true,
     });
+    if (manageAddressFields) {
+      const selectedAddress = data.label || address;
+      setDisplayAddress(selectedAddress);
+      setMapSearchAddress(selectedAddress);
+      setPickedAddressPoint({ lat: data.lat, lng: data.lon });
+    }
     setGeocodeStatus(data.label ? `Centered on ${data.label}` : "Map centered.");
   }
 
@@ -870,7 +889,7 @@ export default function LawnAreaMeasurementMap({
   }
 
   return (
-    <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+    <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
       <input
         type="hidden"
         name="mapMeasuredAreaSqft"
@@ -898,34 +917,24 @@ export default function LawnAreaMeasurementMap({
         name="mapPickedLongitude"
         value={pickedAddressPoint ? String(pickedAddressPoint.lng) : ""}
       />
+      {manageAddressFields && (
+        <>
+          <input type="hidden" name="displayAddress" value={displayAddress} />
+          <input type="hidden" name="street" value={street} />
+          <input type="hidden" name="city" value={city} />
+          <input type="hidden" name="state" value={state} />
+          <input type="hidden" name="zip" value={zip} />
+        </>
+      )}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-text-primary">
-            Map Measurement Tools
-          </h2>
-          <p className="mt-1 text-sm leading-6 text-text-secondary">
-            Draw saved lawn areas, length lines for gutters or hedges, and a
-            map screenshot so the customer can see exactly what was estimated.
-          </p>
-        </div>
-        <div className="rounded-xl bg-secondary/10 px-4 py-3 text-right">
-          <p className="text-xs font-semibold uppercase tracking-wide text-secondary">
-            Saved Measurements
-          </p>
-          <p className="text-xl font-bold text-text-primary">
-            {savedMeasurements.length > 0
-              ? `${savedMeasurements.length} item${savedMeasurements.length === 1 ? "" : "s"}`
-              : "Not drawn"}
-          </p>
-          {(submittedAreaSqft > 0 || submittedLengthFt > 0) && (
-            <p className="mt-1 text-xs font-medium text-text-muted">
-              {submittedAreaSqft > 0 ? `${formatSqft(submittedAreaSqft)} sq ft` : ""}
-              {submittedAreaSqft > 0 && submittedLengthFt > 0 ? " + " : ""}
-              {submittedLengthFt > 0 ? `${formatFeet(submittedLengthFt)} ft` : ""}
-            </p>
-          )}
-        </div>
+      <div>
+        <h2 className="text-lg font-semibold text-text-primary">
+          Map Measurement Tools
+        </h2>
+        <p className="mt-1 text-sm leading-6 text-text-secondary">
+          Draw saved lawn areas, length lines for gutters or hedges, and a map
+          screenshot so the customer can see exactly what was estimated.
+        </p>
       </div>
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -942,7 +951,7 @@ export default function LawnAreaMeasurementMap({
         <button
           type="button"
           onClick={geocodeAddress}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark sm:w-auto"
         >
           <Search className="h-4 w-4" />
           Center Map
@@ -951,7 +960,7 @@ export default function LawnAreaMeasurementMap({
           type="button"
           onClick={locateUserOnMap}
           disabled={isLocatingUser}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-secondary/30 bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-colors hover:bg-secondary/10 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-secondary/30 bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-colors hover:bg-secondary/10 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           <LocateFixed className="h-4 w-4" />
           {isLocatingUser ? "Locating..." : "Locate Me"}
@@ -961,12 +970,99 @@ export default function LawnAreaMeasurementMap({
         <p className="mt-2 text-xs font-medium text-text-secondary">{geocodeStatus}</p>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-3">
-        <div className="inline-flex rounded-lg border border-border bg-bg-warm p-1">
+      {manageAddressFields && (
+        <div className="mt-4 rounded-xl border border-border bg-bg-warm p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+            Selected quote address
+          </p>
+          <p className="mt-1 text-sm font-semibold text-text-primary">
+            {displayAddress || "No address selected yet"}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-text-secondary">
+            Search to center the map, use Pick Address or Locate Me to confirm
+            the property, then draw measurements. The saved quote will attach to
+            this selected address.
+          </p>
+          <details className="mt-3">
+            <summary className="cursor-pointer text-xs font-semibold text-primary">
+              Edit address details manually
+            </summary>
+            <div className="mt-3 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-text-primary">
+                  Full address *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={displayAddress}
+                  onChange={(event) => setDisplayAddress(event.target.value)}
+                  placeholder="123 Front St, Crescent City, CA 95531"
+                  className="mt-1.5 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-6">
+                <div className="sm:col-span-3">
+                  <label className="block text-xs font-semibold text-text-primary">
+                    Street
+                  </label>
+                  <input
+                    type="text"
+                    value={street}
+                    onChange={(event) => setStreet(event.target.value)}
+                    placeholder="123 Front St"
+                    className="mt-1.5 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="sm:col-span-3">
+                  <label className="block text-xs font-semibold text-text-primary">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(event) => setCity(event.target.value)}
+                    placeholder="Crescent City"
+                    className="mt-1.5 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-text-primary">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    value={state}
+                    onChange={(event) => setState(event.target.value.toUpperCase())}
+                    placeholder="CA"
+                    maxLength={2}
+                    className="mt-1.5 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-text-primary">
+                    ZIP
+                  </label>
+                  <input
+                    type="text"
+                    value={zip}
+                    onChange={(event) => setZip(event.target.value)}
+                    placeholder="95531"
+                    className="mt-1.5 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-3 sm:flex sm:flex-wrap">
+        <div className="grid w-full grid-cols-2 gap-1 rounded-lg border border-border bg-bg-warm p-1 sm:inline-flex sm:w-auto sm:gap-0">
           <button
             type="button"
             onClick={() => setViewMode("default")}
-            className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+            className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors sm:py-1.5 ${
               viewMode === "default"
                 ? "bg-surface text-text-primary shadow-sm"
                 : "text-text-secondary hover:text-text-primary"
@@ -977,7 +1073,7 @@ export default function LawnAreaMeasurementMap({
           <button
             type="button"
             onClick={() => setViewMode("satellite")}
-            className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+            className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors sm:py-1.5 ${
               viewMode === "satellite"
                 ? "bg-surface text-text-primary shadow-sm"
                 : "text-text-secondary hover:text-text-primary"
@@ -987,11 +1083,11 @@ export default function LawnAreaMeasurementMap({
           </button>
         </div>
 
-        <div className="inline-flex rounded-lg border border-border bg-bg-warm p-1">
+        <div className="grid w-full gap-1 rounded-lg border border-border bg-bg-warm p-1 sm:inline-flex sm:w-auto sm:gap-0">
           <button
             type="button"
             onClick={() => selectDrawTool("area")}
-            className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+            className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors sm:py-1.5 ${
               interactionMode === "draw" && drawTool === "area"
                 ? "bg-surface text-text-primary shadow-sm"
                 : "text-text-secondary hover:text-text-primary"
@@ -1002,7 +1098,7 @@ export default function LawnAreaMeasurementMap({
           <button
             type="button"
             onClick={() => selectDrawTool("line")}
-            className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+            className={`inline-flex items-center justify-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition-colors sm:py-1.5 ${
               interactionMode === "draw" && drawTool === "line"
                 ? "bg-surface text-text-primary shadow-sm"
                 : "text-text-secondary hover:text-text-primary"
@@ -1014,7 +1110,7 @@ export default function LawnAreaMeasurementMap({
           <button
             type="button"
             onClick={() => setInteractionMode("pick_address")}
-            className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+            className={`inline-flex items-center justify-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition-colors sm:py-1.5 ${
               interactionMode === "pick_address"
                 ? "bg-surface text-text-primary shadow-sm"
                 : "text-text-secondary hover:text-text-primary"
@@ -1028,7 +1124,7 @@ export default function LawnAreaMeasurementMap({
         <button
           type="button"
           onClick={captureMapSnapshot}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-primary transition-colors hover:bg-white"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-white sm:w-auto sm:py-2"
         >
           <Camera className="h-4 w-4" />
           Save Map Screenshot
@@ -1055,11 +1151,11 @@ export default function LawnAreaMeasurementMap({
 
       <div
         ref={mapContainerRef}
-        className="mt-4 h-[420px] overflow-hidden rounded-xl border border-border bg-bg-warm"
+        className="mt-4 h-[320px] max-h-[55svh] overflow-hidden rounded-xl border border-border bg-bg-warm sm:h-[420px] sm:max-h-none"
       />
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
+        <div className="grid gap-2 sm:flex sm:flex-row">
           <input
             type="text"
             value={measurementLabel}
@@ -1069,7 +1165,7 @@ export default function LawnAreaMeasurementMap({
                 ? `Area ${savedAreas.length + 1}`
                 : `Line ${savedLines.length + 1}`
             }
-            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:w-auto"
           />
           <button
             type="button"
@@ -1079,7 +1175,7 @@ export default function LawnAreaMeasurementMap({
                 ? !polygonFeature || measuredAreaSqft <= 0
                 : !lineFeature || measuredLengthFt <= 0
             }
-            className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             <Check className="h-4 w-4" />
             {drawTool === "area"
@@ -1091,7 +1187,7 @@ export default function LawnAreaMeasurementMap({
           type="button"
           onClick={undoPoint}
           disabled={points.length === 0}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-primary transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-primary transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           <Undo2 className="h-4 w-4" />
           Undo Point
@@ -1100,7 +1196,7 @@ export default function LawnAreaMeasurementMap({
           type="button"
           onClick={clearPoints}
           disabled={points.length === 0}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-primary transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-primary transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
         >
           <RotateCcw className="h-4 w-4" />
           Clear Drawing
@@ -1165,8 +1261,8 @@ export default function LawnAreaMeasurementMap({
                 key={areaRow.id}
                 className="flex items-center justify-between gap-3 rounded-lg bg-surface px-3 py-2 text-sm"
               >
-                <div>
-                  <p className="font-semibold text-text-primary">
+                <div className="min-w-0">
+                  <p className="break-words font-semibold text-text-primary">
                     {areaRow.label || `Area ${index + 1}`}
                   </p>
                   <p className="text-text-muted">
@@ -1188,8 +1284,8 @@ export default function LawnAreaMeasurementMap({
                 key={lineRow.id}
                 className="flex items-center justify-between gap-3 rounded-lg bg-surface px-3 py-2 text-sm"
               >
-                <div>
-                  <p className="font-semibold text-text-primary">
+                <div className="min-w-0">
+                  <p className="break-words font-semibold text-text-primary">
                     {lineRow.label || `Line ${index + 1}`}
                   </p>
                   <p className="text-text-muted">

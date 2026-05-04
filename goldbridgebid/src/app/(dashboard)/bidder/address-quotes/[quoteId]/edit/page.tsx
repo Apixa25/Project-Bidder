@@ -202,7 +202,7 @@ export default async function EditBidderAddressQuotePage({
         />
 
         <div className="space-y-6">
-          <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-text-primary">
               Address
             </h2>
@@ -216,7 +216,7 @@ export default async function EditBidderAddressQuotePage({
             </p>
           </section>
 
-          <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-text-primary">
               Quote Details
             </h2>
@@ -288,7 +288,7 @@ export default async function EditBidderAddressQuotePage({
 
           <StreetViewEvidenceTool initialImages={streetViewImages} />
 
-          <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
             <input
               type="hidden"
               name="existingQuoteMediaJson"
@@ -338,7 +338,7 @@ export default async function EditBidderAddressQuotePage({
         </div>
 
         <aside className="space-y-6">
-          <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-text-primary">
               Pricing
             </h2>
@@ -348,7 +348,7 @@ export default async function EditBidderAddressQuotePage({
             </p>
           </section>
 
-          <section className="rounded-xl border border-white/30 bg-primary/20 p-6">
+          <section className="rounded-xl border border-white/30 bg-primary/20 p-4 sm:p-6">
             <h2 className="font-semibold text-white">Publish status</h2>
             <p className="mt-2 text-sm font-medium leading-6 text-white">
               Published quotes appear on the public address page. Drafts remain
@@ -376,7 +376,7 @@ export default async function EditBidderAddressQuotePage({
         </aside>
       </form>
 
-      <section className="mt-6 rounded-xl border border-red-200 bg-red-50 p-6">
+      <section className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 sm:p-6">
         <h2 className="font-semibold text-red-900">Delete quote</h2>
         <p className="mt-2 text-sm leading-6 text-red-800">
           Deleting removes this quote from your dashboard and from the public

@@ -247,7 +247,7 @@ export default function AddressQuoteBidSheet({
   }
 
   return (
-    <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+    <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
       <input type="hidden" name="quoteTotal" value={grandTotal.toFixed(2)} />
       <input
         type="hidden"
@@ -265,7 +265,7 @@ export default function AddressQuoteBidSheet({
             with +. Add any hand-entered line items needed to finish the quote.
           </p>
         </div>
-        <div className="rounded-lg bg-gradient-to-r from-primary/10 to-secondary/10 px-4 py-2 text-right">
+        <div className="w-full rounded-lg bg-gradient-to-r from-primary/10 to-secondary/10 px-4 py-2 text-left sm:w-auto sm:text-right">
           <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
             Quote Total
           </p>
@@ -276,7 +276,7 @@ export default function AddressQuoteBidSheet({
       </div>
 
       <div className="mt-5 overflow-x-auto">
-        <table className="w-full text-sm tabular-nums">
+        <table className="min-w-[680px] w-full text-sm tabular-nums">
           <thead>
             <tr className="border-b border-border text-left">
               <th className="pb-2 pr-3 font-semibold text-text-primary">

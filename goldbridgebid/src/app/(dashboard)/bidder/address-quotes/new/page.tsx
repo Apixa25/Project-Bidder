@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { userHasRole } from "@/lib/auth/roles";
 import { createManualAddressQuote } from "@/lib/address-quotes/actions";
@@ -62,81 +62,11 @@ export default async function NewBidderAddressQuotePage({
         className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]"
       >
         <div className="space-y-6">
-          <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-secondary" />
-              <h2 className="text-lg font-semibold text-text-primary">
-                Address
-              </h2>
-            </div>
-            <div className="mt-5 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-text-primary">
-                  Full address *
-                </label>
-                <input
-                  name="displayAddress"
-                  type="text"
-                  required
-                  placeholder="123 Front St, Crescent City, CA 95531"
-                  className="mt-2 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-6">
-                <div className="sm:col-span-3">
-                  <label className="block text-sm font-semibold text-text-primary">
-                    Street
-                  </label>
-                  <input
-                    name="street"
-                    type="text"
-                    placeholder="123 Front St"
-                    className="mt-2 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-                <div className="sm:col-span-3">
-                  <label className="block text-sm font-semibold text-text-primary">
-                    City
-                  </label>
-                  <input
-                    name="city"
-                    type="text"
-                    placeholder="Crescent City"
-                    className="mt-2 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-semibold text-text-primary">
-                    State
-                  </label>
-                  <input
-                    name="state"
-                    type="text"
-                    placeholder="CA"
-                    maxLength={2}
-                    className="mt-2 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-semibold text-text-primary">
-                    ZIP
-                  </label>
-                  <input
-                    name="zip"
-                    type="text"
-                    placeholder="95531"
-                    className="mt-2 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <LawnAreaMeasurementMap />
+          <LawnAreaMeasurementMap manageAddressFields />
 
           <StreetViewEvidenceTool />
 
-          <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-text-primary">
               Reference Photos
             </h2>
@@ -155,7 +85,7 @@ export default async function NewBidderAddressQuotePage({
 
           <AddressQuoteBidSheet />
 
-          <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-text-primary">
               Quote Details
             </h2>
@@ -217,7 +147,7 @@ export default async function NewBidderAddressQuotePage({
         </div>
 
         <aside className="space-y-6">
-          <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-text-primary">
               Pricing
             </h2>
@@ -227,7 +157,7 @@ export default async function NewBidderAddressQuotePage({
             </p>
           </section>
 
-          <section className="rounded-xl border border-white/30 bg-primary/20 p-6">
+          <section className="rounded-xl border border-white/30 bg-primary/20 p-4 sm:p-6">
             <h2 className="font-semibold text-white">Publish status</h2>
             <p className="mt-2 text-sm font-medium leading-6 text-white">
               Drafts stay in your contractor dashboard. Published quotes become

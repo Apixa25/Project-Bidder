@@ -39,6 +39,7 @@ interface DashboardNavProps {
   avatarUrl?: string | null;
   unreadNotifications?: number;
   isMobileOpen?: boolean;
+  isMobileViewport?: boolean;
   onClose?: () => void;
 }
 
@@ -111,6 +112,7 @@ export default function DashboardNav({
   avatarUrl = null,
   unreadNotifications = 0,
   isMobileOpen = false,
+  isMobileViewport = false,
   onClose,
 }: DashboardNavProps) {
   const pathname = usePathname();
@@ -126,13 +128,18 @@ export default function DashboardNav({
   return (
     <nav
       id="dashboard-navigation"
-      className={`fixed inset-y-0 left-0 z-40 flex h-full w-[85vw] max-w-72 flex-col border-r border-border bg-surface shadow-2xl transition-transform duration-300 ease-out lg:static lg:h-screen lg:w-64 lg:max-w-none lg:translate-x-0 lg:shadow-none ${
-        isMobileOpen ? "translate-x-0" : "-translate-x-full"
+      className={`z-40 flex flex-col border-r border-border bg-surface transition-transform duration-300 ease-out ${
+        isMobileViewport
+          ? "fixed inset-y-0 left-0 h-full w-[85vw] max-w-72 shadow-2xl"
+          : "sticky top-0 h-screen w-64 shrink-0 shadow-none"
+      } ${
+        !isMobileViewport || isMobileOpen ? "translate-x-0" : "-translate-x-full"
       }`}
     >
       {/* Logo */}
       <div className="border-b border-border px-6 py-4">
-        <div className="mb-3 flex items-center justify-end lg:hidden">
+        {isMobileViewport && (
+        <div className="mb-3 flex items-center justify-end">
           <button
             type="button"
             onClick={onClose}
@@ -142,6 +149,7 @@ export default function DashboardNav({
             <X className="h-5 w-5" />
           </button>
         </div>
+        )}
         <Link href="/" className="flex flex-col items-center gap-2">
           <Image
             src="/logo-mark.png"

@@ -66,7 +66,7 @@ export default async function BidderAddressQuotesPage({
         </div>
         <Link
           href="/bidder/address-quotes/new"
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-secondary-dark"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-secondary-dark sm:w-auto sm:py-2.5"
         >
           <Plus className="h-4 w-4" />
           New Address Quote
