@@ -549,10 +549,31 @@ export default function NewProjectPage() {
           <h2 className="mb-2 text-lg font-semibold text-text-primary">
             Level of Professional Needed
           </h2>
-          <p className="mb-4 text-sm text-text-muted">
-            What level of expertise does your project require? This helps us
-            estimate labor costs and match you with the right contractors.
+          <p className="mb-3 text-sm text-text-muted">
+            What level of expertise does your project actually require? This
+            helps us match you with the right pool of contractors.
           </p>
+
+          {/* Price-vs-qualification primer — picking a higher level usually
+              means higher bids from a smaller, more credentialed pool;
+              picking a lower level usually means more bidders at lower
+              prices. We surface this up-front so customers don't accidentally
+              over-shop a small job. */}
+          <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900">
+            <p className="font-semibold text-amber-900">
+              Quick tip on price 💡
+            </p>
+            <p className="mt-1">
+              The <strong>more qualified</strong> the professional you require,
+              the <strong>higher the bid prices</strong> tend to be — and the{" "}
+              <strong>fewer bidders</strong> will be eligible. The{" "}
+              <strong>less qualified</strong> the work needs, the{" "}
+              <strong>lower the bid prices</strong> and the{" "}
+              <strong>larger the pool</strong> of bidders. Pick the lowest
+              level that still gets the job done right.
+            </p>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-3">
             {EXPERTISE_LEVELS.map((level) => (
               <button

@@ -6,7 +6,9 @@ import {
   Shield,
   MessageSquare,
   ClipboardCheck,
-  Star,
+  Sparkles,
+  BadgeDollarSign,
+  MapPin,
   ArrowRight,
   CheckCircle2,
 } from "lucide-react";
@@ -18,13 +20,13 @@ const FEATURES = [
     icon: FileText,
     title: "Post Your Project",
     description:
-      "Describe your construction project with photos, documents, and videos. Set clear completion criteria so every bidder knows exactly what 'done' means.",
+      "Describe your construction project with photos, documents, and videos. Pick the level of professional you need — Licensed Contractor, Handyman, or General Labor — and we'll match you with the right pool of bidders.",
   },
   {
     icon: Shield,
-    title: "Verified Contractors",
+    title: "Easy to Verify Contractors",
     description:
-      "Bidders upload their license, bond, insurance, workers' comp, EIN, and references. Gold, Silver, and Bronze badges let you screen at a glance.",
+      "Bidders upload their license, bond, insurance, workers' comp, EIN, and references — and Gold, Silver, and Bronze badges show which documents are on file at a glance, so you can verify them yourself in seconds.",
   },
   {
     icon: ClipboardCheck,
@@ -33,67 +35,35 @@ const FEATURES = [
       "Receive competitive sealed bids directly. Only you see the details — bidders never see competing offers. Fair, transparent, and confidential.",
   },
   {
-    icon: Star,
-    title: "Multi-Trade Support",
+    icon: Sparkles,
+    title: "AI Scope Builder",
     description:
-      "Big project needing plumbing AND electrical? Contractors bid on just their trade. You pick the best for each — all in one place.",
+      "Our AI reads your description, photos, and timeline to suggest a clean scope checklist. Include what applies, skip what doesn't — so contractors give you cleaner, apples-to-apples bids.",
+  },
+  {
+    icon: BadgeDollarSign,
+    title: "Paid Estimates (Optional)",
+    description:
+      "Want serious attention on a competitive job? Fund a Paid Estimate Pool with Stripe, and qualified contractors get a small reward for submitting real bids.",
+  },
+  {
+    icon: MapPin,
+    title: "Quick Quotes by Address",
+    description:
+      "Look up any address and see public contractor quotes left for that property. Perfect for small jobs (lawn care, exterior paint, fence repair) where a sealed-bid project is overkill.",
   },
   {
     icon: MessageSquare,
-    title: "Built-In Messaging",
+    title: "Built-In Messaging + Q&A",
     description:
-      "Ask questions, share extra documents, and communicate directly with bidders — all logged and organized inside the platform.",
+      "Ask questions, share extra documents, and message bidders directly — all logged and organized inside the platform. Public Q&A on each project keeps everyone on the same page.",
   },
   {
     icon: HardHat,
     title: "Track Everything",
     description:
-      "See bid counts, project status, and every edit — with date stamps that protect you and your bidders from scope changes.",
+      "See bid counts, project status, every edit, and verified reviews — with date stamps that protect both sides from scope creep.",
   },
-];
-
-const TRADES = [
-  "General A",
-  "General B",
-  "General C",
-  "Handyman",
-  "General Work",
-  "Insulation and Acoustical",
-  "Boiler, Hot Water Heating and Steam Fitting",
-  "Framing and Rough Carpentry",
-  "Cabinet, Millwork and Finish Carpentry",
-  "Low Voltage Systems",
-  "Concrete",
-  "Electrical",
-  "Drywall",
-  "Earthwork and Paving",
-  "Fencing",
-  "Flooring and Floor Covering",
-  "Fire Protection",
-  "Glazing",
-  "HVAC",
-  "Building Moving/Demolition",
-  "Ornamental Metal",
-  "Landscaping",
-  "Masonry",
-  "Construction Zone Traffic Control",
-  "Painting and Decorating",
-  "Pipeline",
-  "Plumbing",
-  "Refrigeration",
-  "Roofing",
-  "Sanitation System",
-  "Sheet Metal",
-  "Sign",
-  "Solar",
-  "General Manufactured Housing",
-  "Reinforcing Steel",
-  "Structural Steel",
-  "Swimming Pool",
-  "Tile (Ceramic and Mosaic)",
-  "Water Conditioning",
-  "Well Drilling",
-  "Earthquake Retrofit",
 ];
 
 export default function Home() {
@@ -166,53 +136,42 @@ export default function Home() {
           <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-4xl text-center">
               <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
-                <span className="block">
-                  Do you{" "}
-                  <span className="text-[#eab308]">have a project</span> you
-                  need a bid on? Or are you talented at what you do and{" "}
-                  <span className="text-[#eab308]">looking for more work</span>
-                  ?
-                </span>
-                <span className="mt-5 block text-[0.5em] leading-relaxed sm:mt-6">
-                  From a yard that needs mowing all the way to a bridge that needs
-                  to be built, post your project here and receive bids from
-                  potential contractors.
-                </span>
+                Where{" "}
+                <span className="text-[#eab308]">qualified contractors</span>{" "}
+                compete for your project.
               </h1>
               <p className="mt-6 text-lg leading-8 text-zinc-200/90">
-                Post your construction project. Receive sealed bids from
-                contractors.
+                Post your construction project — from a yard that needs mowing
+                to a bridge that needs to be built — and receive sealed bids
+                from real contractors. It&apos;s free for both sides.
               </p>
               <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <Link
                   href="/signup?role=customer"
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#eab308] px-5 py-3.5 text-center text-sm font-semibold text-slate-950 shadow-lg transition-colors hover:bg-[#fde047] sm:w-auto sm:px-8 sm:text-base"
                 >
-                  Post a Project / Make a Customer Account
-                  <ArrowRight className="h-5 w-5 shrink-0" />
-                </Link>
-                <Link
-                  href="/address-quotes"
-                  className="group flex w-full items-center justify-center gap-3 rounded-lg border-2 border-[#eab308]/70 bg-[#eab308]/10 px-5 py-3 text-center text-sm font-semibold text-[#fde047] shadow-lg transition-colors hover:bg-[#eab308]/20 sm:w-auto sm:px-6 sm:text-base"
-                >
-                  <Image
-                    src="/address-lookup-map.svg"
-                    alt=""
-                    width={96}
-                    height={58}
-                    className="h-12 w-20 rounded-lg border border-white/20 object-cover shadow-sm transition-transform group-hover:scale-105"
-                  />
-                  <span>Look Up Your Address</span>
+                  I Have a Project
                   <ArrowRight className="h-5 w-5 shrink-0" />
                 </Link>
                 <Link
                   href="/signup?role=bidder"
                   className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-white/30 bg-white/10 px-5 py-3.5 text-center text-sm font-semibold text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-white/20 sm:w-auto sm:px-8 sm:text-base"
                 >
-                  Look For Work / Make a Contractor Account
+                  I&apos;m a Contractor
                   <ArrowRight className="h-5 w-5 shrink-0" />
                 </Link>
               </div>
+              {/* Secondary CTA — small text link so the address lookup is still
+                  discoverable without competing with the two role buttons. */}
+              <p className="mt-6 text-sm text-zinc-200/80">
+                Just curious about contractor pricing on your property?{" "}
+                <Link
+                  href="/address-quotes"
+                  className="font-semibold text-[#fde047] underline underline-offset-4 hover:text-white"
+                >
+                  Look up an address →
+                </Link>
+              </p>
               <div className="mt-8 flex justify-center">
                 <ScrollMoreCue
                   href="#how-it-works"
@@ -393,41 +352,6 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-            </div>
-            <div className="mt-12 flex justify-center sm:mt-16">
-              <ScrollMoreCue
-                href="#trades"
-                variant="on-light"
-                ariaLabel="Scroll down to trades we cover"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Trades We Cover */}
-        <section
-          id="trades"
-          className="scroll-mt-52 sm:scroll-mt-60 py-20 sm:py-28 bg-bg-warm"
-        >
-          <div className="mx-auto max-w-7xl px-6 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
-                All Construction Trades Welcome
-              </h2>
-              <p className="mt-4 text-lg text-text-secondary">
-                From foundation to finish, every trade has a place on
-                projectxbidx.
-              </p>
-            </div>
-            <div className="mx-auto mt-12 flex max-w-3xl flex-wrap items-center justify-center gap-3">
-              {TRADES.map((trade) => (
-                <span
-                  key={trade}
-                  className="rounded-full border border-border bg-surface px-5 py-2.5 text-sm font-medium text-text-primary shadow-sm"
-                >
-                  {trade}
-                </span>
-              ))}
             </div>
             <div className="mt-12 flex justify-center sm:mt-16">
               <ScrollMoreCue

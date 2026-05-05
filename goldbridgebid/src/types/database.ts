@@ -332,11 +332,11 @@ export const EXPERTISE_LEVEL_LABELS: Record<ExpertiseLevel, string> = {
 
 export const EXPERTISE_LEVEL_DESCRIPTIONS: Record<ExpertiseLevel, string> = {
   licensed_contractor:
-    "A licensed professional (General Contractor or specialty license)",
+    "A licensed professional (General Contractor or specialty license). Highest qualifications, fewer eligible bidders, and typically the highest bid prices.",
   handyman:
-    "A skilled tradesperson for smaller jobs, no full contractor license required",
+    "A skilled tradesperson for smaller jobs — no full contractor license required. Mid-range bid prices, broader pool of bidders.",
   general_labor:
-    "Basic labor — no license or specialized skills needed",
+    "Basic labor — no license or specialized skills needed. Lowest bid prices and the largest pool of bidders.",
 };
 
 export const EXPERTISE_LEVELS: ExpertiseLevel[] = [

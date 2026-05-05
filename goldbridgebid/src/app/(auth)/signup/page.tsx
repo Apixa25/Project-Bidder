@@ -11,6 +11,10 @@ import type { UserRole } from "@/types/database";
 
 type SignupRole = Extract<UserRole, "customer" | "bidder" | "estimator">;
 
+// Estimator is intentionally NOT shown in the public role picker — it's a
+// niche role that we expect to be ~1 in 1000 signups. Estimators land here
+// from a direct link (e.g. ?role=estimator), and we still create the right
+// account for them.
 function parseSignupRole(value: string | null): SignupRole {
   if (value === "bidder" || value === "estimator") return value;
   return "customer";
@@ -70,60 +74,65 @@ function SignupForm() {
         <p className="mt-3 text-text-secondary">Create your account</p>
       </div>
 
-      {/* Role Selection */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <button
-          type="button"
-          onClick={() => setRole("customer")}
-          className={`group flex flex-col items-center gap-3 rounded-xl border-2 p-4 text-center transition-all sm:p-6 ${
-            role === "customer"
-              ? "border-primary bg-primary/5"
-              : "border-border bg-surface hover:border-primary/40"
-          }`}
-        >
-          <FileText
-            className={`h-8 w-8 ${role === "customer" ? "text-primary" : "text-text-muted"}`}
-          />
-          <span className="text-sm font-semibold text-text-primary">
-            I Have a Project
-          </span>
-          <span className="text-xs text-text-muted">Customer Account</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setRole("bidder")}
-          className={`group flex flex-col items-center gap-3 rounded-xl border-2 p-4 text-center transition-all sm:p-6 ${
-            role === "bidder"
-              ? "border-secondary bg-secondary/5"
-              : "border-border bg-surface hover:border-secondary/40"
-          }`}
-        >
-          <ClipboardCheck
-            className={`h-8 w-8 ${role === "bidder" ? "text-secondary" : "text-text-muted"}`}
-          />
-          <span className="text-sm font-semibold text-text-primary">
-            I&apos;m a Contractor
-          </span>
-          <span className="text-xs text-text-muted">Bidder Account</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setRole("estimator")}
-          className={`group flex flex-col items-center gap-3 rounded-xl border-2 p-4 text-center transition-all sm:p-6 ${
-            role === "estimator"
-              ? "border-accent bg-accent/5"
-              : "border-border bg-surface hover:border-accent/40"
-          }`}
-        >
-          <Calculator
-            className={`h-8 w-8 ${role === "estimator" ? "text-accent" : "text-text-muted"}`}
-          />
-          <span className="text-sm font-semibold text-text-primary">
-            I Sell Estimates
-          </span>
-          <span className="text-xs text-text-muted">Estimator Account</span>
-        </button>
-      </div>
+      {/* Role Selection — only Customer and Contractor are shown publicly.
+          Estimator signups arrive via ?role=estimator (or a future invite
+          link) and see a confirmation banner instead of the picker. */}
+      {role === "estimator" ? (
+        <div className="mb-6 rounded-xl border-2 border-accent/40 bg-accent/5 p-5 text-center">
+          <Calculator className="mx-auto h-8 w-8 text-accent" />
+          <p className="mt-3 text-sm font-semibold text-text-primary">
+            Creating an Estimator Account
+          </p>
+          <p className="mt-1 text-xs text-text-muted">
+            You&apos;ll be able to publish takeoffs and estimate packages, and
+            respond to estimate requests from contractors and customers.
+          </p>
+          <button
+            type="button"
+            onClick={() => setRole("customer")}
+            className="mt-3 text-xs font-medium text-accent hover:text-accent-light hover:underline"
+          >
+            Not an estimator? Switch to Customer or Contractor
+          </button>
+        </div>
+      ) : (
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setRole("customer")}
+            className={`group flex flex-col items-center gap-3 rounded-xl border-2 p-4 text-center transition-all sm:p-6 ${
+              role === "customer"
+                ? "border-primary bg-primary/5"
+                : "border-border bg-surface hover:border-primary/40"
+            }`}
+          >
+            <FileText
+              className={`h-8 w-8 ${role === "customer" ? "text-primary" : "text-text-muted"}`}
+            />
+            <span className="text-sm font-semibold text-text-primary">
+              I Have a Project
+            </span>
+            <span className="text-xs text-text-muted">Customer Account</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setRole("bidder")}
+            className={`group flex flex-col items-center gap-3 rounded-xl border-2 p-4 text-center transition-all sm:p-6 ${
+              role === "bidder"
+                ? "border-secondary bg-secondary/5"
+                : "border-border bg-surface hover:border-secondary/40"
+            }`}
+          >
+            <ClipboardCheck
+              className={`h-8 w-8 ${role === "bidder" ? "text-secondary" : "text-text-muted"}`}
+            />
+            <span className="text-sm font-semibold text-text-primary">
+              I&apos;m a Contractor
+            </span>
+            <span className="text-xs text-text-muted">Bidder Account</span>
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -309,6 +318,21 @@ function SignupForm() {
           Sign in here
         </Link>
       </p>
+
+      {/* Discoverable estimator path. Hidden on the dedicated estimator banner
+          to avoid the "Sign up as an estimator" link appearing while you're
+          already on the estimator path. */}
+      {role !== "estimator" && (
+        <p className="mt-4 text-center text-xs text-text-muted">
+          Sell takeoffs and project estimates?{" "}
+          <Link
+            href="/signup?role=estimator"
+            className="font-medium text-accent hover:text-accent-light hover:underline"
+          >
+            Sign up as an estimator →
+          </Link>
+        </p>
+      )}
     </div>
   );
 }

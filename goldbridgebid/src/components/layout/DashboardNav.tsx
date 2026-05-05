@@ -43,65 +43,155 @@ interface DashboardNavProps {
   onClose?: () => void;
 }
 
-const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: typeof LayoutDashboard }[]> = {
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+};
+
+type NavGroup = {
+  // null = no header rendered (used for the top "Working" group, which is the
+  // most-used links and doesn't need a label).
+  label: string | null;
+  items: NavItem[];
+};
+
+// Sidebar items are grouped into visual sections (Working / Setup / Tools)
+// so the most-used links float to the top and the rest cluster by purpose.
+// See the App Usability Audit conversation — this replaces the old flat list
+// that had grown to 10–11 items per role and felt like a wall of text.
+const NAV_GROUPS: Record<UserRole, NavGroup[]> = {
   customer: [
-    { href: "/customer", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/customer/projects", label: "My Projects", icon: FolderOpen },
-    { href: "/customer/bids", label: "My Bids", icon: ClipboardList },
-    { href: "/address-quotes", label: "Address Quotes", icon: MapPin },
     {
-      href: "/customer/address-requests",
-      label: "My Address Requests",
-      icon: BadgeDollarSign,
+      label: null,
+      items: [
+        { href: "/customer", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/customer/projects", label: "My Projects", icon: FolderOpen },
+        { href: "/customer/bids", label: "Incoming Bids", icon: ClipboardList },
+        { href: "/customer/messages", label: "Messages", icon: MessageSquare },
+      ],
     },
-    { href: "/customer/contractors", label: "Find Contractors", icon: Users },
-    { href: "/estimate-packages", label: "Estimate Library", icon: LibraryBig },
-    { href: "/estimate-packages/purchases", label: "My Estimate Packages", icon: ReceiptText },
-    { href: "/customer/messages", label: "Messages", icon: MessageSquare },
-    { href: "/customer/profile", label: "Profile", icon: User },
+    {
+      label: "Tools",
+      items: [
+        { href: "/customer/contractors", label: "Find Contractors", icon: Users },
+        { href: "/address-quotes", label: "Look Up an Address", icon: MapPin },
+        {
+          href: "/customer/address-requests",
+          label: "My Quick Quote Requests",
+          icon: BadgeDollarSign,
+        },
+        { href: "/estimate-packages", label: "Estimate Library", icon: LibraryBig },
+        {
+          href: "/estimate-packages/purchases",
+          label: "My Estimate Packages",
+          icon: ReceiptText,
+        },
+      ],
+    },
+    {
+      label: "Account",
+      items: [
+        { href: "/customer/profile", label: "Profile", icon: User },
+      ],
+    },
   ],
   bidder: [
-    { href: "/bidder", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/bidder/bids", label: "My Bids", icon: ClipboardList },
-    { href: "/bidder/projects", label: "Browse Projects", icon: FolderOpen },
-    { href: "/bidder/address-quotes", label: "Address Quotes", icon: MapPin },
     {
-      href: "/bidder/address-requests",
-      label: "Open Address Requests",
-      icon: BadgeDollarSign,
+      label: null,
+      items: [
+        { href: "/bidder", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/bidder/projects", label: "Browse Projects", icon: FolderOpen },
+        { href: "/bidder/bids", label: "My Bids", icon: ClipboardList },
+        { href: "/bidder/messages", label: "Messages", icon: MessageSquare },
+      ],
     },
-    { href: "/estimate-packages", label: "Estimate Library", icon: LibraryBig },
-    { href: "/estimate-packages/purchases", label: "My Estimate Packages", icon: ReceiptText },
-    { href: "/bidder/payouts", label: "Payouts", icon: WalletCards },
-    { href: "/bidder/messages", label: "Messages", icon: MessageSquare },
-    { href: "/bidder/credentials", label: "Credentials", icon: Shield },
-    { href: "/bidder/profile", label: "Profile", icon: User },
+    {
+      label: "Tools",
+      items: [
+        { href: "/bidder/address-quotes", label: "My Quick Quotes", icon: MapPin },
+        {
+          href: "/bidder/address-requests",
+          label: "Open Quick Quote Requests",
+          icon: BadgeDollarSign,
+        },
+        { href: "/estimate-packages", label: "Estimate Library", icon: LibraryBig },
+        {
+          href: "/estimate-packages/purchases",
+          label: "My Estimate Packages",
+          icon: ReceiptText,
+        },
+      ],
+    },
+    {
+      label: "Setup",
+      items: [
+        { href: "/bidder/credentials", label: "Credentials", icon: Shield },
+        { href: "/bidder/payouts", label: "Payouts", icon: WalletCards },
+        { href: "/bidder/profile", label: "Profile", icon: User },
+      ],
+    },
   ],
   estimator: [
-    { href: "/estimator", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/estimator/packages", label: "My Packages", icon: LibraryBig },
-    { href: "/estimate-packages/purchases", label: "My Purchases", icon: ReceiptText },
-    { href: "/estimator/payouts", label: "Payouts", icon: WalletCards },
-    { href: "/estimator/requests", label: "Estimate Requests", icon: PackagePlus },
-    { href: "/estimator/messages", label: "Messages", icon: MessageSquare },
-    { href: "/estimator/profile", label: "Profile", icon: User },
+    {
+      label: null,
+      items: [
+        { href: "/estimator", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/estimator/requests", label: "Estimate Requests", icon: PackagePlus },
+        { href: "/estimator/packages", label: "My Packages", icon: LibraryBig },
+        { href: "/estimator/messages", label: "Messages", icon: MessageSquare },
+      ],
+    },
+    {
+      label: "Tools",
+      items: [
+        { href: "/estimate-packages/purchases", label: "My Purchases", icon: ReceiptText },
+      ],
+    },
+    {
+      label: "Setup",
+      items: [
+        { href: "/estimator/payouts", label: "Payouts", icon: WalletCards },
+        { href: "/estimator/profile", label: "Profile", icon: User },
+      ],
+    },
   ],
   admin: [
-    { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/admin/projects", label: "All Projects", icon: FolderOpen },
-    { href: "/admin/bids", label: "All Bids", icon: ClipboardList },
-    { href: "/admin/users", label: "Users", icon: Users },
-    { href: "/admin/messages", label: "Messages", icon: MessageSquare },
-    { href: "/admin/flags", label: "Flagged Content", icon: Flag },
-    { href: "/admin/reviews", label: "Reviews", icon: Star },
-    { href: "/admin/paid-estimates", label: "Paid Estimates", icon: BadgeDollarSign },
-    { href: "/admin/address-quotes", label: "Address Quotes", icon: MapPin },
-    { href: "/admin/estimate-packages", label: "Estimate Packages", icon: LibraryBig },
-    { href: "/admin/estimate-requests", label: "Estimate Requests", icon: PackagePlus },
-    { href: "/admin/disputes", label: "Disputes", icon: Scale },
-    { href: "/admin/stripe", label: "Stripe Readiness", icon: CreditCard },
-    { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/admin/audit", label: "Audit Log", icon: ScrollText },
+    {
+      label: null,
+      items: [
+        { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/admin/projects", label: "All Projects", icon: FolderOpen },
+        { href: "/admin/bids", label: "All Bids", icon: ClipboardList },
+        { href: "/admin/users", label: "Users", icon: Users },
+        { href: "/admin/messages", label: "Messages", icon: MessageSquare },
+      ],
+    },
+    {
+      label: "Moderation",
+      items: [
+        { href: "/admin/flags", label: "Flagged Content", icon: Flag },
+        { href: "/admin/reviews", label: "Reviews", icon: Star },
+        { href: "/admin/disputes", label: "Disputes", icon: Scale },
+      ],
+    },
+    {
+      label: "Tools",
+      items: [
+        { href: "/admin/paid-estimates", label: "Paid Estimates", icon: BadgeDollarSign },
+        { href: "/admin/address-quotes", label: "Quick Quotes", icon: MapPin },
+        { href: "/admin/estimate-packages", label: "Estimate Packages", icon: LibraryBig },
+        { href: "/admin/estimate-requests", label: "Estimate Requests", icon: PackagePlus },
+      ],
+    },
+    {
+      label: "Platform",
+      items: [
+        { href: "/admin/stripe", label: "Stripe Readiness", icon: CreditCard },
+        { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+        { href: "/admin/audit", label: "Audit Log", icon: ScrollText },
+      ],
+    },
   ],
 };
 
@@ -116,7 +206,7 @@ export default function DashboardNav({
   onClose,
 }: DashboardNavProps) {
   const pathname = usePathname();
-  const items = NAV_ITEMS[currentRole];
+  const groups = NAV_GROUPS[currentRole];
   const profileHref = `/${currentRole}/profile`;
   const userInitials = userName
     .split(" ")
@@ -203,32 +293,47 @@ export default function DashboardNav({
         </div>
       </div>
 
-      {/* Nav Links */}
+      {/* Nav Links — grouped into visual sections so the sidebar isn't a
+          single 10–11 item wall. The first group has no header (it's the
+          most-used links). Subsequent groups use a small uppercase label. */}
       <div className="flex-1 overflow-y-auto px-3 py-4">
-        <ul className="space-y-1">
-          {items.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== `/${currentRole}` && pathname.startsWith(item.href));
+        {groups.map((group, groupIndex) => (
+          <div
+            key={group.label ?? `group-${groupIndex}`}
+            className={groupIndex > 0 ? "mt-5" : ""}
+          >
+            {group.label && (
+              <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+                {group.label}
+              </p>
+            )}
+            <ul className="space-y-1">
+              {group.items.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== `/${currentRole}` &&
+                    pathname.startsWith(item.href));
 
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  onClick={onClose}
-                  className={`nav-btn-glow flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
-                    isActive
-                      ? "bg-accent-light/10 text-accent-light"
-                      : "text-text-secondary"
-                  }`}
-                >
-                  <item.icon className="nav-btn-glow-icon h-5 w-5 shrink-0" />
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={onClose}
+                      className={`nav-btn-glow flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
+                        isActive
+                          ? "bg-accent-light/10 text-accent-light"
+                          : "text-text-secondary"
+                      }`}
+                    >
+                      <item.icon className="nav-btn-glow-icon h-5 w-5 shrink-0" />
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </div>
 
       {/* Notifications & Sign Out */}
