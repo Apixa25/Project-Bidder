@@ -100,11 +100,16 @@ export default async function CustomerDashboard() {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards — each card is a Link so a single tap takes the user
+          straight to the relevant filtered list. Hover/focus styles mirror
+          the project-row interactive pattern used elsewhere in the dashboard. */}
       <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <Link
+          href="/customer/projects"
+          className="group rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent-light/40 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-light/50"
+        >
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-light/10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-light/10 transition-colors group-hover:bg-accent-light/20">
               <FolderOpen className="h-5 w-5 text-accent-light" />
             </div>
             <div>
@@ -114,10 +119,13 @@ export default async function CustomerDashboard() {
               <p className="text-sm text-text-muted">Total Projects</p>
             </div>
           </div>
-        </div>
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+        </Link>
+        <Link
+          href="/customer/projects?status=open"
+          className="group rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-secondary/40 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/50"
+        >
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10 transition-colors group-hover:bg-secondary/20">
               <TrendingUp className="h-5 w-5 text-secondary" />
             </div>
             <div>
@@ -127,10 +135,13 @@ export default async function CustomerDashboard() {
               <p className="text-sm text-text-muted">Open Projects</p>
             </div>
           </div>
-        </div>
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+        </Link>
+        <Link
+          href="/customer/bids"
+          className="group rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-amber-300/60 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
+        >
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 transition-colors group-hover:bg-amber-200">
               <ClipboardList className="h-5 w-5 text-amber-700" />
             </div>
             <div>
@@ -140,10 +151,13 @@ export default async function CustomerDashboard() {
               <p className="text-sm text-text-muted">Total Bids Received</p>
             </div>
           </div>
-        </div>
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+        </Link>
+        <Link
+          href="/customer/messages"
+          className="group rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-300/60 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50"
+        >
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 transition-colors group-hover:bg-blue-200">
               <MessageSquare className="h-5 w-5 text-blue-600" />
             </div>
             <div>
@@ -153,7 +167,7 @@ export default async function CustomerDashboard() {
               <p className="text-sm text-text-muted">Unread Messages</p>
             </div>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Recent Projects */}
