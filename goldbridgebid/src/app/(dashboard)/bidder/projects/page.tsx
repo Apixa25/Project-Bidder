@@ -20,6 +20,7 @@ import {
   Trash2,
   X,
   Sparkles,
+  ChevronDown,
 } from "lucide-react";
 import { FORM_TRADES, TRADE_LABELS, EXPERTISE_LEVEL_LABELS } from "@/types/database";
 import type { ExpertiseLevel } from "@/types/database";
@@ -456,132 +457,147 @@ export default async function BrowseProjectsPage({
         </AdminFilterBar>
       </div>
 
-      <div className="mb-6 rounded-xl border border-border bg-surface p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="flex items-center gap-2 text-base font-semibold text-text-primary">
-            <Bookmark className="h-4 w-4" />
-            Saved Project Searches
-          </h2>
-          <HelpHint
-            id="saved-searches-explainer"
-            variant="icon"
-            title="How saved searches and alerts work"
-          >
-            <strong>Save a search</strong> stores your current filters
-            (trade, state, city, keywords) so you can re-apply them with one
-            click later. <br />
-            <br />
-            <strong>Alert me</strong> sends you a notification whenever a
-            <em> new</em> project is posted that matches that saved search —
-            so you can be one of the first bidders on it. <br />
-            <br />
-            <strong>Check Alerts</strong> manually re-runs your saved
-            searches against the latest projects and surfaces any new
-            matches you haven&apos;t seen yet.
-          </HelpHint>
-        </div>
-        <p className="mt-1 mb-4 text-sm text-text-muted">
-          Save a search by trade or location and get notified when new matching projects are posted.
-        </p>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <form
-            action={async (formData: FormData) => {
-              "use server";
-              await saveBidderProjectSearch(formData);
-            }}
-            className="flex flex-wrap gap-2 items-end"
-          >
-            <input type="hidden" name="queryString" value={activeQueryString} />
-            <input
-              type="text"
-              name="label"
-              maxLength={80}
-              placeholder={
-                hasActiveFilters
-                  ? "Name this search (saves current filters)"
-                  : "Name this search (e.g. 'Electrical in CA')"
-              }
-              className="w-56 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-            <label className="flex items-center gap-2 text-sm text-text-primary">
-              <input
-                type="checkbox"
-                name="notifyOnNewMatches"
-                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-              />
-              Alert me
-            </label>
-            <button
-              type="submit"
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-primary-dark"
+      {/* Saved Searches — collapsed by default so the project grid is above
+          the fold on first load. Uses the native <details>/<summary> element
+          so no client-side JS is needed; the group-open: Tailwind modifier
+          rotates the chevron when the section is expanded. */}
+      <details className="group mb-6 rounded-xl border border-border bg-surface shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 select-none">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-2 text-base font-semibold text-text-primary">
+              <Bookmark className="h-4 w-4" />
+              Saved Project Searches
+            </span>
+            {savedSearches && savedSearches.length > 0 && (
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                {savedSearches.length} saved
+              </span>
+            )}
+            <HelpHint
+              id="saved-searches-explainer"
+              variant="icon"
+              title="How saved searches and alerts work"
             >
-              Save
-            </button>
-          </form>
-          <form
-            action={async () => {
-              "use server";
-              await checkBidderProjectAlerts();
-            }}
-          >
-            <button
-              type="submit"
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-hover"
-            >
-              <RefreshCcw className="h-3.5 w-3.5" />
-              Check Alerts
-            </button>
-          </form>
-        </div>
-
-        {savedSearches && savedSearches.length > 0 && (
-          <div className="mt-4 space-y-2">
-            {savedSearches.slice(0, 5).map((saved) => (
-              <div
-                key={saved.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-bg-warm px-3 py-2.5"
-              >
-                <div className="min-w-0">
-                  <Link
-                    href={
-                      saved.query_string
-                        ? `/bidder/projects?${saved.query_string}`
-                        : "/bidder/projects"
-                    }
-                    className="block truncate text-sm font-semibold text-text-primary hover:text-primary"
-                  >
-                    {saved.label}
-                  </Link>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-text-muted">
-                    <span>Saved {new Date(saved.created_at).toLocaleDateString()}</span>
-                    {saved.notify_on_new_matches && (
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
-                        Alerts on
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <form
-                  action={async (formData: FormData) => {
-                    "use server";
-                    await deleteBidderProjectSearch(formData);
-                  }}
-                >
-                  <input type="hidden" name="searchId" value={saved.id} />
-                  <button
-                    type="submit"
-                    className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-red-50 hover:text-red-600"
-                    aria-label={`Delete saved search ${saved.label}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </form>
-              </div>
-            ))}
+              <strong>Save a search</strong> stores your current filters
+              (trade, state, city, keywords) so you can re-apply them with one
+              click later. <br />
+              <br />
+              <strong>Alert me</strong> sends you a notification whenever a
+              <em> new</em> project is posted that matches that saved search —
+              so you can be one of the first bidders on it. <br />
+              <br />
+              <strong>Check Alerts</strong> manually re-runs your saved
+              searches against the latest projects and surfaces any new
+              matches you haven&apos;t seen yet.
+            </HelpHint>
           </div>
-        )}
-      </div>
+          <ChevronDown className="h-4 w-4 shrink-0 text-text-muted transition-transform duration-200 group-open:rotate-180" />
+        </summary>
+
+        <div className="border-t border-border px-4 pb-4 pt-4">
+          <p className="mb-4 text-sm text-text-muted">
+            Save a search by trade or location and get notified when new matching projects are posted.
+          </p>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <form
+              action={async (formData: FormData) => {
+                "use server";
+                await saveBidderProjectSearch(formData);
+              }}
+              className="flex flex-wrap gap-2 items-end"
+            >
+              <input type="hidden" name="queryString" value={activeQueryString} />
+              <input
+                type="text"
+                name="label"
+                maxLength={80}
+                placeholder={
+                  hasActiveFilters
+                    ? "Name this search (saves current filters)"
+                    : "Name this search (e.g. 'Electrical in CA')"
+                }
+                className="w-56 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+              <label className="flex items-center gap-2 text-sm text-text-primary">
+                <input
+                  type="checkbox"
+                  name="notifyOnNewMatches"
+                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                />
+                Alert me
+              </label>
+              <button
+                type="submit"
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-primary-dark"
+              >
+                Save
+              </button>
+            </form>
+            <form
+              action={async () => {
+                "use server";
+                await checkBidderProjectAlerts();
+              }}
+            >
+              <button
+                type="submit"
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-surface-hover"
+              >
+                <RefreshCcw className="h-3.5 w-3.5" />
+                Check Alerts
+              </button>
+            </form>
+          </div>
+
+          {savedSearches && savedSearches.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {savedSearches.slice(0, 5).map((saved) => (
+                <div
+                  key={saved.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border bg-bg-warm px-3 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <Link
+                      href={
+                        saved.query_string
+                          ? `/bidder/projects?${saved.query_string}`
+                          : "/bidder/projects"
+                      }
+                      className="block truncate text-sm font-semibold text-text-primary hover:text-primary"
+                    >
+                      {saved.label}
+                    </Link>
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-text-muted">
+                      <span>Saved {new Date(saved.created_at).toLocaleDateString()}</span>
+                      {saved.notify_on_new_matches && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+                          Alerts on
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <form
+                    action={async (formData: FormData) => {
+                      "use server";
+                      await deleteBidderProjectSearch(formData);
+                    }}
+                  >
+                    <input type="hidden" name="searchId" value={saved.id} />
+                    <button
+                      type="submit"
+                      className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-red-50 hover:text-red-600"
+                      aria-label={`Delete saved search ${saved.label}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </form>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </details>
 
       {filteredProjects.length > 0 ? (
         <div className="space-y-4">
