@@ -122,17 +122,26 @@ function LoginForm() {
           </div>
 
           <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-text-primary"
-            >
-              Password
-            </label>
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-text-primary"
+              >
+                Password
+              </label>
+              <Link
+                href="/forgot-password"
+                className="text-xs font-medium text-primary hover:text-primary-dark transition-colors"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <input
               id="password"
               name="password"
               type="password"
               required
+              autoComplete="current-password"
               className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               placeholder="••••••••"
             />

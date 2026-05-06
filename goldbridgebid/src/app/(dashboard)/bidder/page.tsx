@@ -17,6 +17,7 @@ import {
   BIDDER_PAYOUT_READINESS_LABELS,
   getBidderPayoutReadiness,
 } from "@/lib/paid-estimates/payout-accounts";
+import ProjectStatusPill from "@/components/project/ProjectStatusPill";
 import { TRADE_LABELS } from "@/types/database";
 import type {
   BadgeLevel,
@@ -317,21 +318,7 @@ export default async function BidderDashboard() {
                     <span className="text-money text-sm font-semibold">
                       ${Number(bid.price).toLocaleString()}
                     </span>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        project.status === "open"
-                          ? "bg-green-100 text-green-700"
-                          : project.status === "awarded"
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {project.status === "open"
-                        ? "Open"
-                        : project.status === "awarded"
-                          ? "Awarded"
-                          : "Closed"}
-                    </span>
+                    <ProjectStatusPill status={project.status} />
                   </div>
                 </div>
               );

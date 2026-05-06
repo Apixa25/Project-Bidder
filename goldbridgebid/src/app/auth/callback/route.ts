@@ -9,11 +9,27 @@ import {
   recordAccountIdentitySignals,
 } from "@/lib/auth/account-setup";
 
+// Returns the value of `?next=...` if it's a safe internal redirect target.
+// Only single-leading-slash paths are allowed. This prevents open-redirect
+// attacks where someone crafts a link like
+// /auth/callback?code=xxx&next=https://evil.example.com .
+function safeInternalNext(rawNext: string | null): string | null {
+  if (!rawNext) return null;
+  if (!rawNext.startsWith("/")) return null;
+  // Reject protocol-relative URLs like //evil.example.com which the browser
+  // would treat as cross-origin.
+  if (rawNext.startsWith("//")) return null;
+  return rawNext;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const roleRaw = searchParams.get("role");
   const signupRole = parsePublicSignupRole(roleRaw);
+  // The `next` param lets specific flows (currently: password reset) hop
+  // through the callback to a follow-up page once the session is created.
+  const nextPath = safeInternalNext(searchParams.get("next"));
 
   if (code) {
     const supabase = await createClient();
@@ -22,6 +38,14 @@ export async function GET(request: Request) {
       await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && sessionData.user) {
+      // Password reset flow: skip all the role-based dashboard routing and
+      // drop the user directly at the requested follow-up page (with the
+      // freshly-created recovery session attached). They'll set a new
+      // password there and we'll redirect them onward from that form.
+      if (nextPath) {
+        return NextResponse.redirect(`${origin}${nextPath}`);
+      }
+
       const { data: existingProfile } = await supabase
         .from("profiles")
         .select("*")

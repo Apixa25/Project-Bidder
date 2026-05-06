@@ -23,6 +23,7 @@ import {
 import ProjectDetailTabs from "./ProjectDetailTabs";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
 import ProjectAddressMap from "@/components/project/ProjectAddressMap";
+import ProjectStatusPill from "@/components/project/ProjectStatusPill";
 import AddressWithMapPreview from "@/components/address-quotes/AddressWithMapPreview";
 
 interface Props {
@@ -150,13 +151,6 @@ export default async function AdminProjectDetailPage({ params }: Props) {
     (msgProfiles || []).map((p) => [p.user_id, p])
   );
 
-  const statusColor =
-    project.status === "open"
-      ? "bg-green-100 text-green-700"
-      : project.status === "awarded"
-        ? "bg-amber-100 text-amber-700"
-        : "bg-gray-100 text-gray-600";
-
   return (
     <div>
       {/* Back Link */}
@@ -175,12 +169,7 @@ export default async function AdminProjectDetailPage({ params }: Props) {
             <h1 className="text-2xl font-bold text-text-primary">
               {project.title}
             </h1>
-            <span
-              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${statusColor}`}
-            >
-              {project.status.charAt(0).toUpperCase() +
-                project.status.slice(1)}
-            </span>
+            <ProjectStatusPill status={project.status} size="md" />
           </div>
           <p className="mt-1 text-sm text-text-secondary">
             Posted by{" "}

@@ -31,6 +31,7 @@ import type {
 } from "@/types/database";
 import ProjectStatusActions from "./ProjectStatusActions";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
+import ProjectStatusPill from "@/components/project/ProjectStatusPill";
 import ProjectAddressMap from "@/components/project/ProjectAddressMap";
 import AddressWithMapPreview from "@/components/address-quotes/AddressWithMapPreview";
 import ProjectPhotos from "./ProjectPhotos";
@@ -400,21 +401,7 @@ export default async function ProjectDetailPage({
               <h1 className="text-2xl font-bold text-text-primary break-words">
                 {project.title}
               </h1>
-              <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
-                  project.status === "open"
-                    ? "bg-green-100 text-green-700"
-                    : project.status === "awarded"
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {project.status === "open"
-                  ? "Open"
-                  : project.status === "awarded"
-                    ? "Awarded"
-                    : "Closed"}
-              </span>
+              <ProjectStatusPill status={project.status} size="md" />
               {paidEstimateLive && (
                 <span className="inline-flex items-center rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
                   Paid Estimate

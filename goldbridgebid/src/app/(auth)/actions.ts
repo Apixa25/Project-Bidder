@@ -312,3 +312,85 @@ export async function signInWithGoogle(role?: string) {
     redirect(data.url);
   }
 }
+
+// Sends a password reset email via Supabase Auth. The user clicks the link
+// in the email, which goes through Supabase's verify endpoint and lands at
+// our /auth/callback?next=/reset-password handler with a recovery code.
+// The callback exchanges the code for a session and redirects to
+// /reset-password where the user can set a new password.
+//
+// We deliberately ALWAYS return success (never reveal whether an email is
+// registered) — this is a standard anti-enumeration practice. Supabase
+// silently no-ops for unknown emails so this is also the actual behavior.
+export async function requestPasswordReset(formData: FormData) {
+  const supabase = await createClient();
+  const baseUrl = await getRequestOrigin();
+
+  const email = (formData.get("email") as string | null)?.trim();
+
+  if (!email) {
+    return { error: "Please enter your email address." };
+  }
+
+  // Basic shape check — Supabase will validate properly on its side.
+  if (!email.includes("@") || email.length < 5) {
+    return { error: "Please enter a valid email address." };
+  }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${baseUrl}/auth/callback?next=/reset-password`,
+  });
+
+  if (error) {
+    // Log internally so we can debug delivery problems, but never leak the
+    // reason to the user. Always return the same generic success response.
+    console.error("Password reset request error:", error);
+  }
+
+  return { success: true };
+}
+
+// Updates the password of the currently authenticated user. The reset
+// password flow lands here with a temporary recovery session created by
+// /auth/callback after the email link is clicked. We require the user to
+// be authenticated (otherwise the call would silently fail anyway) so we
+// can give a clean error message instead of a Supabase auth error.
+export async function updatePassword(formData: FormData) {
+  const supabase = await createClient();
+
+  const password = formData.get("password") as string | null;
+  const confirmPassword = formData.get("confirmPassword") as string | null;
+
+  if (!password || !confirmPassword) {
+    return { error: "Please fill in both password fields." };
+  }
+
+  if (password !== confirmPassword) {
+    return { error: "Passwords do not match." };
+  }
+
+  // Supabase enforces a minimum of 6 characters by default; we require 8 to
+  // match what we'd expect from any reasonable contractor/customer account.
+  if (password.length < 8) {
+    return { error: "Password must be at least 8 characters long." };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      error:
+        "Your reset link has expired. Please request a new password reset email and try again.",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}

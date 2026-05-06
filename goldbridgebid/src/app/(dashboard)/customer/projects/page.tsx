@@ -29,6 +29,7 @@ import {
   isProjectVideo,
 } from "@/lib/project-media";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
+import ProjectStatusPill from "@/components/project/ProjectStatusPill";
 import AdminSearchBar from "@/components/admin/AdminSearchBar";
 import AdminFilterBar, { FilterDropdown } from "@/components/admin/AdminFilters";
 
@@ -235,21 +236,10 @@ export default async function MyProjectsPage({
                     <h2 className="text-lg font-semibold leading-tight text-text-primary sm:truncate">
                       {project.title}
                     </h2>
-                    <span
-                      className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        project.status === "open"
-                          ? "bg-green-100 text-green-700"
-                          : project.status === "awarded"
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {project.status === "open"
-                        ? "Open"
-                        : project.status === "awarded"
-                          ? "Awarded"
-                          : "Closed"}
-                    </span>
+                    <ProjectStatusPill
+                      status={project.status}
+                      className="shrink-0"
+                    />
                   </div>
 
                   <p className="mt-2 text-sm text-text-secondary line-clamp-2">

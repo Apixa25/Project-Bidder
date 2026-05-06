@@ -9,6 +9,7 @@ import AdminSearchBar from "@/components/admin/AdminSearchBar";
 import AdminFilterBar, { FilterDropdown } from "@/components/admin/AdminFilters";
 import AdminPagination from "@/components/admin/AdminPagination";
 import ExportButton from "@/components/admin/ExportButton";
+import ProjectStatusPill from "@/components/project/ProjectStatusPill";
 
 const PAGE_SIZE = 25;
 
@@ -255,18 +256,7 @@ export default async function AdminBidsPage({ searchParams }: Props) {
                       ${Number(bid.price).toLocaleString()}
                     </td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          project.status === "open"
-                            ? "bg-green-100 text-green-700"
-                            : project.status === "awarded"
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {project.status.charAt(0).toUpperCase() +
-                          project.status.slice(1)}
-                      </span>
+                      <ProjectStatusPill status={project.status} />
                     </td>
                     <td className="px-6 py-4 text-text-muted">
                       {new Date(bid.created_at).toLocaleDateString()}

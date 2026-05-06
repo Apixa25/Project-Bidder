@@ -20,6 +20,7 @@ import {
   getProjectPreviewUrl,
   isProjectVideo,
 } from "@/lib/project-media";
+import ProjectStatusPill from "@/components/project/ProjectStatusPill";
 
 export default async function CustomerDashboard() {
   const supabase = await createClient();
@@ -48,9 +49,19 @@ export default async function CustomerDashboard() {
     .order("created_at", { ascending: false })
     .limit(5);
 
+  // Scope the "Total Bids Received" stat to bids on THIS customer's projects.
+  // Previous version selected all bids in the database (no filter) which made
+  // the number on the dashboard nonsensical for everyone except possibly the
+  // very first user. The `projects!inner(customer_id)` join + the
+  // `projects.customer_id` equality filter is the same pattern used in
+  // src/app/(dashboard)/customer/projects/[id]/paid-estimates/actions.ts.
   const { count: totalBids } = await supabase
     .from("bids")
-    .select("*", { count: "exact", head: true });
+    .select("id, projects!inner(customer_id)", {
+      count: "exact",
+      head: true,
+    })
+    .eq("projects.customer_id", user.id);
   const openProjects = projects?.filter((p) => p.status === "open").length || 0;
 
   const { count: unreadMessages } = await supabase
@@ -232,21 +243,7 @@ export default async function CustomerDashboard() {
                       {bidsShown}{" "}
                       {bidsShown === 1 ? "bid" : "bids"}
                     </span>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        project.status === "open"
-                          ? "bg-green-100 text-green-700"
-                          : project.status === "awarded"
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {project.status === "open"
-                        ? "Open"
-                        : project.status === "awarded"
-                          ? "Awarded"
-                          : "Closed"}
-                    </span>
+                    <ProjectStatusPill status={project.status} />
                   </div>
                 </Link>
               );
