@@ -126,6 +126,66 @@ export async function deleteUser(userId: string) {
   return { success: true };
 }
 
+// Triggers a standard Supabase password-reset email for any user account.
+// The link in the email lands at /auth/callback?next=/reset-password — the
+// same flow the user-facing "Forgot password?" link uses. Admins should
+// use this when a user is locked out and can't receive the self-serve
+// reset (e.g., they signed up with a typo in their email and need a manual
+// hand-off, or they're reporting access issues via support).
+//
+// IMPORTANT: The reset email goes to the USER's address, not the admin.
+// No admin can hijack the account through this action — Supabase only
+// sends the link to the registered email.
+export async function adminSendPasswordReset(
+  userId: string,
+  userEmail: string
+) {
+  const { supabase, adminUserId } = await requireAdmin();
+
+  const { data: target } = await supabase
+    .from("profiles")
+    .select("full_name, role")
+    .eq("user_id", userId)
+    .single();
+
+  if (target?.role === "admin") {
+    return { error: "Cannot send a password reset for an admin account." };
+  }
+
+  // Derive the canonical site URL from the environment variable. We avoid
+  // reading request headers here because this action can be triggered from
+  // a fetch rather than a page navigation, and the origin header isn't
+  // reliable in that context.
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+    "https://projectxbidx.com";
+
+  const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
+    redirectTo: `${baseUrl}/auth/callback?next=/reset-password`,
+  });
+
+  if (error) {
+    console.error("Admin-triggered password reset error:", error);
+    return {
+      error: "Failed to send the password reset email. Please try again.",
+    };
+  }
+
+  await logAudit(
+    supabase,
+    adminUserId,
+    "admin_password_reset",
+    "user",
+    userId,
+    {
+      target_email: userEmail,
+      target_name: target?.full_name,
+    }
+  );
+
+  return { success: true };
+}
+
 export async function enableEstimatorRole(userId: string) {
   const { supabase, adminUserId } = await requireAdmin();
   const adminClient = createAdminClient();

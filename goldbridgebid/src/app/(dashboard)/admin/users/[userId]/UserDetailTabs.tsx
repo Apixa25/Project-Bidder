@@ -8,9 +8,10 @@ import {
   unbanUser,
   deleteUser,
   enableEstimatorRole,
+  adminSendPasswordReset,
 } from "@/app/(dashboard)/admin/actions";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
-import { CheckCircle2, Sparkles, XCircle } from "lucide-react";
+import { CheckCircle2, Sparkles, XCircle, KeyRound } from "lucide-react";
 import {
   BIDDER_PAYOUT_READINESS_LABELS,
   getBidderPayoutReadiness,
@@ -44,6 +45,7 @@ interface Props {
   profile: {
     user_id: string;
     full_name: string;
+    email: string;
     role: string;
     bio: string | null;
     is_banned: boolean;
@@ -89,6 +91,12 @@ export default function UserDetailTabs({
   const [estimatorError, setEstimatorError] = useState<string | null>(null);
   const payoutReadiness = getBidderPayoutReadiness(payoutAccount);
 
+  // Password-reset state — three stages: idle → confirming → sent/error
+  const [resetStage, setResetStage] = useState<
+    "idle" | "confirming" | "pending" | "sent" | "error"
+  >("idle");
+  const [resetError, setResetError] = useState<string | null>(null);
+
   async function handleEnableEstimator() {
     setEnablingEstimator(true);
     setEstimatorError(null);
@@ -101,6 +109,21 @@ export default function UserDetailTabs({
     }
 
     router.refresh();
+  }
+
+  async function handlePasswordReset() {
+    setResetStage("pending");
+    setResetError(null);
+    const result = await adminSendPasswordReset(
+      profile.user_id,
+      profile.email
+    );
+    if (result?.error) {
+      setResetError(result.error);
+      setResetStage("error");
+    } else {
+      setResetStage("sent");
+    }
   }
 
   const tabs = [
@@ -488,31 +511,97 @@ export default function UserDetailTabs({
 
       {/* Admin Actions */}
       {!roles.includes("admin") && (
-        <div className="mt-6 flex items-center gap-3 rounded-xl border border-border bg-surface p-4">
-          <span className="text-sm font-medium text-text-muted">
-            Admin Actions:
-          </span>
-          {profile.is_banned ? (
+        <div className="mt-6 rounded-xl border border-border bg-surface p-4 shadow-sm">
+          <p className="mb-3 text-sm font-medium text-text-muted">
+            Admin Actions
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {profile.is_banned ? (
+              <button
+                onClick={() => setShowUnban(true)}
+                className="rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 transition-colors"
+              >
+                Unban User
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowBan(true)}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
+              >
+                Ban User
+              </button>
+            )}
             <button
-              onClick={() => setShowUnban(true)}
-              className="rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 transition-colors"
+              onClick={() => setShowDelete(true)}
+              className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
             >
-              Unban User
+              Delete User
             </button>
-          ) : (
-            <button
-              onClick={() => setShowBan(true)}
-              className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
-            >
-              Ban User
-            </button>
-          )}
-          <button
-            onClick={() => setShowDelete(true)}
-            className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
-          >
-            Delete User
-          </button>
+
+            {/* Password-reset button — inline confirm so there's no
+                alarming red modal for a non-destructive action. */}
+            <div className="flex flex-wrap items-center gap-2">
+              {resetStage === "idle" && (
+                <button
+                  onClick={() => setResetStage("confirming")}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  Send Password Reset Email
+                </button>
+              )}
+
+              {resetStage === "confirming" && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                  <p className="text-xs text-amber-900">
+                    Send reset email to{" "}
+                    <strong>{profile.email}</strong>?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handlePasswordReset}
+                      className="rounded-md bg-amber-600 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
+                    >
+                      Send it
+                    </button>
+                    <button
+                      onClick={() => setResetStage("idle")}
+                      className="rounded-md border border-amber-300 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {resetStage === "pending" && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2 text-xs font-semibold text-text-muted">
+                  <KeyRound className="h-3.5 w-3.5 animate-pulse" />
+                  Sending…
+                </span>
+              )}
+
+              {resetStage === "sent" && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-green-800">
+                  ✓ Reset email sent to {profile.email}
+                </span>
+              )}
+
+              {resetStage === "error" && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    {resetError}
+                  </span>
+                  <button
+                    onClick={() => setResetStage("idle")}
+                    className="text-xs text-text-muted underline hover:text-text-primary"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
