@@ -55,6 +55,7 @@ import {
   isProjectVideo,
 } from "@/lib/project-media";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
+import HelpHint from "@/components/help/HelpHint";
 
 // Keys we honor in the URL for browse filters. Centralized so the saved-search
 // hidden field, the "clear filters" check, and any future quick chips can all
@@ -456,10 +457,29 @@ export default async function BrowseProjectsPage({
       </div>
 
       <div className="mb-6 rounded-xl border border-border bg-surface p-4 shadow-sm">
-        <h2 className="flex items-center gap-2 text-base font-semibold text-text-primary">
-          <Bookmark className="h-4 w-4" />
-          Saved Project Searches
-        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-text-primary">
+            <Bookmark className="h-4 w-4" />
+            Saved Project Searches
+          </h2>
+          <HelpHint
+            id="saved-searches-explainer"
+            variant="icon"
+            title="How saved searches and alerts work"
+          >
+            <strong>Save a search</strong> stores your current filters
+            (trade, state, city, keywords) so you can re-apply them with one
+            click later. <br />
+            <br />
+            <strong>Alert me</strong> sends you a notification whenever a
+            <em> new</em> project is posted that matches that saved search —
+            so you can be one of the first bidders on it. <br />
+            <br />
+            <strong>Check Alerts</strong> manually re-runs your saved
+            searches against the latest projects and surfaces any new
+            matches you haven&apos;t seen yet.
+          </HelpHint>
+        </div>
         <p className="mt-1 mb-4 text-sm text-text-muted">
           Save a search by trade or location and get notified when new matching projects are posted.
         </p>

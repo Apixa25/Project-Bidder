@@ -18,6 +18,7 @@ import {
   getBidderPayoutReadiness,
 } from "@/lib/paid-estimates/payout-accounts";
 import ProjectStatusPill from "@/components/project/ProjectStatusPill";
+import HelpHint from "@/components/help/HelpHint";
 import { TRADE_LABELS } from "@/types/database";
 import type {
   BadgeLevel,
@@ -169,6 +170,23 @@ export default async function BidderDashboard() {
                 <h2 className="text-lg font-semibold text-text-primary">
                   Payout Readiness
                 </h2>
+                <HelpHint
+                  id="payout-readiness-explainer"
+                  variant="icon"
+                  title="What is Payout Readiness?"
+                >
+                  This shows whether your <strong>Stripe payout account</strong>{" "}
+                  is set up to receive money. We use it for{" "}
+                  <strong>Paid Estimates</strong> — when a customer funds a
+                  Paid Estimate Pool and you submit a real bid, you earn a
+                  small reward that gets paid out through Stripe. <br />
+                  <br />
+                  <strong>Not Connected</strong> = no Stripe account linked
+                  yet. <strong>Restricted</strong> = Stripe needs more info
+                  (e.g., tax ID, bank verification). <strong>Ready</strong> =
+                  good to go. Bid all you want without it; you just won&apos;t
+                  collect paid-estimate rewards until Stripe says ready.
+                </HelpHint>
                 <span
                   className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                     payoutReadiness === "ready"

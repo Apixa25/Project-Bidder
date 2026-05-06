@@ -33,6 +33,7 @@ import {
   PROJECT_DOCUMENT_FILE_ACCEPT,
 } from "@/lib/file-uploads";
 import { PAID_ESTIMATE_FILTER_LABELS } from "@/lib/paid-estimates/eligibility";
+import HelpHint from "@/components/help/HelpHint";
 import type {
   ProjectAiAnalysisResult,
   ProjectAiRecommendedQuestion,
@@ -546,9 +547,24 @@ export default function NewProjectPage() {
 
         {/* Expertise Level */}
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <h2 className="mb-2 text-lg font-semibold text-text-primary">
-            Level of Professional Needed
-          </h2>
+          <div className="mb-2 flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-text-primary">
+              Level of Professional Needed
+            </h2>
+            <HelpHint
+              id="expertise-level-deep-dive"
+              variant="icon"
+              title="Picking the right level"
+              learnMoreHref="/how-it-works#for-customers"
+              learnMoreLabel="Read the full guide →"
+            >
+              The level you choose decides which contractors are eligible to
+              bid. <strong>Licensed Contractor</strong> = highest qualifications,
+              fewer bidders, higher prices. <strong>Handyman</strong> = mid-tier.{" "}
+              <strong>General Labor</strong> = lowest prices, biggest pool.
+              Pick the lowest level that still gets the job done right.
+            </HelpHint>
+          </div>
           <p className="mb-3 text-sm text-text-muted">
             What level of expertise does your project actually require? This
             helps us match you with the right pool of contractors.
@@ -811,6 +827,21 @@ export default function NewProjectPage() {
                 <h2 className="text-lg font-semibold text-text-primary">
                   Build Your Bid-Ready Scope
                 </h2>
+                <HelpHint
+                  id="ai-scope-builder"
+                  variant="icon"
+                  title="What does the AI Scope Builder do?"
+                  learnMoreHref="/how-it-works#tools-that-work-for-everyone"
+                  learnMoreLabel="More about AI Scope →"
+                >
+                  Our AI reads your description, photos, location, and
+                  timeline and proposes a clean checklist of standard work
+                  items for this kind of project. <strong>You stay in control</strong>{" "}
+                  — include what applies, skip what doesn&apos;t, add custom
+                  items. The result is a planning reference that helps
+                  contractors give you cleaner, apples-to-apples bids.{" "}
+                  <em>It&apos;s never used as a final price.</em>
+                </HelpHint>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-text-secondary">
                 Before contractors bid, ProjectXBidX helps turn your description
@@ -1132,6 +1163,20 @@ export default function NewProjectPage() {
                 <h2 className="text-lg font-semibold text-text-primary">
                   Paid Estimates
                 </h2>
+                <HelpHint
+                  id="paid-estimates-explainer"
+                  variant="icon"
+                  title="Should I fund a Paid Estimate Pool?"
+                  learnMoreHref="/how-it-works#for-customers"
+                  learnMoreLabel="Read more about Paid Estimates →"
+                >
+                  Funding a Paid Estimate Pool means qualified contractors
+                  who submit a real bid earn a small reward (you set the
+                  amount + how many slots). This is a paid attention boost —
+                  use it when you want serious bids fast on a competitive
+                  job. <strong>Free bidding still works without it.</strong>{" "}
+                  You can also turn this on later from the project page.
+                </HelpHint>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-text-secondary">
                 Optional: launch this project with a funded paid estimate offer

@@ -27,6 +27,7 @@ import {
   PROJECT_VIDEO_FILE_ACCEPT,
   PROJECT_DOCUMENT_FILE_ACCEPT,
 } from "@/lib/file-uploads";
+import HelpHint from "@/components/help/HelpHint";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
@@ -260,9 +261,24 @@ export default function EditProjectPage() {
 
         {/* Expertise Level */}
         <section className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <h2 className="mb-2 text-lg font-semibold text-text-primary">
-            Level of Professional Needed
-          </h2>
+          <div className="mb-2 flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-text-primary">
+              Level of Professional Needed
+            </h2>
+            <HelpHint
+              id="expertise-level-deep-dive"
+              variant="icon"
+              title="Picking the right level"
+              learnMoreHref="/how-it-works#for-customers"
+              learnMoreLabel="Read the full guide →"
+            >
+              The level you choose decides which contractors are eligible to
+              bid. <strong>Licensed Contractor</strong> = highest qualifications,
+              fewer bidders, higher prices. <strong>Handyman</strong> = mid-tier.{" "}
+              <strong>General Labor</strong> = lowest prices, biggest pool.
+              Pick the lowest level that still gets the job done right.
+            </HelpHint>
+          </div>
           <p className="mb-3 text-sm text-text-muted">
             What level of expertise does your project actually require? This
             helps us match you with the right pool of contractors.

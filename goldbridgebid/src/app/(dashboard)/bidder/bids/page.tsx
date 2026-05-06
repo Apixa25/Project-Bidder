@@ -23,6 +23,11 @@ import {
   BIDDER_PAYOUT_READINESS_LABELS,
   getBidderPayoutReadiness,
 } from "@/lib/paid-estimates/payout-accounts";
+import {
+  PAID_ESTIMATE_CLAIM_STATUS_DESCRIPTIONS,
+  getPaidEstimateClaimStatusLabel,
+} from "@/lib/paid-estimates/claim-status";
+import HelpHint from "@/components/help/HelpHint";
 
 export default async function MyBidsPage() {
   const supabase = await createClient();
@@ -136,7 +141,26 @@ export default async function MyBidsPage() {
     <div>
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">My Bids 📋</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-text-primary">My Bids 📋</h1>
+            <HelpHint
+              id="my-bids-claim-status-overview"
+              variant="icon"
+              title="What do the colored status chips mean?"
+            >
+              Each bid you submit on a Paid Estimate project gets a{" "}
+              <strong>claim status</strong> that tracks whether you&apos;ll
+              earn the reward and when it pays out. Hover the small{" "}
+              <span className="inline-flex items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-amber-700">
+                💡
+              </span>{" "}
+              icon next to any status to see what that specific stage
+              means. <br />
+              <br />
+              Common stages: <strong>Reserved</strong> → review window →{" "}
+              <strong>Payout Queued</strong> → <strong>Paid Out</strong>.
+            </HelpHint>
+          </div>
           <p className="mt-1 text-text-secondary">
             Track all your bid submissions and their project status.
           </p>
@@ -257,22 +281,42 @@ export default async function MyBidsPage() {
                         {new Date(bid.created_at).toLocaleDateString()}
                       </span>
                       {claim && (
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            claim.claim_status === "paid_out"
-                              ? "bg-green-100 text-green-700"
-                              : claim.claim_status === "payout_pending"
-                                ? "bg-blue-100 text-blue-700"
-                                : claim.claim_status === "disputed"
-                                  ? "bg-amber-100 text-amber-800"
-                                  : claim.claim_status === "payout_denied_refunded"
-                                    ? "bg-red-100 text-red-700"
-                                    : claim.claim_status === "paid_reserved"
-                                      ? "bg-primary/10 text-primary"
-                                      : "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {claim.claim_status.replace(/_/g, " ")}
+                        <span className="inline-flex items-center gap-1">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                              claim.claim_status === "paid_out"
+                                ? "bg-green-100 text-green-700"
+                                : claim.claim_status === "payout_pending"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : claim.claim_status === "disputed"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : claim.claim_status === "payout_denied_refunded"
+                                      ? "bg-red-100 text-red-700"
+                                      : claim.claim_status === "paid_reserved"
+                                        ? "bg-primary/10 text-primary"
+                                        : "bg-gray-100 text-gray-700"
+                            }`}
+                          >
+                            {getPaidEstimateClaimStatusLabel(claim.claim_status)}
+                          </span>
+                          {/* Per-row HelpHint that explains exactly what THIS
+                              status means. We pass no `id` so the chip
+                              stays available — the label changes per row,
+                              so we don't want a single dismissal to hide
+                              all of them at once. */}
+                          <HelpHint
+                            variant="icon"
+                            title={getPaidEstimateClaimStatusLabel(
+                              claim.claim_status
+                            )}
+                            align="right"
+                            className="-ml-0.5"
+                          >
+                            {PAID_ESTIMATE_CLAIM_STATUS_DESCRIPTIONS[
+                              claim.claim_status
+                            ] ||
+                              "Unknown status. Reach out to support if this looks wrong."}
+                          </HelpHint>
                         </span>
                       )}
                     </div>
