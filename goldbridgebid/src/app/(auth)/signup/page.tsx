@@ -26,6 +26,48 @@ function getSignupRoleLabel(role: SignupRole) {
   return "Customer";
 }
 
+// Scores a password from 0–4 based on length, case, digits, and symbols.
+// Returns { score, label, color } used to render the strength bar + label.
+function getPasswordStrength(pw: string): {
+  score: number;
+  label: string;
+  barColor: string;
+  textColor: string;
+} {
+  if (!pw)
+    return { score: 0, label: "", barColor: "", textColor: "" };
+
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+  // Map 0–5 raw score → 4 display levels
+  const level = score <= 1 ? 1 : score <= 2 ? 2 : score <= 3 ? 3 : 4;
+
+  const config: Record<number, { label: string; barColor: string; textColor: string }> = {
+    1: { label: "Weak",        barColor: "bg-red-500",    textColor: "text-red-600"    },
+    2: { label: "Fair",        barColor: "bg-amber-500",  textColor: "text-amber-600"  },
+    3: { label: "Good",        barColor: "bg-teal-500",   textColor: "text-teal-600"   },
+    4: { label: "Strong 💪",   barColor: "bg-green-500",  textColor: "text-green-600"  },
+  };
+
+  return { score: level, ...config[level] };
+}
+
+// Formats a raw digit string into (XXX) XXX-XXXX as the user types.
+// Strips everything that isn't a digit, caps at 10 digits, then
+// progressively applies the mask so the field looks polished at every step.
+function formatPhoneNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 10);
+  if (digits.length === 0) return "";
+  if (digits.length <= 3) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 function SignupForm() {
   const searchParams = useSearchParams();
   const [role, setRole] = useState<SignupRole>(
@@ -33,6 +75,11 @@ function SignupForm() {
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [tosAccepted, setTosAccepted] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+
+  const passwordStrength = getPasswordStrength(password);
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
@@ -46,6 +93,10 @@ function SignupForm() {
   }
 
   async function handleGoogleSignup() {
+    if (!tosAccepted) {
+      setError("Please accept the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
     setLoading(true);
     setError(null);
     const result = await signInWithGoogle(role);
@@ -141,14 +192,60 @@ function SignupForm() {
       )}
 
       <div className="rounded-xl border border-border bg-surface p-5 shadow-sm sm:p-8">
+        {/* Agreement notice — applies to both Google and email paths */}
+        <div
+          className={`mb-5 flex gap-3 rounded-lg border px-4 py-3 transition-colors ${
+            tosAccepted
+              ? "border-primary/30 bg-primary/5"
+              : "border-border bg-bg-warm"
+          }`}
+        >
+          <input
+            type="checkbox"
+            id="tosAcceptedTop"
+            checked={tosAccepted}
+            onChange={(e) => setTosAccepted(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-border accent-primary"
+          />
+          <label
+            htmlFor="tosAcceptedTop"
+            className="cursor-pointer text-sm leading-relaxed text-text-secondary"
+          >
+            I have read and agree to the{" "}
+            <a
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary underline underline-offset-2 hover:text-primary-dark"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-primary underline underline-offset-2 hover:text-primary-dark"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Privacy Policy
+            </a>
+            .{" "}
+            <span className="text-xs text-text-muted">
+              Required to create an account.
+            </span>
+          </label>
+        </div>
+
         <p className="mb-3 text-center text-sm font-medium text-text-primary">
           Continue with Google — fastest way to get started
         </p>
         <button
           type="button"
           onClick={handleGoogleSignup}
-          disabled={loading}
-          className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-medium text-text-primary shadow-sm hover:bg-surface-hover transition-colors disabled:opacity-60"
+          disabled={loading || !tosAccepted}
+          className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-medium text-text-primary shadow-sm hover:bg-surface-hover transition-colors disabled:cursor-not-allowed disabled:opacity-60"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24">
             <path
@@ -183,6 +280,7 @@ function SignupForm() {
         </div>
 
         <form action={handleSubmit} className="space-y-5">
+          <input type="hidden" name="tosAccepted" value={tosAccepted ? "on" : ""} />
           <div>
             <label
               htmlFor="fullName"
@@ -252,9 +350,20 @@ function SignupForm() {
               name="phone"
               type="tel"
               required
+              value={phone}
+              onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
+              inputMode="numeric"
+              autoComplete="tel"
+              pattern="\(\d{3}\) \d{3}-\d{4}"
               className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               placeholder="(555) 555-5555"
             />
+            {phone.length > 0 && phone.length < 14 && (
+              <p className="mt-1 text-xs text-amber-600">
+                Enter all 10 digits — {14 - phone.length} character
+                {14 - phone.length === 1 ? "" : "s"} remaining.
+              </p>
+            )}
           </div>
 
           <div>
@@ -287,15 +396,53 @@ function SignupForm() {
               type="password"
               required
               minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
               className="mt-1.5 block w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               placeholder="••••••••"
             />
+
+            {/* Strength bar — only appears once the user starts typing */}
+            {password.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {/* Four-segment bar */}
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4].map((segment) => (
+                    <div
+                      key={segment}
+                      className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                        segment <= passwordStrength.score
+                          ? passwordStrength.barColor
+                          : "bg-border"
+                      }`}
+                    />
+                  ))}
+                </div>
+                {/* Label + tips */}
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`text-xs font-semibold ${passwordStrength.textColor}`}
+                  >
+                    {passwordStrength.label}
+                  </span>
+                  {passwordStrength.score < 3 && (
+                    <span className="text-xs text-text-muted">
+                      {!/[A-Z]/.test(password) && "Add uppercase · "}
+                      {!/[0-9]/.test(password) && "Add a number · "}
+                      {!/[^A-Za-z0-9]/.test(password) && "Add a symbol · "}
+                      {password.length < 8 && "8+ chars"}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <button
             type="submit"
-            disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-sm hover:bg-primary-dark transition-colors disabled:opacity-60"
+            disabled={loading || !tosAccepted}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-sm hover:bg-primary-dark transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? (
               <>

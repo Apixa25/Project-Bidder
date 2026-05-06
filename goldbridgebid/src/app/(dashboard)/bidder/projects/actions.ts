@@ -589,6 +589,128 @@ export async function submitBid(formData: FormData) {
   redirect(`/bidder/bids`);
 }
 
+// Updates an existing bid the authenticated bidder owns. Only allowed while
+// the project is still open and the bid hasn't locked into a paid-estimate
+// claim (any status beyond "unpaid_bid" means the slot is reserved and the
+// bid is immutable). The trade field is intentionally excluded — the uniqueness
+// constraint is per bidder/project/trade, so changing trade would require
+// creating a new bid. Line items (quick bid worksheet) are also excluded for
+// now; they can only be set at submission time.
+export async function updateBid(bidId: string, formData: FormData) {
+  const supabase = await createClient();
+  const admin = createAdminClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "You must be logged in." };
+  if (!(await userHasRole(user.id, "bidder")))
+    return { error: "Enable contractor mode to edit bids." };
+
+  // Verify the bid belongs to this bidder.
+  const { data: bid } = await supabase
+    .from("bids")
+    .select("id, project_id, bidder_id, trade")
+    .eq("id", bidId)
+    .eq("bidder_id", user.id)
+    .single();
+
+  if (!bid) return { error: "Bid not found or you don't have permission to edit it." };
+
+  // Verify the project is still open.
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id, status")
+    .eq("id", bid.project_id)
+    .single();
+
+  if (!project || project.status !== "open") {
+    return { error: "This project is no longer open — bids cannot be edited." };
+  }
+
+  // Verify no locked paid-estimate claim. Once a slot is reserved the bid
+  // amount and details are binding for the payout calculation.
+  const { data: claim } = await admin
+    .from("paid_estimate_claims")
+    .select("claim_status")
+    .eq("bid_id", bidId)
+    .maybeSingle();
+
+  const LOCKED_STATUSES = ["paid_reserved", "payout_pending", "paid_out", "disputed"];
+  if (claim && LOCKED_STATUSES.includes(claim.claim_status)) {
+    return {
+      error:
+        "This bid has a reserved paid-estimate slot and cannot be edited. Contact support if you need to make a change.",
+    };
+  }
+
+  const priceRaw = formData.get("price") as string | null;
+  const priceBreakdown = (formData.get("priceBreakdown") as string) || null;
+  const estimatedTimeline = formData.get("estimatedTimeline") as string;
+  const estimatedStartDate = formData.get("estimatedStartDate") as string;
+  const notes = (formData.get("notes") as string) || null;
+  const scopeCoverageRaw = (formData.get("scopeCoverage") as string) || "all";
+  const scopeCoverage: "all" | "part" =
+    scopeCoverageRaw === "part" ? "part" : "all";
+  const scopeDescriptionRaw =
+    (formData.get("scopeDescription") as string) || "";
+  const scopeDescription = scopeDescriptionRaw.trim();
+
+  if (!estimatedTimeline || !estimatedStartDate) {
+    return { error: "Please fill in all required fields." };
+  }
+
+  if (scopeCoverage === "part" && scopeDescription.length === 0) {
+    return { error: "Please describe which part of the project your bid covers." };
+  }
+
+  // Only update the price if this bid doesn't have quick-bid line items —
+  // if it does, the price is derived from those items and should remain as-is.
+  const { count: lineItemCount } = await supabase
+    .from("bid_line_items")
+    .select("id", { count: "exact", head: true })
+    .eq("bid_id", bidId);
+
+  const hasLineItems = (lineItemCount || 0) > 0;
+
+  const parsedPrice = priceRaw ? parseFloat(priceRaw) : null;
+  if (!hasLineItems && (parsedPrice === null || isNaN(parsedPrice) || parsedPrice <= 0)) {
+    return { error: "Please enter a valid bid price." };
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    estimated_timeline: estimatedTimeline,
+    estimated_start_date: estimatedStartDate,
+    price_breakdown: priceBreakdown || null,
+    notes: notes || null,
+    scope_coverage: scopeCoverage,
+    scope_description: scopeCoverage === "part" ? scopeDescription : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (!hasLineItems && parsedPrice !== null) {
+    updatePayload.price = parsedPrice;
+  }
+
+  const { error: updateError } = await supabase
+    .from("bids")
+    .update(updatePayload)
+    .eq("id", bidId)
+    .eq("bidder_id", user.id);
+
+  if (updateError) {
+    console.error("Bid update error:", updateError);
+    return { error: "Failed to update your bid. Please try again." };
+  }
+
+  revalidatePath("/bidder/bids");
+  revalidatePath(`/bidder/bids/${bidId}/edit`);
+  revalidatePath(`/customer/projects/${bid.project_id}`);
+
+  redirect("/bidder/bids");
+}
+
 export async function saveBidderProjectSearch(formData: FormData) {
   const supabase = await createClient();
 

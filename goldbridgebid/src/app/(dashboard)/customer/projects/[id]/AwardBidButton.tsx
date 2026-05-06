@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Award, Loader2 } from "lucide-react";
+import { Trophy, Loader2 } from "lucide-react";
 import { awardBid } from "../actions";
 
 interface AwardBidButtonProps {
@@ -43,14 +43,14 @@ export default function AwardBidButton({
       type="button"
       onClick={handleAward}
       disabled={loading}
-      className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-5 py-2.5 text-sm font-bold text-slate-950 shadow ring-2 ring-amber-300/50 transition-all hover:bg-amber-300 hover:-translate-y-px hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {loading ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
-        <Award className="h-4 w-4" />
+        <Trophy className="h-4 w-4" />
       )}
-      Award This Bid
+      {loading ? "Awarding…" : "Award This Bid"}
     </button>
   );
 }

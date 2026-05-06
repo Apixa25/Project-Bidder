@@ -862,14 +862,25 @@ export default async function ProjectDetailPage({
                           <MessageSquare className="h-4 w-4" />
                           Message
                         </Link>
-                        {project.status === "open" && (
+                      </div>
+
+                      {/* Award Bid — visually separated from the contact links
+                          so it reads as a primary decision action, not just
+                          another contact option. Only shown while the project
+                          is still open. */}
+                      {project.status === "open" && (
+                        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">
                           <AwardBidButton
                             projectId={project.id}
                             bidId={bid.id}
                             bidderName={profile?.full_name || "this contractor"}
                           />
-                        )}
-                      </div>
+                          <p className="text-xs text-text-muted">
+                            Marks this as the winning bid and notifies all
+                            contractors.
+                          </p>
+                        </div>
+                      )}
 
                       {/* Bid date stamp */}
                       <p className="mt-3 text-xs text-text-muted">

@@ -43,9 +43,14 @@ export async function signup(formData: FormData) {
   const address = formData.get("address") as string;
   const password = formData.get("password") as string;
   const businessName = formData.get("businessName") as string | null;
+  const tosAccepted = formData.get("tosAccepted") === "on";
 
   if (!roleRaw || !fullName || !email || !phone || !address || !password) {
     return { error: "All fields are required." };
+  }
+
+  if (!tosAccepted) {
+    return { error: "Please accept the Terms of Service and Privacy Policy to continue." };
   }
 
   const role = parsePublicSignupRole(roleRaw);

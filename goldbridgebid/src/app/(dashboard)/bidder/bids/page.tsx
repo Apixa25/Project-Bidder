@@ -9,6 +9,7 @@ import {
   MapPin,
   Calendar,
   FileText,
+  Pencil,
 } from "lucide-react";
 import { TRADE_LABELS } from "@/types/database";
 import type {
@@ -454,6 +455,25 @@ export default async function MyBidsPage() {
                     ))}
                   </div>
                 )}
+
+                {/* Edit Bid button — only while the project is still open
+                    and the bid isn't locked by a paid-estimate claim. */}
+                {projectDetails.status === "open" &&
+                  (!claim || claim.claim_status === "unpaid_bid") && (
+                    <div className="mt-4 flex items-center gap-3 border-t border-border pt-4">
+                      <Link
+                        href={`/bidder/bids/${bid.id}/edit`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit Bid
+                      </Link>
+                      <p className="text-xs text-text-muted">
+                        Project is still open — you can update your price,
+                        timeline, or notes.
+                      </p>
+                    </div>
+                  )}
               </div>
             );
           })}
