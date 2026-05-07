@@ -283,7 +283,7 @@ export default async function CustomerAddressRequestsPage({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
-        <div className="space-y-6">
+        <div className="order-last space-y-6 lg:order-first">
           <section className="rounded-xl border border-border bg-surface shadow-sm">
             <div className="border-b border-border px-6 py-4">
               <h2 className="font-semibold text-text-primary">
@@ -636,7 +636,7 @@ export default async function CustomerAddressRequestsPage({
           </section>
         </div>
 
-        <aside>
+        <aside className="order-first lg:order-last">
           <section className="rounded-xl border border-border bg-surface p-5 shadow-sm">
             <div className="flex items-center gap-2">
               <Plus className="h-5 w-5 text-primary" />

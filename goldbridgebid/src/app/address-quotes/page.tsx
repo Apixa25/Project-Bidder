@@ -46,7 +46,7 @@ export default async function AddressQuotesSearchPage({
 
   return (
     <main className="min-h-screen bg-bg-warm">
-      <section className="border-b border-border bg-gradient-to-br from-accent via-secondary-dark to-slate-950 px-6 py-16 text-white">
+      <section className="border-b border-border bg-gradient-to-br from-accent via-secondary-dark to-slate-950 px-4 py-10 text-white sm:px-6 sm:py-16">
         <div className="mx-auto max-w-4xl">
           <Link
             href="/"
@@ -54,18 +54,18 @@ export default async function AddressQuotesSearchPage({
           >
             ← Back to ProjectXBidX
           </Link>
-          <div className="mt-10 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
-              <MapPin className="h-6 w-6 text-primary" />
+          <div className="mt-6 flex items-center gap-3 sm:mt-10">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 sm:h-12 sm:w-12">
+              <MapPin className="h-5 w-5 text-primary sm:h-6 sm:w-6" />
             </div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary sm:text-sm">
               Public Address Quotes
             </p>
           </div>
-          <h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">
+          <h1 className="mt-4 text-2xl font-bold tracking-tight sm:mt-5 sm:max-w-3xl sm:text-4xl md:text-5xl">
             Search an address and see free contractor quotes left there.
           </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-white/80">
+          <p className="mt-3 text-base leading-7 text-white/80 sm:mt-5 sm:max-w-2xl sm:text-lg sm:leading-8">
             Contractors can leave measured quotes on real addresses. Homeowners
             can search any address, compare public quotes, and claim up to 3
             addresses to request or remove quotes.
@@ -73,7 +73,7 @@ export default async function AddressQuotesSearchPage({
         </div>
       </section>
 
-      <section className="mx-auto max-w-4xl px-6 py-10">
+      <section className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
         <form
           action={searchPublicAddressQuotes}
           className="rounded-2xl border border-border bg-surface p-6 shadow-sm"

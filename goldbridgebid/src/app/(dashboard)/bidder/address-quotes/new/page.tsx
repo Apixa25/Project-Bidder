@@ -61,7 +61,47 @@ export default async function NewBidderAddressQuotePage({
         action={createManualAddressQuote}
         className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]"
       >
-        <div className="space-y-6">
+        {/* Aside is rendered first in DOM so it appears at the top on mobile.
+            On lg+ screens, lg:order-last pushes it to the right column. */}
+        <aside className="space-y-6 lg:order-last">
+          <section className="rounded-xl border border-white/30 bg-primary/20 p-4 sm:p-6">
+            <h2 className="font-semibold text-white">Publish status</h2>
+            <p className="mt-2 text-sm font-medium leading-6 text-white">
+              Drafts stay in your contractor dashboard. Published quotes become
+              visible on the public address page.
+            </p>
+            <div className="mt-5 space-y-3">
+              <button
+                type="submit"
+                name="intent"
+                value="publish"
+                className="w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark"
+              >
+                Publish Public Quote
+              </button>
+              <button
+                type="submit"
+                name="intent"
+                value="draft"
+                className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-white"
+              >
+                Save Draft
+              </button>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
+            <h2 className="text-lg font-semibold text-text-primary">
+              Pricing
+            </h2>
+            <p className="mt-1 text-sm text-text-secondary">
+              Use the bid sheet below to price measured rows and hand-entered
+              rows. The sheet total becomes the quote total.
+            </p>
+          </section>
+        </aside>
+
+        <div className="space-y-6 lg:order-first">
           <LawnAreaMeasurementMap manageAddressFields />
 
           <StreetViewEvidenceTool />
@@ -144,26 +184,10 @@ export default async function NewBidderAddressQuotePage({
               </div>
             </div>
           </section>
-        </div>
 
-        <aside className="space-y-6">
-          <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
-            <h2 className="text-lg font-semibold text-text-primary">
-              Pricing
-            </h2>
-            <p className="mt-1 text-sm text-text-secondary">
-              Use the bid sheet to price measured rows and hand-entered rows.
-              The sheet total becomes the quote total.
-            </p>
-          </section>
-
-          <section className="rounded-xl border border-white/30 bg-primary/20 p-4 sm:p-6">
-            <h2 className="font-semibold text-white">Publish status</h2>
-            <p className="mt-2 text-sm font-medium leading-6 text-white">
-              Drafts stay in your contractor dashboard. Published quotes become
-              visible on the public address page.
-            </p>
-            <div className="mt-5 space-y-3">
+          <div className="rounded-xl border border-white/30 bg-primary/20 p-4 sm:p-6 lg:hidden">
+            <h2 className="font-semibold text-white">Ready to publish?</h2>
+            <div className="mt-4 space-y-3">
               <button
                 type="submit"
                 name="intent"
@@ -181,8 +205,8 @@ export default async function NewBidderAddressQuotePage({
                 Save Draft
               </button>
             </div>
-          </section>
-        </aside>
+          </div>
+        </div>
       </form>
     </div>
   );

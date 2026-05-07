@@ -889,7 +889,7 @@ export default function LawnAreaMeasurementMap({
   }
 
   return (
-    <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
+    <section className="rounded-xl border border-border bg-surface p-3 shadow-sm sm:p-6">
       <input
         type="hidden"
         name="mapMeasuredAreaSqft"
@@ -937,7 +937,7 @@ export default function LawnAreaMeasurementMap({
         </p>
       </div>
 
-      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+      <div className="mt-4 space-y-2 sm:flex sm:flex-row sm:gap-3 sm:space-y-0">
         <div className="relative min-w-0 flex-1">
           <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
           <input
@@ -948,23 +948,25 @@ export default function LawnAreaMeasurementMap({
             className="w-full rounded-lg border border-border bg-surface py-2.5 pl-9 pr-4 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
-        <button
-          type="button"
-          onClick={geocodeAddress}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark sm:w-auto"
-        >
-          <Search className="h-4 w-4" />
-          Center Map
-        </button>
-        <button
-          type="button"
-          onClick={locateUserOnMap}
-          disabled={isLocatingUser}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-secondary/30 bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-colors hover:bg-secondary/10 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-        >
-          <LocateFixed className="h-4 w-4" />
-          {isLocatingUser ? "Locating..." : "Locate Me"}
-        </button>
+        <div className="grid grid-cols-2 gap-2 sm:contents">
+          <button
+            type="button"
+            onClick={geocodeAddress}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark"
+          >
+            <Search className="h-4 w-4" />
+            Center Map
+          </button>
+          <button
+            type="button"
+            onClick={locateUserOnMap}
+            disabled={isLocatingUser}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-secondary/30 bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-colors hover:bg-secondary/10 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <LocateFixed className="h-4 w-4" />
+            {isLocatingUser ? "Locating..." : "Locate Me"}
+          </button>
+        </div>
       </div>
       {geocodeStatus && (
         <p className="mt-2 text-xs font-medium text-text-secondary">{geocodeStatus}</p>
@@ -1057,7 +1059,7 @@ export default function LawnAreaMeasurementMap({
         </div>
       )}
 
-      <div className="mt-4 grid gap-3 sm:flex sm:flex-wrap">
+      <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap sm:gap-3">
         <div className="grid w-full grid-cols-2 gap-1 rounded-lg border border-border bg-bg-warm p-1 sm:inline-flex sm:w-auto sm:gap-0">
           <button
             type="button"
@@ -1083,11 +1085,11 @@ export default function LawnAreaMeasurementMap({
           </button>
         </div>
 
-        <div className="grid w-full gap-1 rounded-lg border border-border bg-bg-warm p-1 sm:inline-flex sm:w-auto sm:gap-0">
+        <div className="grid w-full grid-cols-3 gap-1 rounded-lg border border-border bg-bg-warm p-1 sm:inline-flex sm:w-auto sm:gap-0">
           <button
             type="button"
             onClick={() => selectDrawTool("area")}
-            className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors sm:py-1.5 ${
+            className={`rounded-md px-2 py-2 text-center text-xs font-semibold transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${
               interactionMode === "draw" && drawTool === "area"
                 ? "bg-surface text-text-primary shadow-sm"
                 : "text-text-secondary hover:text-text-primary"
@@ -1098,36 +1100,36 @@ export default function LawnAreaMeasurementMap({
           <button
             type="button"
             onClick={() => selectDrawTool("line")}
-            className={`inline-flex items-center justify-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition-colors sm:py-1.5 ${
+            className={`inline-flex items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-semibold transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${
               interactionMode === "draw" && drawTool === "line"
                 ? "bg-surface text-text-primary shadow-sm"
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
-            <Ruler className="h-3.5 w-3.5" />
+            <Ruler className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             Draw Line
           </button>
           <button
             type="button"
             onClick={() => setInteractionMode("pick_address")}
-            className={`inline-flex items-center justify-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition-colors sm:py-1.5 ${
+            className={`inline-flex items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-semibold transition-colors sm:px-3 sm:py-1.5 sm:text-sm ${
               interactionMode === "pick_address"
                 ? "bg-surface text-text-primary shadow-sm"
                 : "text-text-secondary hover:text-text-primary"
             }`}
           >
-            <MousePointer2 className="h-3.5 w-3.5" />
-            Pick Address
+            <MousePointer2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+            Pick Addr
           </button>
         </div>
 
         <button
           type="button"
           onClick={captureMapSnapshot}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-white sm:w-auto sm:py-2"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-primary transition-colors hover:bg-white sm:w-auto"
         >
           <Camera className="h-4 w-4" />
-          Save Map Screenshot
+          Screenshot
         </button>
       </div>
 
@@ -1154,53 +1156,53 @@ export default function LawnAreaMeasurementMap({
         className="mt-4 h-[320px] max-h-[55svh] overflow-hidden rounded-xl border border-border bg-bg-warm sm:h-[420px] sm:max-h-none"
       />
 
-      <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
-        <div className="grid gap-2 sm:flex sm:flex-row">
-          <input
-            type="text"
-            value={measurementLabel}
-            onChange={(event) => setMeasurementLabel(event.target.value)}
-            placeholder={
-              drawTool === "area"
-                ? `Area ${savedAreas.length + 1}`
-                : `Line ${savedLines.length + 1}`
-            }
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:w-auto"
-          />
+      <div className="mt-4 space-y-2 sm:flex sm:flex-wrap sm:gap-2 sm:space-y-0">
+        <input
+          type="text"
+          value={measurementLabel}
+          onChange={(event) => setMeasurementLabel(event.target.value)}
+          placeholder={
+            drawTool === "area"
+              ? `Area ${savedAreas.length + 1}`
+              : `Line ${savedLines.length + 1}`
+          }
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:w-auto"
+        />
+        <button
+          type="button"
+          onClick={saveCurrentMeasurement}
+          disabled={
+            drawTool === "area"
+              ? !polygonFeature || measuredAreaSqft <= 0
+              : !lineFeature || measuredLengthFt <= 0
+          }
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+        >
+          <Check className="h-4 w-4" />
+          {drawTool === "area"
+            ? `Save Area${measuredAreaSqft > 0 ? ` (${formatSqft(measuredAreaSqft)} sq ft)` : ""}`
+            : `Save Line${measuredLengthFt > 0 ? ` (${formatFeet(measuredLengthFt)} ft)` : ""}`}
+        </button>
+        <div className="grid grid-cols-2 gap-2 sm:contents">
           <button
             type="button"
-            onClick={saveCurrentMeasurement}
-            disabled={
-              drawTool === "area"
-                ? !polygonFeature || measuredAreaSqft <= 0
-                : !lineFeature || measuredLengthFt <= 0
-            }
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            onClick={undoPoint}
+            disabled={points.length === 0}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-primary transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Check className="h-4 w-4" />
-            {drawTool === "area"
-              ? `Save Area${measuredAreaSqft > 0 ? ` (${formatSqft(measuredAreaSqft)} sq ft)` : ""}`
-              : `Save Line${measuredLengthFt > 0 ? ` (${formatFeet(measuredLengthFt)} ft)` : ""}`}
+            <Undo2 className="h-4 w-4" />
+            Undo
+          </button>
+          <button
+            type="button"
+            onClick={clearPoints}
+            disabled={points.length === 0}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-primary transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Clear
           </button>
         </div>
-        <button
-          type="button"
-          onClick={undoPoint}
-          disabled={points.length === 0}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-primary transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-        >
-          <Undo2 className="h-4 w-4" />
-          Undo Point
-        </button>
-        <button
-          type="button"
-          onClick={clearPoints}
-          disabled={points.length === 0}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-primary transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-        >
-          <RotateCcw className="h-4 w-4" />
-          Clear Drawing
-        </button>
       </div>
 
       {mapSnapshotUrls.length > 0 && (

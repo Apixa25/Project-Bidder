@@ -161,7 +161,7 @@ export default function DashboardShell({
         </header>
         )}
 
-        <main className="relative z-10 min-w-0 flex-1 overflow-y-auto">
+        <main className="relative z-10 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
           <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8 [&_h1.text-text-primary]:text-white [&_h1.text-text-primary+p.text-text-secondary]:text-zinc-200/90">
             {children}
           </div>

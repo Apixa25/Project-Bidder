@@ -275,23 +275,137 @@ export default function AddressQuoteBidSheet({
         </div>
       </div>
 
-      <div className="mt-5 overflow-x-auto">
-        <table className="min-w-[680px] w-full text-sm tabular-nums">
+      {/* Mobile card layout (< sm) */}
+      <div className="mt-5 space-y-3 sm:hidden">
+        {calculatedRows.map((row) => (
+          <div
+            key={row.rowId}
+            className="rounded-xl border border-border bg-bg-warm p-3"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-semibold text-text-primary">{row.itemLabel}</p>
+                <span
+                  className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                    row.isCustom
+                      ? "bg-primary/15 text-primary"
+                      : "bg-secondary/15 text-secondary"
+                  }`}
+                >
+                  {row.isCustom ? "Custom" : "Map measured"}
+                </span>
+                {row.description && (
+                  <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                    {row.description}
+                  </p>
+                )}
+              </div>
+              {row.isCustom && (
+                <button
+                  type="button"
+                  onClick={() => removeRow(row.rowId)}
+                  className="shrink-0 rounded p-1 text-text-muted hover:text-red-600"
+                  aria-label={`Remove ${row.itemLabel}`}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div className="mt-3 grid grid-cols-[1fr_auto_1fr_1fr] items-center gap-2 text-xs">
+              <div>
+                <p className="mb-1 font-semibold text-text-muted">Qty</p>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={row.quantity}
+                  placeholder="0"
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (isMoneyInput(value)) updateRow(row.rowId, { quantity: value });
+                  }}
+                  className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-center text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                />
+              </div>
+              <div>
+                <p className="mb-1 font-semibold text-text-muted">Unit</p>
+                <input
+                  type="text"
+                  value={row.unit}
+                  onChange={(event) =>
+                    updateRow(row.rowId, { unit: event.target.value })
+                  }
+                  className="w-16 rounded-md border border-border bg-surface px-2 py-1.5 text-center text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                />
+              </div>
+              <div>
+                <p className="mb-1 font-semibold text-text-muted">Price</p>
+                <div className="flex items-center gap-1">
+                  <select
+                    value={row.calcMode}
+                    onChange={(event) =>
+                      updateRow(row.rowId, {
+                        calcMode: event.target.value as BidLineItemCalcMode,
+                      })
+                    }
+                    className="shrink-0 rounded-md border border-border bg-bg-warm/60 px-1 py-1.5 text-xs font-semibold text-text-secondary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                  >
+                    <option value="multiply">×</option>
+                    <option value="add">+</option>
+                  </select>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={row.amount}
+                    placeholder="0"
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (isMoneyInput(value)) updateRow(row.rowId, { amount: value });
+                    }}
+                    className="min-w-0 flex-1 rounded-md border border-border bg-surface px-1.5 py-1.5 text-right text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="mb-1 font-semibold text-text-muted">Total</p>
+                <span
+                  className={`text-sm font-bold ${
+                    row.lineTotal > 0 ? "text-text-primary" : "text-amber-500"
+                  }`}
+                >
+                  {formatCurrency(row.lineTotal)}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+        {calculatedRows.length > 0 && (
+          <div className="flex items-center justify-between rounded-xl border-2 border-border bg-surface px-4 py-3">
+            <span className="font-bold text-text-primary">Quote Total</span>
+            <span className="text-lg font-bold text-text-primary">
+              {formatCurrency(grandTotal)}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop table layout (sm+) */}
+      <div className="mt-5 hidden overflow-x-auto sm:block">
+        <table className="w-full min-w-[540px] text-sm tabular-nums">
           <thead>
             <tr className="border-b border-border text-left">
               <th className="pb-2 pr-3 font-semibold text-text-primary">
                 Line Item
               </th>
-              <th className="w-24 px-2 pb-2 text-center font-semibold text-text-primary">
+              <th className="w-20 px-2 pb-2 text-center font-semibold text-text-primary">
                 Qty
               </th>
-              <th className="w-24 px-2 pb-2 text-center font-semibold text-text-primary">
+              <th className="w-20 px-2 pb-2 text-center font-semibold text-text-primary">
                 Unit
               </th>
-              <th className="w-40 px-2 pb-2 text-right font-semibold text-text-primary">
+              <th className="w-36 px-2 pb-2 text-right font-semibold text-text-primary">
                 Price
               </th>
-              <th className="w-28 pb-2 pl-2 pr-6 text-right font-semibold text-text-primary">
+              <th className="w-24 pb-2 pl-2 pr-4 text-right font-semibold text-text-primary">
                 Total
               </th>
             </tr>
@@ -342,7 +456,7 @@ export default function AddressQuoteBidSheet({
                         const value = event.target.value;
                         if (isMoneyInput(value)) updateRow(row.rowId, { quantity: value });
                       }}
-                      className="mx-auto block w-20 rounded-md border border-border bg-surface px-1 py-1.5 text-center text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                      className="mx-auto block w-16 rounded-md border border-border bg-surface px-1 py-1.5 text-center text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
                     />
                   </td>
                   <td className="px-2 py-3 align-top">
@@ -352,7 +466,7 @@ export default function AddressQuoteBidSheet({
                       onChange={(event) =>
                         updateRow(row.rowId, { unit: event.target.value })
                       }
-                      className="mx-auto block w-20 rounded-md border border-border bg-surface px-1 py-1.5 text-center text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                      className="mx-auto block w-16 rounded-md border border-border bg-surface px-1 py-1.5 text-center text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
                     />
                   </td>
                   <td className="px-2 py-3 align-top">
@@ -383,11 +497,11 @@ export default function AddressQuoteBidSheet({
                           const value = event.target.value;
                           if (isMoneyInput(value)) updateRow(row.rowId, { amount: value });
                         }}
-                        className="w-24 shrink-0 rounded-md border border-border bg-surface px-1.5 py-1.5 text-right text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                        className="w-20 shrink-0 rounded-md border border-border bg-surface px-1.5 py-1.5 text-right text-sm text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
                       />
                     </div>
                   </td>
-                  <td className="py-3 pl-2 pr-6 text-right align-top">
+                  <td className="py-3 pl-2 pr-4 text-right align-top">
                     <span
                       className={`font-semibold ${
                         row.lineTotal > 0 ? "text-text-primary" : "text-amber-500"
@@ -414,7 +528,7 @@ export default function AddressQuoteBidSheet({
               <td colSpan={4} className="py-3 pr-3 text-right font-bold text-text-primary">
                 Quote Total
               </td>
-              <td className="py-3 pl-2 pr-6 text-right">
+              <td className="py-3 pl-2 pr-4 text-right">
                 <span className="text-lg font-bold text-text-primary">
                   {formatCurrency(grandTotal)}
                 </span>

@@ -201,7 +201,7 @@ export default async function EditBidderAddressQuotePage({
           value={typedAddress?.display_address || ""}
         />
 
-        <div className="space-y-6">
+        <div className="order-last space-y-6 lg:order-first">
           <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-text-primary">
               Address
@@ -335,9 +335,31 @@ export default async function EditBidderAddressQuotePage({
             initialLineItems={pricingRowsForSheet}
             syncMeasurements
           />
+
+          <div className="rounded-xl border border-white/30 bg-primary/20 p-4 sm:p-6 lg:hidden">
+            <h2 className="font-semibold text-white">Ready to save?</h2>
+            <div className="mt-4 space-y-3">
+              <button
+                type="submit"
+                name="intent"
+                value="publish"
+                className="w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-secondary-dark"
+              >
+                Save and Publish
+              </button>
+              <button
+                type="submit"
+                name="intent"
+                value="draft"
+                className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-white"
+              >
+                Save as Draft
+              </button>
+            </div>
+          </div>
         </div>
 
-        <aside className="space-y-6">
+        <aside className="order-first space-y-6 lg:order-last">
           <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-text-primary">
               Pricing
