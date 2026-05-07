@@ -135,6 +135,29 @@ export default function Home() {
           <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
           <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-4xl text-center">
+
+              {/* Mobile-only address lookup card — on sm+ the nav button handles this */}
+              <div className="mb-8 sm:hidden">
+                <Link
+                  href="/address-quotes"
+                  className="flex w-full items-center gap-3 rounded-xl border border-white/20 bg-white/10 px-4 py-3.5 text-left backdrop-blur-sm transition-colors hover:bg-white/20 active:bg-white/25"
+                >
+                  <Image
+                    src="/address-lookup-map.svg"
+                    alt=""
+                    width={80}
+                    height={48}
+                    className="h-12 w-20 shrink-0 rounded-lg object-cover"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white">Look Up Your Address</p>
+                    <p className="mt-0.5 text-xs leading-snug text-zinc-200/80">
+                      See free contractor quotes for your property →
+                    </p>
+                  </div>
+                </Link>
+              </div>
+
               <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
                 Where{" "}
                 <span className="text-[#eab308]">qualified contractors</span>{" "}
@@ -161,9 +184,8 @@ export default function Home() {
                   <ArrowRight className="h-5 w-5 shrink-0" />
                 </Link>
               </div>
-              {/* Secondary CTA — small text link so the address lookup is still
-                  discoverable without competing with the two role buttons. */}
-              <p className="mt-6 text-sm text-zinc-200/80">
+              {/* Secondary CTA — hidden on mobile since the card above handles it there */}
+              <p className="mt-6 hidden text-sm text-zinc-200/80 sm:block">
                 Just curious about contractor pricing on your property?{" "}
                 <Link
                   href="/address-quotes"
