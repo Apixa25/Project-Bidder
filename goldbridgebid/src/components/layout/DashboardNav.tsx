@@ -107,7 +107,7 @@ const NAV_GROUPS: Record<UserRole, NavGroup[]> = {
       ],
     },
     {
-      label: "Tools",
+      label: "Small Jobs",
       items: [
         { href: "/bidder/address-quotes", label: "Do a Quick Quote", icon: MapPin },
         {
@@ -115,6 +115,11 @@ const NAV_GROUPS: Record<UserRole, NavGroup[]> = {
           label: "Look for Quick Work",
           icon: BadgeDollarSign,
         },
+      ],
+    },
+    {
+      label: "Big Jobs",
+      items: [
         { href: "/estimate-packages", label: "Estimate Library", icon: LibraryBig },
         {
           href: "/estimate-packages/purchases",
