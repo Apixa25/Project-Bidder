@@ -109,10 +109,10 @@ const NAV_GROUPS: Record<UserRole, NavGroup[]> = {
     {
       label: "Tools",
       items: [
-        { href: "/bidder/address-quotes", label: "My Quick Quotes", icon: MapPin },
+        { href: "/bidder/address-quotes", label: "Do a Quick Quote", icon: MapPin },
         {
           href: "/bidder/address-requests",
-          label: "Open Quick Quote Requests",
+          label: "Look for Quick Work",
           icon: BadgeDollarSign,
         },
         { href: "/estimate-packages", label: "Estimate Library", icon: LibraryBig },
