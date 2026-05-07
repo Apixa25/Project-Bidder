@@ -58,13 +58,21 @@ interface LawnAreaMeasurementMapProps {
 }
 
 const DEFAULT_CENTER: LngLatPoint = [-124.2026, 41.7558];
+// How far the user can interactively zoom the map
 const MAX_MEASUREMENT_ZOOM = 22;
 const MAPBOX_PUBLIC_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+
+// maxzoom values reflect the tile server's actual coverage ceiling.
+// MapLibre will over-zoom (stretch) the highest available tile beyond this
+// level instead of fetching a non-existent tile and showing "not yet available".
+// Mapbox satellite-streets-v12 publishes tiles to z21 globally (z22 in major
+// metros). ESRI World_Imagery reliably covers to z19 everywhere.
 const SATELLITE_TILE_SOURCE = MAPBOX_PUBLIC_TOKEN
   ? {
       tiles: [
         `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_PUBLIC_TOKEN}`,
       ],
+      maxzoom: 21,
       attribution:
         '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }
@@ -72,6 +80,7 @@ const SATELLITE_TILE_SOURCE = MAPBOX_PUBLIC_TOKEN
       tiles: [
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       ],
+      maxzoom: 19,
       attribution: "Tiles © Esri",
     };
 
@@ -88,7 +97,7 @@ const MAP_STYLE = {
       type: "raster",
       tiles: SATELLITE_TILE_SOURCE.tiles,
       tileSize: 256,
-      maxzoom: MAX_MEASUREMENT_ZOOM,
+      maxzoom: SATELLITE_TILE_SOURCE.maxzoom,
       attribution: SATELLITE_TILE_SOURCE.attribution,
     },
   },
