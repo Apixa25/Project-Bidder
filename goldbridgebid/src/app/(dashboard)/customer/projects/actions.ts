@@ -29,8 +29,8 @@ import {
   buildProjectAiScopeItems,
 } from "@/lib/ai-scope-items";
 import { analyzeProjectAiHybrid } from "@/lib/ai/project-ai-hybrid";
-import { getProjectAiLlmSettings } from "@/lib/ai/openai-client";
 import { enrichProjectAiFileSignals } from "@/lib/ai-upload-intelligence";
+import { getCostEstimates } from "@/lib/projects/get-cost-estimates";
 
 interface CreateProjectResult {
   error: string | null;
@@ -97,62 +97,7 @@ async function revalidateProjectMediaPaths(projectId: string) {
   revalidatePath(`/bidder/projects/${projectId}`);
 }
 
-export async function getCostEstimates() {
-  let supabase;
-  try {
-    supabase = createAdminClient();
-  } catch {
-    console.warn(
-      "[getCostEstimates] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY; returning no bid benchmarks."
-    );
-    return [];
-  }
-
-  const { data: bids } = await supabase
-    .from("bids")
-    .select("trade, price");
-
-  if (!bids || bids.length === 0) return [];
-
-  const tradeGroups = new Map<string, number[]>();
-  for (const bid of bids) {
-    if (bid.price > 0) {
-      const prices = tradeGroups.get(bid.trade) || [];
-      prices.push(bid.price);
-      tradeGroups.set(bid.trade, prices);
-    }
-  }
-
-  const estimates: Array<{
-    trade: string;
-    label: string;
-    avg: number;
-    min: number;
-    max: number;
-    count: number;
-  }> = [];
-
-  for (const [trade, prices] of tradeGroups.entries()) {
-    if (prices.length < 2) continue;
-    const sorted = prices.sort((a, b) => a - b);
-    const avg = sorted.reduce((s, p) => s + p, 0) / sorted.length;
-    estimates.push({
-      trade,
-      label: TRADE_LABELS[trade as TradeCategory] || trade,
-      avg: Math.round(avg),
-      min: sorted[0],
-      max: sorted[sorted.length - 1],
-      count: sorted.length,
-    });
-  }
-
-  console.log("[getCostEstimates]", {
-    rawBidRows: bids.length,
-    benchmarkGroups: estimates.length,
-  });
-
-  return estimates.sort((a, b) => b.count - a.count);
-}
+export { getCostEstimates };
 
 async function buildProjectAiInput(params: {
   project: {
@@ -860,108 +805,6 @@ function buildAiPublicationAdvisory(
   }
 
   return "The bidder update is live, but the AI still recommends adding more detail to strengthen the project scope.";
-}
-
-export async function analyzeProjectDraft(input: ProjectAiAnalysisInput) {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { error: "You must be logged in to use AI Scope Check.", analysis: null };
-  }
-
-  if (!(await userHasRole(user.id, "customer"))) {
-    return {
-      error: "Enable customer mode to use AI Scope Check.",
-      analysis: null,
-    };
-  }
-
-  const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-
-  try {
-    const llmSettings = getProjectAiLlmSettings();
-    console.log("[ai-scope-check] draft start", {
-      requestId,
-      userIdPrefix: user.id.slice(0, 8),
-      nodeEnv: process.env.NODE_ENV,
-      vercelEnv: process.env.VERCEL_ENV ?? null,
-      hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()),
-      hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()),
-      hasOpenAiKey: Boolean(process.env.OPENAI_API_KEY?.trim()),
-      projectAiLlmEnabledRaw: process.env.PROJECT_AI_LLM_ENABLED ?? null,
-      llmEnabled: llmSettings.enabled,
-      llmModel: llmSettings.model,
-      llmTimeoutMs: llmSettings.timeoutMs,
-      fileCount: input.files?.length ?? 0,
-      titleLen: (input.title || "").length,
-      descriptionLen: (input.description || "").length,
-    });
-
-    const enrichStarted = Date.now();
-    const enrichedInput = {
-      ...input,
-      files: input.files
-        ? await enrichProjectAiFileSignals(input.files, { requestId })
-        : input.files,
-    };
-    console.log(`[ai-scope-check] enrich files done requestId=${requestId} ms=${Date.now() - enrichStarted}`);
-
-    const benchStarted = Date.now();
-    const benchmarks = await getCostEstimates();
-    console.log(
-      `[ai-scope-check] benchmarks requestId=${requestId} count=${benchmarks.length} ms=${Date.now() - benchStarted}`
-    );
-
-    const hybridStarted = Date.now();
-    const analysis = await analyzeProjectAiHybrid(enrichedInput, benchmarks, {
-      requestId,
-    });
-    console.log(
-      `[ai-scope-check] hybrid done requestId=${requestId} ms=${Date.now() - hybridStarted} ` +
-        `model=${analysis.model_name} fallback=${analysis.fallback_used}`
-    );
-
-    const scopeStarted = Date.now();
-    const scopeItemDrafts = buildProjectAiScopeItems({
-      input: enrichedInput,
-      analysis,
-      classification: analysis.classification || null,
-    });
-    console.log(
-      `[ai-scope-check] scope drafts built requestId=${requestId} count=${scopeItemDrafts.length} ms=${Date.now() - scopeStarted}`
-    );
-
-    console.log(`[ai-scope-check] draft ok requestId=${requestId} totalMs=${Date.now() - enrichStarted}`);
-    return {
-      error: null,
-      analysis,
-      classification: analysis.classification,
-      scopeItemDrafts,
-    };
-  } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    console.error("[ai-scope-check] Draft analysis failed:", {
-      requestId,
-      name: err.name,
-      message: err.message,
-      stackPreview: err.stack?.split("\n").slice(0, 12).join("\n"),
-      cause:
-        err.cause !== undefined
-          ? err.cause instanceof Error
-            ? { name: err.cause.name, message: err.cause.message }
-            : String(err.cause)
-          : undefined,
-    });
-    return {
-      error:
-        "AI Scope Check could not finish. Please try again, or save the project and refresh the AI estimate from the project page.",
-      analysis: null,
-    };
-  }
 }
 
 export async function refreshProjectAiEstimate(projectId: string) {

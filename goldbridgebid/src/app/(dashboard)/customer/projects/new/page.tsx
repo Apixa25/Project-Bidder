@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import { analyzeProjectDraft, createProject, getCostEstimates } from "../actions";
+import { createProject, getCostEstimates } from "../actions";
+import { analyzeProjectDraft } from "../ai-scope-actions";
 import {
   EXPERTISE_LEVELS,
   EXPERTISE_LEVEL_LABELS,
