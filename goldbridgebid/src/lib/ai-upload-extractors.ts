@@ -4,9 +4,17 @@ import type {
   ProjectAiFileKind,
   ProjectAiFileSignal,
 } from "@/lib/ai-estimates";
-import { PDFParse } from "pdf-parse";
 import { existsSync } from "node:fs";
-import { createWorker } from "tesseract.js";
+
+async function loadPDFParse() {
+  const { PDFParse } = await import("pdf-parse");
+  return PDFParse;
+}
+
+async function loadTesseractWorker() {
+  const { createWorker } = await import("tesseract.js");
+  return createWorker;
+}
 
 let ocrAvailable: boolean | null = null;
 
@@ -170,6 +178,7 @@ function buildExtractedTextHints(text: string) {
 async function runOcrOnImageBuffer(buffer: Buffer) {
   if (!isOcrAvailable()) return "";
 
+  const createWorker = await loadTesseractWorker();
   const worker = await createWorker("eng", 1, {
     logger: () => {},
   });
@@ -370,6 +379,7 @@ export async function extractProjectAiFile(params: {
       }
 
       const buffer = await response.arrayBuffer();
+      const PDFParse = await loadPDFParse();
       const parser = new PDFParse({
         data: new Uint8Array(buffer),
       });
