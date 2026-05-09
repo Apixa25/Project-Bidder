@@ -247,7 +247,7 @@ export default function AddressQuoteBidSheet({
   }
 
   return (
-    <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
+    <section className="overflow-x-hidden rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
       <input type="hidden" name="quoteTotal" value={grandTotal.toFixed(2)} />
       <input
         type="hidden"
@@ -311,7 +311,7 @@ export default function AddressQuoteBidSheet({
                 </button>
               )}
             </div>
-            <div className="mt-3 grid grid-cols-[1fr_auto_1fr_1fr] items-center gap-2 text-xs">
+            <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 text-xs">
               <div>
                 <p className="mb-1 font-semibold text-text-muted">Qty</p>
                 <input

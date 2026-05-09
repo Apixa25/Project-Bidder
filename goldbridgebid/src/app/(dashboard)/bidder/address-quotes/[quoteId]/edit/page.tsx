@@ -201,7 +201,7 @@ export default async function EditBidderAddressQuotePage({
           value={typedAddress?.display_address || ""}
         />
 
-        <div className="order-last space-y-6 lg:order-first">
+        <div className="order-last min-w-0 space-y-6 lg:order-first">
           <section className="rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-text-primary">
               Address
