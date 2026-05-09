@@ -29,6 +29,7 @@ import {
   buildProjectAiScopeItems,
 } from "@/lib/ai-scope-items";
 import { analyzeProjectAiHybrid } from "@/lib/ai/project-ai-hybrid";
+import { getProjectAiLlmSettings } from "@/lib/ai/openai-client";
 import { enrichProjectAiFileSignals } from "@/lib/ai-upload-intelligence";
 
 interface CreateProjectResult {
@@ -97,7 +98,15 @@ async function revalidateProjectMediaPaths(projectId: string) {
 }
 
 export async function getCostEstimates() {
-  const supabase = createAdminClient();
+  let supabase;
+  try {
+    supabase = createAdminClient();
+  } catch {
+    console.warn(
+      "[getCostEstimates] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY; returning no bid benchmarks."
+    );
+    return [];
+  }
 
   const { data: bids } = await supabase
     .from("bids")
@@ -136,6 +145,11 @@ export async function getCostEstimates() {
       count: sorted.length,
     });
   }
+
+  console.log("[getCostEstimates]", {
+    rawBidRows: bids.length,
+    benchmarkGroups: estimates.length,
+  });
 
   return estimates.sort((a, b) => b.count - a.count);
 }
@@ -866,24 +880,62 @@ export async function analyzeProjectDraft(input: ProjectAiAnalysisInput) {
     };
   }
 
+  const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
   try {
+    const llmSettings = getProjectAiLlmSettings();
+    console.log("[ai-scope-check] draft start", {
+      requestId,
+      userIdPrefix: user.id.slice(0, 8),
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV ?? null,
+      hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()),
+      hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()),
+      hasOpenAiKey: Boolean(process.env.OPENAI_API_KEY?.trim()),
+      projectAiLlmEnabledRaw: process.env.PROJECT_AI_LLM_ENABLED ?? null,
+      llmEnabled: llmSettings.enabled,
+      llmModel: llmSettings.model,
+      llmTimeoutMs: llmSettings.timeoutMs,
+      fileCount: input.files?.length ?? 0,
+      titleLen: (input.title || "").length,
+      descriptionLen: (input.description || "").length,
+    });
+
+    const enrichStarted = Date.now();
     const enrichedInput = {
       ...input,
-      files: input.files ? await enrichProjectAiFileSignals(input.files) : input.files,
+      files: input.files
+        ? await enrichProjectAiFileSignals(input.files, { requestId })
+        : input.files,
     };
-    const startedAt = Date.now();
-    const analysis = await analyzeProjectAiHybrid(enrichedInput, await getCostEstimates());
+    console.log(`[ai-scope-check] enrich files done requestId=${requestId} ms=${Date.now() - enrichStarted}`);
+
+    const benchStarted = Date.now();
+    const benchmarks = await getCostEstimates();
     console.log(
-      `[ai-scope-check] Draft analysis completed in ${Date.now() - startedAt}ms; ` +
-        `model=${analysis.model_name}; fallback=${analysis.fallback_used}`
+      `[ai-scope-check] benchmarks requestId=${requestId} count=${benchmarks.length} ms=${Date.now() - benchStarted}`
     );
 
+    const hybridStarted = Date.now();
+    const analysis = await analyzeProjectAiHybrid(enrichedInput, benchmarks, {
+      requestId,
+    });
+    console.log(
+      `[ai-scope-check] hybrid done requestId=${requestId} ms=${Date.now() - hybridStarted} ` +
+        `model=${analysis.model_name} fallback=${analysis.fallback_used}`
+    );
+
+    const scopeStarted = Date.now();
     const scopeItemDrafts = buildProjectAiScopeItems({
       input: enrichedInput,
       analysis,
       classification: analysis.classification || null,
     });
+    console.log(
+      `[ai-scope-check] scope drafts built requestId=${requestId} count=${scopeItemDrafts.length} ms=${Date.now() - scopeStarted}`
+    );
 
+    console.log(`[ai-scope-check] draft ok requestId=${requestId} totalMs=${Date.now() - enrichStarted}`);
     return {
       error: null,
       analysis,
@@ -891,7 +943,19 @@ export async function analyzeProjectDraft(input: ProjectAiAnalysisInput) {
       scopeItemDrafts,
     };
   } catch (error) {
-    console.error("[ai-scope-check] Draft analysis failed:", error);
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error("[ai-scope-check] Draft analysis failed:", {
+      requestId,
+      name: err.name,
+      message: err.message,
+      stackPreview: err.stack?.split("\n").slice(0, 12).join("\n"),
+      cause:
+        err.cause !== undefined
+          ? err.cause instanceof Error
+            ? { name: err.cause.name, message: err.cause.message }
+            : String(err.cause)
+          : undefined,
+    });
     return {
       error:
         "AI Scope Check could not finish. Please try again, or save the project and refresh the AI estimate from the project page.",

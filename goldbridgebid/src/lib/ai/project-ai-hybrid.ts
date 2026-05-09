@@ -156,6 +156,19 @@ function mergeQuestions(params: {
   return mergedQuestions.slice(0, maxQuestions);
 }
 
+function logHybridRejection(tag: string, reason: unknown, requestId?: string) {
+  const rid = requestId ? ` requestId=${requestId}` : "";
+  if (reason instanceof Error) {
+    console.error(`[ai-scope-check][hybrid] ${tag}${rid}`, {
+      name: reason.name,
+      message: reason.message,
+      stackPreview: reason.stack?.split("\n").slice(0, 10).join("\n"),
+    });
+  } else {
+    console.error(`[ai-scope-check][hybrid] ${tag}${rid}`, { reason });
+  }
+}
+
 function buildRulesResult(
   analysis: ProjectAiAnalysisResult,
   params: {
@@ -190,22 +203,48 @@ function buildRulesResult(
  */
 export async function analyzeProjectAiHybrid(
   input: ProjectAiAnalysisInput,
-  benchmarks: ProjectAiBenchmark[]
+  benchmarks: ProjectAiBenchmark[],
+  logContext?: { requestId?: string }
 ): Promise<ProjectAiHybridAnalysisResult> {
+  const requestId = logContext?.requestId;
+  const rid = requestId ? ` requestId=${requestId}` : "";
+
+  const rulesStarted = Date.now();
   const rulesAnalysis = analyzeProjectAiEstimate(input, benchmarks);
+  console.log(
+    `[ai-scope-check][hybrid] rules engine done${rid} ms=${Date.now() - rulesStarted} ` +
+      `benchmarks=${benchmarks.length} rulesQuestions=${rulesAnalysis.recommended_questions.length}`
+  );
+
   const settings = getProjectAiLlmSettings();
 
   if (!settings.enabled) {
+    console.log(
+      `[ai-scope-check][hybrid] LLM disabled — rules-only result${rid} ` +
+        `(set PROJECT_AI_LLM_ENABLED=true and OPENAI_API_KEY on server)`
+    );
     return buildRulesResult(rulesAnalysis);
   }
 
+  console.log(
+    `[ai-scope-check][hybrid] starting parallel OpenAI calls${rid} model=${settings.model} ` +
+      `timeoutMs=${settings.timeoutMs} maxQuestions=${settings.maxQuestions}`
+  );
+  const parallelStarted = Date.now();
+
   const [classifyResult, llmResult] = await Promise.allSettled([
-    classifyProjectWithLlm(input),
+    classifyProjectWithLlm(input, { requestId }),
     analyzeProjectWithLlm({
       input,
       rulesAnalysis,
+      requestId,
     }),
   ]);
+
+  console.log(
+    `[ai-scope-check][hybrid] parallel calls settled${rid} ms=${Date.now() - parallelStarted} ` +
+      `classify=${classifyResult.status} analyze=${llmResult.status}`
+  );
 
   let classification: ProjectAiClassifyOutput | null = null;
   let llmFailed = false;
@@ -213,16 +252,17 @@ export async function analyzeProjectAiHybrid(
   if (classifyResult.status === "fulfilled") {
     classification = classifyResult.value.classification;
     console.log(
-      `[hybrid] Classification succeeded: type="${classification.project_classification.project_type_label}", ` +
+      `[ai-scope-check][hybrid] classification ok${rid}: type="${classification.project_classification.project_type_label}", ` +
         `sector="${classification.project_classification.construction_sector}", ` +
         `${classification.standard_requirements.length} requirements, ` +
         `${classification.recommended_questions.length} questions, ` +
         `confidence=${classification.confidence_level}`
     );
   } else {
-    console.error(
-      "[hybrid] Classification LLM call failed — proceeding without classification.",
-      classifyResult.reason
+    logHybridRejection(
+      "classification call rejected",
+      classifyResult.reason,
+      requestId
     );
     llmFailed = true;
   }
@@ -246,6 +286,11 @@ export async function analyzeProjectAiHybrid(
     ).map((gap) => gap.description);
     const classificationCriticalInfo =
       classification?.customer_data_assessment.critical_missing_info || [];
+
+    console.log(
+      `[ai-scope-check][hybrid] full hybrid merge success${rid} mergedQuestions=${merged.length} ` +
+        `fallbackPartial=${llmFailed}`
+    );
 
     return {
       ...rulesAnalysis,
@@ -285,7 +330,11 @@ export async function analyzeProjectAiHybrid(
     };
   }
 
-  console.error("[hybrid] Call 2 LLM FAILED — falling back to rules.", llmResult.reason);
+  logHybridRejection(
+    "analyze (call 2) rejected — falling back",
+    llmResult.reason,
+    requestId
+  );
 
   // If classification succeeded but detailed analysis failed, still return
   // classification-driven scope items/questions instead of waiting on OpenAI.
@@ -297,6 +346,10 @@ export async function analyzeProjectAiHybrid(
       rulesQuestions: rulesAnalysis.recommended_questions,
       maxQuestions: settings.maxQuestions,
     });
+
+    console.log(
+      `[ai-scope-check][hybrid] classify-only fallback${rid} mergedQuestions=${merged.length}`
+    );
 
     return {
       ...rulesAnalysis,
@@ -310,6 +363,8 @@ export async function analyzeProjectAiHybrid(
       classification,
     };
   }
+
+  console.log(`[ai-scope-check][hybrid] rules-only fallback${rid} (no classification)`);
 
   return buildRulesResult(rulesAnalysis, {
     modelName: `fallback:${rulesAnalysis.analysis_version}`,

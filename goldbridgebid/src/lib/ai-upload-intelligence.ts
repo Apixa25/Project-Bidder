@@ -173,7 +173,26 @@ export async function enrichProjectAiFileSignal(
 }
 
 export async function enrichProjectAiFileSignals(
-  files: Array<Pick<ProjectAiFileSignal, "file_name" | "file_type" | "file_url">>
+  files: Array<Pick<ProjectAiFileSignal, "file_name" | "file_type" | "file_url">>,
+  logContext?: { requestId?: string }
 ) {
-  return Promise.all(files.map((file) => enrichProjectAiFileSignal(file)));
+  const rid = logContext?.requestId ? ` requestId=${logContext.requestId}` : "";
+  const total = files.length;
+  console.log(`[ai-scope-check][files] enrich start${rid} count=${total}`);
+  const out = await Promise.all(
+    files.map(async (file, index) => {
+      const t0 = Date.now();
+      const row = await enrichProjectAiFileSignal(file);
+      console.log(`[ai-scope-check][files] file ${index + 1}/${total}${rid}`, {
+        ms: Date.now() - t0,
+        name: (file.file_name || "").slice(0, 80),
+        kind: row.file_kind,
+        adapter: row.extraction_method,
+        hasUrl: Boolean(file.file_url?.trim()),
+      });
+      return row;
+    })
+  );
+  console.log(`[ai-scope-check][files] enrich done${rid} count=${total}`);
+  return out;
 }
