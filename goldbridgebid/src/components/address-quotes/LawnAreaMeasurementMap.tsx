@@ -304,6 +304,19 @@ export default function LawnAreaMeasurementMap({
     );
   }, [savedMeasurements]);
 
+  // After a measurement is saved the component re-renders and new DOM is
+  // inserted below the map. On real Android devices this layout reflow can
+  // cause the MapLibre canvas (sized at init time with devicePixelRatio math)
+  // to no longer match its container, blowing the section off-screen.
+  // Calling resize() re-syncs the canvas to the current container dimensions.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    // Use a short delay so the browser has finished the reflow before resize.
+    const timer = setTimeout(() => map.resize(), 50);
+    return () => clearTimeout(timer);
+  }, [savedMeasurements, mapReady]);
+
   const setAddressField = useCallback(
     (name: string, value: string | null | undefined) => {
       const nextValue = value || "";
@@ -898,7 +911,7 @@ export default function LawnAreaMeasurementMap({
   }
 
   return (
-    <section className="rounded-xl border border-border bg-surface p-3 shadow-sm sm:p-6">
+    <section className="overflow-x-hidden rounded-xl border border-border bg-surface p-3 shadow-sm sm:p-6">
       <input
         type="hidden"
         name="mapMeasuredAreaSqft"
@@ -1162,7 +1175,7 @@ export default function LawnAreaMeasurementMap({
 
       <div
         ref={mapContainerRef}
-        className="mt-4 h-[320px] max-h-[55svh] overflow-hidden rounded-xl border border-border bg-bg-warm sm:h-[420px] sm:max-h-none"
+        className="mt-4 h-[320px] w-full max-h-[55svh] overflow-hidden rounded-xl border border-border bg-bg-warm sm:h-[420px] sm:max-h-none"
       />
 
       <div className="mt-4 space-y-2 sm:flex sm:flex-wrap sm:gap-2 sm:space-y-0">
