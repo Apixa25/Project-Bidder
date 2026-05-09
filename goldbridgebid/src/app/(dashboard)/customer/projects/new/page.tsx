@@ -35,6 +35,7 @@ import {
 } from "@/lib/file-uploads";
 import { PAID_ESTIMATE_FILTER_LABELS } from "@/lib/paid-estimates/eligibility";
 import HelpHint from "@/components/help/HelpHint";
+import AiWorkingOverlay from "@/components/ui/AiWorkingOverlay";
 import type {
   ProjectAiAnalysisResult,
   ProjectAiRecommendedQuestion,
@@ -405,6 +406,7 @@ export default function NewProjectPage() {
 
   return (
     <div className="max-w-3xl">
+      <AiWorkingOverlay visible={aiLoading} />
       {/* Header */}
       <div className="mb-8">
         <Link
@@ -845,9 +847,15 @@ export default function NewProjectPage() {
                 </HelpHint>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                Before contractors bid, ProjectXBidX helps turn your description
-                into a clear scope checklist. This gives you a planning reference
-                and gives contractors a cleaner list of items to price.
+                <strong>This is optional.</strong> I can help turn your
+                description into a clear scope checklist. This gives you a
+                planning reference and gives contractors a cleaner list of
+                items to price.
+              </p>
+              <p className="mt-2 text-xs font-semibold leading-relaxed text-red-600">
+                Be advised: once you press this button, it may take up to a
+                minute for the AI to analyze your project and build the scope
+                checklist. Please be patient and do not click away.
               </p>
             </div>
 
