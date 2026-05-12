@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import type { TradeCategory, ProjectStatus } from "@/types/database";
 import { generateAndUploadThumbnail } from "@/lib/generate-thumbnail";
@@ -31,6 +32,110 @@ import {
 import { analyzeProjectAiHybrid } from "@/lib/ai/project-ai-hybrid";
 import { enrichProjectAiFileSignals } from "@/lib/ai-upload-intelligence";
 import { getCostEstimates } from "@/lib/projects/get-cost-estimates";
+
+const FILE_UPLOAD_CONCURRENCY = 3;
+
+async function uploadProjectFileWithThumbnail(params: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  projectId: string;
+  file: File;
+  displayOrder: number;
+}) {
+  const { supabase, projectId, file, displayOrder } = params;
+  const fileExt = file.name.split(".").pop();
+  const filePath = `projects/${projectId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("project-files")
+    .upload(filePath, file, { contentType: file.type || undefined });
+
+  if (uploadError) {
+    console.error("Storage upload error:", uploadError);
+    return;
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("project-files").getPublicUrl(filePath);
+
+  let thumbnailUrl: string | null = null;
+  if (file.type.startsWith("image/")) {
+    thumbnailUrl = await generateAndUploadThumbnail(
+      file,
+      "project-files",
+      filePath
+    );
+  } else if (isVideoFileType(file.type)) {
+    thumbnailUrl = await generateAndUploadVideoPoster(
+      file,
+      "project-files",
+      filePath
+    );
+  }
+
+  const insertData: Record<string, unknown> = {
+    project_id: projectId,
+    file_url: publicUrl,
+    file_name: file.name,
+    file_type: file.type,
+    display_order: displayOrder,
+  };
+  if (thumbnailUrl) {
+    insertData.thumbnail_url = thumbnailUrl;
+  }
+
+  const { error: insertError } = await supabase
+    .from("project_files")
+    .insert(insertData);
+
+  if (insertError) {
+    console.error("project_files insert error:", insertError);
+  }
+}
+
+async function uploadFilesWithConcurrency(params: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  projectId: string;
+  files: File[];
+  concurrency?: number;
+  startDisplayOrder?: number;
+}) {
+  const {
+    supabase,
+    projectId,
+    files,
+    concurrency = FILE_UPLOAD_CONCURRENCY,
+    startDisplayOrder = 0,
+  } = params;
+
+  const queue = files.map((file, index) => ({
+    file,
+    displayOrder: startDisplayOrder + index,
+  }));
+
+  let cursor = 0;
+
+  async function next(): Promise<void> {
+    const idx = cursor++;
+    if (idx >= queue.length) return;
+    const item = queue[idx];
+    try {
+      await uploadProjectFileWithThumbnail({
+        supabase,
+        projectId,
+        file: item.file,
+        displayOrder: item.displayOrder,
+      });
+    } catch (err) {
+      console.error("File processing error:", err);
+    }
+    return next();
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, queue.length) }, () => next())
+  );
+}
 
 interface CreateProjectResult {
   error: string | null;
@@ -655,6 +760,7 @@ async function runAndPersistProjectAiEstimate(params: {
     params;
 
   const startedAt = Date.now();
+  const _benchStart = Date.now();
   const [benchmarks, previousEstimateResult] = await Promise.all([
     getCostEstimates(),
     supabase
@@ -663,9 +769,12 @@ async function runAndPersistProjectAiEstimate(params: {
       .eq("project_id", projectId)
       .maybeSingle(),
   ]);
+  console.log(`[PERF runAiEstimate] benchmarks+prevEstimate: ${Date.now() - _benchStart}ms`);
 
   const previousEstimate = previousEstimateResult.data;
+  const _llmStart = Date.now();
   const analysis = await analyzeProjectAiHybrid(input, benchmarks);
+  console.log(`[PERF runAiEstimate] LLM analysis (analyzeProjectAiHybrid): ${Date.now() - _llmStart}ms`);
   const draftScopeItems = buildProjectAiScopeItems({
     input,
     analysis,
@@ -1374,11 +1483,14 @@ export async function setProjectAiEstimatePublication(
 }
 
 export async function createProject(formData: FormData) {
+  const _createStart = Date.now();
   const supabase = await createClient();
 
+  const _authStart = Date.now();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  console.log(`[PERF createProject] auth.getUser: ${Date.now() - _authStart}ms`);
 
   if (!user) {
     return {
@@ -1471,6 +1583,7 @@ export async function createProject(formData: FormData) {
     } satisfies CreateProjectResult;
   }
 
+  const _insertStart = Date.now();
   const { data: project, error: projectError } = await supabase
     .from("projects")
     .insert({
@@ -1505,6 +1618,7 @@ export async function createProject(formData: FormData) {
     } satisfies CreateProjectResult;
   }
 
+  console.log(`[PERF createProject] DB insert: ${Date.now() - _insertStart}ms`);
   console.info("createProject: project created", {
     userId: user.id,
     projectId: project.id,
@@ -1549,114 +1663,15 @@ export async function createProject(formData: FormData) {
     }
   }
 
-  // Handle file uploads
+  const _uploadStart = Date.now();
   if (validFiles.length > 0 && project) {
-    let nextDisplayOrder = 0;
-    for (const file of validFiles) {
-      try {
-        const fileExt = file.name.split(".").pop();
-        const filePath = `projects/${project.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("project-files")
-          .upload(filePath, file, { contentType: file.type || undefined });
-
-        if (uploadError) {
-          console.error("Storage upload error:", uploadError);
-          continue;
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("project-files").getPublicUrl(filePath);
-
-        let thumbnailUrl: string | null = null;
-        if (file.type.startsWith("image/")) {
-          thumbnailUrl = await generateAndUploadThumbnail(
-            file,
-            "project-files",
-            filePath
-          );
-        } else if (isVideoFileType(file.type)) {
-          thumbnailUrl = await generateAndUploadVideoPoster(
-            file,
-            "project-files",
-            filePath
-          );
-        }
-
-        const insertData: Record<string, unknown> = {
-          project_id: project.id,
-          file_url: publicUrl,
-          file_name: file.name,
-          file_type: file.type,
-          display_order: nextDisplayOrder,
-        };
-        if (thumbnailUrl) {
-          insertData.thumbnail_url = thumbnailUrl;
-        }
-
-        const { error: insertError } = await supabase
-          .from("project_files")
-          .insert(insertData);
-
-        if (insertError) {
-          console.error("project_files insert error:", insertError);
-        }
-
-        nextDisplayOrder += 1;
-      } catch (err) {
-        console.error("File processing error:", err);
-      }
-    }
+    await uploadFilesWithConcurrency({
+      supabase,
+      projectId: project.id,
+      files: validFiles,
+    });
   }
-
-  await runAndPersistProjectAiEstimate({
-    supabase,
-    userId: user.id,
-    projectId: project.id,
-    projectTitle: title,
-    input: {
-      title,
-      description,
-      completionCriteria,
-      trades,
-      expertiseLevel: expertiseLevel || undefined,
-      locationAddress,
-      locationCity,
-      locationState,
-      locationZip,
-      budgetMin: budgetMin ? parseFloat(budgetMin) : null,
-      budgetMax: budgetMax ? parseFloat(budgetMax) : null,
-      desiredStartDate: desiredStartDate || null,
-      timeline: timeline || null,
-      files: await enrichProjectAiFileSignals(
-        validFiles.map((file) => ({
-          file_name: file.name,
-          file_type: file.type,
-          file_url: null,
-        }))
-      ),
-      clarificationAnswers: draftAiClarifications.map((clarification) => ({
-        question_key: clarification.question_key,
-        answer_value_json:
-          clarification.status === "answered"
-            ? clarification.answer_value_json
-            : null,
-        status: clarification.status,
-      })).concat(
-        draftAiItemClarifications.map((clarification) => ({
-          question_key: clarification.question_key,
-          answer_value_json:
-            clarification.status === "answered"
-              ? clarification.answer_value_json
-              : null,
-          status: clarification.status,
-        }))
-      ),
-    },
-    triggerType: "create",
-  });
+  console.log(`[PERF createProject] file uploads (parallel): ${Date.now() - _uploadStart}ms (${validFiles.length} files)`);
 
   if (draftCustomScopeItems.length > 0) {
     const { error: customScopeError } = await supabase
@@ -1686,6 +1701,59 @@ export async function createProject(formData: FormData) {
       console.error("Draft custom scope item seed error:", customScopeError);
     }
   }
+
+  const aiFileSignals = validFiles.map((file) => ({
+    file_name: file.name,
+    file_type: file.type,
+    file_url: null as string | null,
+  }));
+  const allClarificationAnswers = draftAiClarifications.map((c) => ({
+    question_key: c.question_key,
+    answer_value_json:
+      c.status === "answered" ? c.answer_value_json : null,
+    status: c.status,
+  })).concat(
+    draftAiItemClarifications.map((c) => ({
+      question_key: c.question_key,
+      answer_value_json:
+        c.status === "answered" ? c.answer_value_json : null,
+      status: c.status,
+    }))
+  );
+
+  after(async () => {
+    const _aiStart = Date.now();
+    try {
+      const bgSupabase = await createClient();
+      await runAndPersistProjectAiEstimate({
+        supabase: bgSupabase,
+        userId: user.id,
+        projectId: project.id,
+        projectTitle: title,
+        input: {
+          title,
+          description,
+          completionCriteria,
+          trades,
+          expertiseLevel: expertiseLevel || undefined,
+          locationAddress,
+          locationCity,
+          locationState,
+          locationZip,
+          budgetMin: budgetMin ? parseFloat(budgetMin) : null,
+          budgetMax: budgetMax ? parseFloat(budgetMax) : null,
+          desiredStartDate: desiredStartDate || null,
+          timeline: timeline || null,
+          files: await enrichProjectAiFileSignals(aiFileSignals),
+          clarificationAnswers: allClarificationAnswers,
+        },
+        triggerType: "create",
+      });
+      console.log(`[PERF createProject/after] AI estimate: ${Date.now() - _aiStart}ms`);
+    } catch (err) {
+      console.error("[createProject/after] AI estimate failed:", err);
+    }
+  });
 
   const shouldCreatePaidEstimate =
     formData.get("enablePaidEstimate") === "true";
@@ -1732,6 +1800,7 @@ export async function createProject(formData: FormData) {
     } satisfies CreateProjectResult;
   }
 
+  console.log(`[PERF createProject] TOTAL: ${Date.now() - _createStart}ms`);
   return {
     error: null,
     redirectUrl: `/customer/projects/${project.id}`,
@@ -2354,72 +2423,20 @@ export async function updateProject(projectId: string, formData: FormData) {
   }));
   await supabase.from("project_edits").insert(editRecords);
 
-  // Handle new file uploads
   if (validFiles.length > 0) {
-    let nextDisplayOrder =
+    const nextDisplayOrder =
       (existingProjectFiles || []).reduce((maxOrder, file) => {
         const order =
           typeof file.display_order === "number" ? file.display_order : -1;
         return Math.max(maxOrder, order);
       }, -1) + 1;
 
-    for (const file of validFiles) {
-      try {
-        const fileExt = file.name.split(".").pop();
-        const filePath = `projects/${projectId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("project-files")
-          .upload(filePath, file, { contentType: file.type || undefined });
-
-        if (uploadError) {
-          console.error("Storage upload error:", uploadError);
-          continue;
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("project-files").getPublicUrl(filePath);
-
-        let thumbnailUrl: string | null = null;
-        if (file.type.startsWith("image/")) {
-          thumbnailUrl = await generateAndUploadThumbnail(
-            file,
-            "project-files",
-            filePath
-          );
-        } else if (isVideoFileType(file.type)) {
-          thumbnailUrl = await generateAndUploadVideoPoster(
-            file,
-            "project-files",
-            filePath
-          );
-        }
-
-        const insertData: Record<string, unknown> = {
-          project_id: projectId,
-          file_url: publicUrl,
-          file_name: file.name,
-          file_type: file.type,
-          display_order: nextDisplayOrder,
-        };
-        if (thumbnailUrl) {
-          insertData.thumbnail_url = thumbnailUrl;
-        }
-
-        const { error: insertError } = await supabase
-          .from("project_files")
-          .insert(insertData);
-
-        if (insertError) {
-          console.error("project_files insert error:", insertError);
-        }
-
-        nextDisplayOrder += 1;
-      } catch (err) {
-        console.error("File processing error:", err);
-      }
-    }
+    await uploadFilesWithConcurrency({
+      supabase,
+      projectId,
+      files: validFiles,
+      startDisplayOrder: nextDisplayOrder,
+    });
   }
 
   // Notify existing bidders about the edit

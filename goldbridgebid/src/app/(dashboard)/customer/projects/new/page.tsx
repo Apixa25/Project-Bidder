@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import {
@@ -27,7 +26,6 @@ import {
 import type { ExpertiseLevel } from "@/types/database";
 import type { ProjectAiScopeItemDraft } from "@/lib/ai-scope-items";
 import { compressFiles } from "@/lib/compress-image";
-import { createBrowserClient } from "@supabase/ssr";
 import {
   IMAGE_FILE_ACCEPT,
   PROJECT_VIDEO_FILE_ACCEPT,
@@ -75,14 +73,12 @@ function getDraftClarificationValue(
 }
 
 export default function NewProjectPage() {
-  const router = useRouter();
   const formRef = useRef<HTMLFormElement | null>(null);
   const [expertiseLevel, setExpertiseLevel] = useState<ExpertiseLevel | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [compressing, setCompressing] = useState(false);
-  const [accessReady, setAccessReady] = useState(false);
   const [enablePaidEstimate, setEnablePaidEstimate] = useState(false);
   const [rewardAmount, setRewardAmount] = useState("100");
   const [maxPaidSlots, setMaxPaidSlots] = useState("3");
@@ -129,40 +125,6 @@ export default function NewProjectPage() {
     paidEstimateSlots > 0
       ? paidEstimateReward * paidEstimateSlots
       : 0;
-
-  useEffect(() => {
-    async function checkAccess() {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-
-      const { data: roleRows } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id);
-
-      const hasCustomerRole = (roleRows || []).some((row) => row.role === "customer");
-
-      if (!hasCustomerRole) {
-        router.replace("/customer");
-        return;
-      }
-
-      setAccessReady(true);
-    }
-
-    checkAccess();
-  }, [router]);
 
   useEffect(
     () => () => {
@@ -394,14 +356,6 @@ export default function NewProjectPage() {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
     return (bytes / 1048576).toFixed(1) + " MB";
-  }
-
-  if (!accessReady) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
   }
 
   return (
