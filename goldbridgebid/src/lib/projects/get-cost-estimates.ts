@@ -2,7 +2,25 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 
-export async function getCostEstimates() {
+type CostEstimate = {
+  trade: string;
+  label: string;
+  avg: number;
+  min: number;
+  max: number;
+  count: number;
+};
+
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+let cachedEstimates: CostEstimate[] | null = null;
+let cachedAt = 0;
+
+export async function getCostEstimates(): Promise<CostEstimate[]> {
+  if (cachedEstimates && Date.now() - cachedAt < CACHE_TTL_MS) {
+    return cachedEstimates;
+  }
+
   let supabase;
   try {
     supabase = createAdminClient();
@@ -26,14 +44,7 @@ export async function getCostEstimates() {
     }
   }
 
-  const estimates: Array<{
-    trade: string;
-    label: string;
-    avg: number;
-    min: number;
-    max: number;
-    count: number;
-  }> = [];
+  const estimates: CostEstimate[] = [];
 
   for (const [trade, prices] of tradeGroups.entries()) {
     if (prices.length < 2) continue;
@@ -52,7 +63,11 @@ export async function getCostEstimates() {
   console.log("[getCostEstimates]", {
     rawBidRows: bids.length,
     benchmarkGroups: estimates.length,
+    cached: true,
   });
 
-  return estimates.sort((a, b) => b.count - a.count);
+  const result = estimates.sort((a, b) => b.count - a.count);
+  cachedEstimates = result;
+  cachedAt = Date.now();
+  return result;
 }

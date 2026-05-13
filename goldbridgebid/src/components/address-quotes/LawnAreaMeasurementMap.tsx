@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import area from "@turf/area";
 import {
   Camera,

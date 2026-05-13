@@ -1,6 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const BAN_CHECK_COOKIE = "x-ban-checked";
+const BAN_CHECK_TTL_SECONDS = 60;
+
 export async function updateSession(request: NextRequest) {
   const _mwStart = Date.now();
   let supabaseResponse = NextResponse.next({ request });
@@ -53,18 +56,33 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && !isPublicRoute) {
-    const _mwBanStart = Date.now();
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_banned")
-      .eq("user_id", user.id)
-      .single();
-    console.log(`[PERF middleware] ban check: ${Date.now() - _mwBanStart}ms`);
+    const banCacheCookie = request.cookies.get(BAN_CHECK_COOKIE)?.value;
+    const skipBanCheck = banCacheCookie === user.id;
 
-    if (profile?.is_banned) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/banned";
-      return NextResponse.redirect(url);
+    if (!skipBanCheck) {
+      const _mwBanStart = Date.now();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_banned")
+        .eq("user_id", user.id)
+        .single();
+      console.log(`[PERF middleware] ban check: ${Date.now() - _mwBanStart}ms`);
+
+      if (profile?.is_banned) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/banned";
+        return NextResponse.redirect(url);
+      }
+
+      supabaseResponse.cookies.set(BAN_CHECK_COOKIE, user.id, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: BAN_CHECK_TTL_SECONDS,
+        path: "/",
+      });
+    } else {
+      console.log(`[PERF middleware] ban check: SKIPPED (cached)`);
     }
   }
 

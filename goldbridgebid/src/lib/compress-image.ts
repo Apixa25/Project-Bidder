@@ -1,5 +1,3 @@
-import imageCompression from "browser-image-compression";
-
 export interface CompressionPreset {
   maxSizeMB: number;
   maxWidthOrHeight: number;
@@ -27,13 +25,13 @@ export async function compressImage(
     return { file, originalSize: file.size, compressed: false };
   }
 
-  // Skip if already under target size
   if (file.size <= preset.maxSizeMB * 1024 * 1024) {
     return { file, originalSize: file.size, compressed: false };
   }
 
   const originalSize = file.size;
 
+  const { default: imageCompression } = await import("browser-image-compression");
   const compressed = await imageCompression(file, {
     maxSizeMB: preset.maxSizeMB,
     maxWidthOrHeight: preset.maxWidthOrHeight,

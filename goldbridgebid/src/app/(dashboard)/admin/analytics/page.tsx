@@ -2,7 +2,15 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
-import AnalyticsDashboard from "./AnalyticsDashboard";
+import dynamic from "next/dynamic";
+
+const AnalyticsDashboard = dynamic(() => import("./AnalyticsDashboard"), {
+  loading: () => (
+    <div className="flex items-center justify-center py-20">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>
+  ),
+});
 
 export default async function AdminAnalyticsPage() {
   const supabase = await createClient();
