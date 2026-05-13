@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { getUserRoles } from "@/lib/auth/roles";
 import ImpersonationBanner from "@/components/admin/ImpersonationBanner";
-import { IMPERSONATE_COOKIE } from "@/app/(dashboard)/admin/actions";
+import { IMPERSONATE_COOKIE } from "@/lib/admin-constants";
 
 export default async function DashboardLayout({
   children,

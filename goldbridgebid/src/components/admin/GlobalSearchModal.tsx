@@ -3,10 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X, User, FolderOpen, ClipboardList, MessageSquare } from "lucide-react";
-import {
-  globalAdminSearch,
-  type GlobalSearchResult,
-} from "@/app/(dashboard)/admin/actions";
+import { globalAdminSearch } from "@/app/(dashboard)/admin/actions";
+import type { GlobalSearchResult } from "@/lib/admin-constants";
 
 const TYPE_ICONS = {
   user: User,

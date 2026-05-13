@@ -5,8 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { markPaidEstimateClaimPaidOut } from "@/lib/paid-estimates/payout-processing";
-
-export const IMPERSONATE_COOKIE = "x-impersonate-user-id";
+import { IMPERSONATE_COOKIE } from "@/lib/admin-constants";
+import type { GlobalSearchResult } from "@/lib/admin-constants";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -653,14 +653,6 @@ export async function markPaidEstimateClaimPaidOutManually(
   revalidatePath("/bidder/bids");
   revalidatePath("/bidder/payouts");
   return { success: true };
-}
-
-export interface GlobalSearchResult {
-  type: "user" | "project" | "bid" | "message";
-  id: string;
-  title: string;
-  subtitle: string;
-  href: string;
 }
 
 export async function globalAdminSearch(
