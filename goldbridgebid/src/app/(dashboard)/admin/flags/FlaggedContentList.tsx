@@ -19,6 +19,39 @@ import {
   X,
 } from "lucide-react";
 
+const RESPONSE_TEMPLATES = [
+  {
+    label: "Verified safe — no action",
+    text: "Reviewed — content meets community guidelines. No action taken.",
+  },
+  {
+    label: "Warned user",
+    text: "User has been warned about violating community guidelines. Further violations may result in a ban.",
+  },
+  {
+    label: "Content removed",
+    text: "The flagged content has been removed for violating our terms of service.",
+  },
+  {
+    label: "User banned",
+    text: "The user responsible for this content has been banned from the platform.",
+  },
+];
+
+const SEVERITY_BADGES: Record<string, { label: string; className: string }> = {
+  critical: { label: "Critical", className: "bg-red-600 text-white" },
+  high: { label: "High", className: "bg-red-100 text-red-700" },
+  normal: { label: "Normal", className: "bg-amber-100 text-amber-700" },
+  low: { label: "Low", className: "bg-gray-100 text-gray-600" },
+};
+
+const SEVERITY_ORDER: Record<string, number> = {
+  critical: 0,
+  high: 1,
+  normal: 2,
+  low: 3,
+};
+
 interface FlagData {
   id: string;
   reporter_id: string;
@@ -27,6 +60,7 @@ interface FlagData {
   reason: string;
   resolved: boolean;
   created_at: string;
+  severity?: string;
 }
 
 interface ReporterData {
@@ -71,7 +105,15 @@ export default function FlaggedContentList({
     );
   }
 
-  const unresolved = flags.filter((f) => !f.resolved);
+  const [templateNote, setTemplateNote] = useState<string>("");
+
+  const unresolved = flags
+    .filter((f) => !f.resolved)
+    .sort(
+      (a, b) =>
+        (SEVERITY_ORDER[a.severity || "normal"] ?? 2) -
+        (SEVERITY_ORDER[b.severity || "normal"] ?? 2)
+    );
   const resolved = flags.filter((f) => f.resolved);
 
   return (
@@ -105,6 +147,14 @@ export default function FlaggedContentList({
                           <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
                             {flag.content_type}
                           </span>
+                          {(() => {
+                            const sev = SEVERITY_BADGES[flag.severity || "normal"] || SEVERITY_BADGES.normal;
+                            return (
+                              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${sev.className}`}>
+                                {sev.label}
+                              </span>
+                            );
+                          })()}
                           <span className="text-xs text-text-muted">
                             ID: {flag.content_id.slice(0, 8)}...
                           </span>
@@ -150,6 +200,24 @@ export default function FlaggedContentList({
                         <X className="h-3.5 w-3.5" />
                         Dismiss
                       </button>
+                      <select
+                        onChange={(e) => {
+                          setTemplateNote(e.target.value);
+                          setShowDismiss(flag.id);
+                          e.target.value = "";
+                        }}
+                        defaultValue=""
+                        className="rounded-lg border border-border bg-white px-2 py-1.5 text-xs text-text-secondary hover:bg-surface-hover transition-colors cursor-pointer"
+                      >
+                        <option value="" disabled>
+                          Use template...
+                        </option>
+                        {RESPONSE_TEMPLATES.map((t) => (
+                          <option key={t.label} value={t.text}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
                       {flag.content_type === "user" && (
                         <button
                           onClick={() =>
@@ -278,7 +346,10 @@ export default function FlaggedContentList({
 
       <ConfirmDialog
         open={!!showDismiss}
-        onClose={() => setShowDismiss(null)}
+        onClose={() => {
+          setShowDismiss(null);
+          setTemplateNote("");
+        }}
         onConfirm={async (note) => {
           if (showDismiss) {
             await dismissFlag(showDismiss, note);
@@ -288,6 +359,7 @@ export default function FlaggedContentList({
               )
             );
             setShowDismiss(null);
+            setTemplateNote("");
           }
         }}
         title="Dismiss Flag"
@@ -295,6 +367,7 @@ export default function FlaggedContentList({
         confirmLabel="Dismiss"
         confirmColor="amber"
         showReasonInput
+        defaultReason={templateNote}
       />
     </div>
   );

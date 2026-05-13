@@ -13,6 +13,7 @@ interface ConfirmDialogProps {
   confirmColor?: "red" | "amber";
   showReasonInput?: boolean;
   reasonRequired?: boolean;
+  defaultReason?: string;
 }
 
 export default function ConfirmDialog({
@@ -25,9 +26,16 @@ export default function ConfirmDialog({
   confirmColor = "red",
   showReasonInput = false,
   reasonRequired = false,
+  defaultReason = "",
 }: ConfirmDialogProps) {
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(defaultReason);
   const [isPending, startTransition] = useTransition();
+
+  const prevDefaultRef = { current: defaultReason };
+  if (prevDefaultRef.current !== defaultReason) {
+    setReason(defaultReason);
+    prevDefaultRef.current = defaultReason;
+  }
 
   if (!open) return null;
 

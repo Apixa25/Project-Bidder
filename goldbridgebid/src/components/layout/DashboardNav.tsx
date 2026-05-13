@@ -26,11 +26,17 @@ import {
   PackagePlus,
   ReceiptText,
   MapPin,
+  DollarSign,
+  Timer,
+  Search,
 } from "lucide-react";
 import { signOut } from "@/app/(auth)/actions";
 import type { UserRole } from "@/types/database";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import RoleSwitcher from "@/components/layout/RoleSwitcher";
+import GlobalSearchModal, {
+  GlobalSearchTrigger,
+} from "@/components/admin/GlobalSearchModal";
 
 interface DashboardNavProps {
   currentRole: UserRole;
@@ -192,8 +198,10 @@ const NAV_GROUPS: Record<UserRole, NavGroup[]> = {
     {
       label: "Platform",
       items: [
+        { href: "/admin/revenue", label: "Revenue", icon: DollarSign },
         { href: "/admin/stripe", label: "Stripe Readiness", icon: CreditCard },
         { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+        { href: "/admin/crons", label: "Cron Jobs", icon: Timer },
         { href: "/admin/audit", label: "Audit Log", icon: ScrollText },
       ],
     },
@@ -298,9 +306,15 @@ export default function DashboardNav({
         </div>
       </div>
 
-      {/* Nav Links — grouped into visual sections so the sidebar isn't a
-          single 10–11 item wall. The first group has no header (it's the
-          most-used links). Subsequent groups use a small uppercase label. */}
+      {/* Admin global search */}
+      {currentRole === "admin" && (
+        <div className="border-b border-border px-3 py-2">
+          <GlobalSearchTrigger />
+          <GlobalSearchModal />
+        </div>
+      )}
+
+      {/* Nav Links */}
       <div className="flex-1 overflow-y-auto px-3 py-4">
         {groups.map((group, groupIndex) => (
           <div

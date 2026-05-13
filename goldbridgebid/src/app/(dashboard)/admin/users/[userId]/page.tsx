@@ -20,6 +20,7 @@ import {
   ShieldOff,
 } from "lucide-react";
 import UserDetailTabs from "./UserDetailTabs";
+import type { TimelineEvent } from "@/components/admin/UserActivityTimeline";
 
 interface Props {
   params: Promise<{ userId: string }>;
@@ -102,6 +103,152 @@ export default async function AdminUserDetailPage({ params }: Props) {
     .from("messages")
     .select("*", { count: "exact", head: true })
     .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+
+  // Build chronological activity timeline
+  const [
+    { data: recentMessages },
+    { data: recentReviews },
+    { data: userRoleHistory },
+  ] = await Promise.all([
+    supabase
+      .from("messages")
+      .select("id, content, project_id, created_at")
+      .or(`sender_id.eq.${userId}`)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("user_reviews")
+      .select("id, review_title, rating_overall, reviewee_user_id, created_at")
+      .or(`reviewer_user_id.eq.${userId},reviewee_user_id.eq.${userId}`)
+      .order("created_at", { ascending: false })
+      .limit(10),
+    supabase
+      .from("user_roles")
+      .select("role, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  const timeline: TimelineEvent[] = [];
+
+  timeline.push({
+    id: `signup-${userId}`,
+    type: "signup",
+    title: "Account created",
+    detail: `Joined as ${profile.role}`,
+    timestamp: profile.created_at,
+  });
+
+  for (const role of userRoleHistory || []) {
+    if (role.created_at !== profile.created_at) {
+      timeline.push({
+        id: `role-${role.role}-${role.created_at}`,
+        type: "signup",
+        title: `${role.role.charAt(0).toUpperCase() + role.role.slice(1)} role enabled`,
+        detail: `Added ${role.role} capabilities`,
+        timestamp: role.created_at,
+      });
+    }
+  }
+
+  for (const p of projects || []) {
+    timeline.push({
+      id: `proj-${p.id}`,
+      type: "project",
+      title: `Posted project: ${p.title}`,
+      detail: `${p.location_city}, ${p.location_state} · ${p.bid_count} bids · ${p.status}`,
+      href: `/admin/projects/${p.id}`,
+      timestamp: p.created_at,
+    });
+  }
+
+  for (const b of bids || []) {
+    const proj = b.projects as unknown as { title: string; status: string };
+    timeline.push({
+      id: `bid-${b.id}`,
+      type: "bid",
+      title: `Submitted $${Number(b.price).toLocaleString()} bid`,
+      detail: proj.title,
+      href: `/admin/projects/${b.project_id}`,
+      timestamp: b.created_at,
+    });
+  }
+
+  for (const m of recentMessages || []) {
+    timeline.push({
+      id: `msg-${m.id}`,
+      type: "message",
+      title: "Sent a message",
+      detail: m.content.length > 80 ? m.content.slice(0, 80) + "..." : m.content,
+      href: `/admin/messages?q=${m.id}`,
+      timestamp: m.created_at,
+    });
+  }
+
+  for (const r of recentReviews || []) {
+    const isAuthor = r.reviewee_user_id !== userId;
+    timeline.push({
+      id: `review-${r.id}`,
+      type: "review",
+      title: isAuthor
+        ? `Left a ${r.rating_overall}/5 review`
+        : `Received a ${r.rating_overall}/5 review`,
+      detail: r.review_title || "Review",
+      timestamp: r.created_at,
+    });
+  }
+
+  if (credentials) {
+    const credDocs = [
+      { key: "license_url", label: "Contractor License" },
+      { key: "bond_url", label: "Bond" },
+      { key: "insurance_url", label: "Insurance" },
+      { key: "workers_comp_url", label: "Workers' Comp" },
+      { key: "ein_url", label: "EIN" },
+      { key: "references_url", label: "References" },
+    ];
+    for (const doc of credDocs) {
+      if ((credentials as Record<string, unknown>)[doc.key]) {
+        timeline.push({
+          id: `cred-${doc.key}`,
+          type: "credential",
+          title: `Uploaded ${doc.label}`,
+          detail: `Credential document uploaded`,
+          timestamp: (credentials as Record<string, string>).updated_at || profile.created_at,
+        });
+      }
+    }
+  }
+
+  timeline.sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
+  // Fetch admin notes for this user
+  const { data: adminNotes } = await supabase
+    .from("admin_user_notes")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  // Fetch admin names for notes
+  const noteAdminIds = [...new Set((adminNotes || []).map((n: { admin_id: string }) => n.admin_id))];
+  const { data: noteAdminProfiles } = noteAdminIds.length
+    ? await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", noteAdminIds)
+    : { data: [] };
+  const noteAdminMap = Object.fromEntries(
+    (noteAdminProfiles || []).map((p: { user_id: string; full_name: string }) => [p.user_id, p.full_name])
+  );
+
+  const notesWithAdmin = (adminNotes || []).map((n: { id: string; admin_id: string; note: string; created_at: string }) => ({
+    id: n.id,
+    adminName: noteAdminMap[n.admin_id] || "Admin",
+    note: n.note,
+    created_at: n.created_at,
+  }));
 
   const badge = credentials?.badge_level as BadgeLevel;
   const badgeInfo = badge ? BADGE_CONFIG[badge] : null;
@@ -262,6 +409,8 @@ export default async function AdminUserDetailPage({ params }: Props) {
           })) || null
         }
         messageCount={messageCount || 0}
+        timeline={timeline}
+        notes={notesWithAdmin}
       />
     </div>
   );

@@ -10,6 +10,9 @@ import {
   Cell,
   AreaChart,
   Area,
+  FunnelChart,
+  Funnel,
+  LabelList,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -30,6 +33,7 @@ import {
 import AdminStatCard from "@/components/admin/AdminStatCard";
 
 interface Props {
+  rangeDays: number;
   stats: {
     totalProjects: number;
     openProjects: number;
@@ -51,15 +55,24 @@ interface Props {
   statusBreakdown: { name: string; value: number }[];
   avgBidByTrade: { trade: string; avg: number }[];
   geoData: { state: string; projects: number; users: number }[];
+  cityData: { city: string; total: number; projects: number; users: number }[];
   topProjects: { title: string; bids: number; location: string }[];
+  funnelData: {
+    totalSignups: number;
+    customersPosted: number;
+    projectsWithBids: number;
+    projectsAwarded: number;
+  };
 }
 
 const STATUS_COLORS = ["#15803D", "#D97706", "#9CA3AF"];
 const CHART_ORANGE = "#D97706";
 const CHART_GREEN = "#15803D";
 const CHART_BLUE = "#2563EB";
+const FUNNEL_COLORS = ["#2563EB", "#D97706", "#15803D", "#7C3AED"];
 
 export default function AnalyticsDashboard({
+  rangeDays,
   stats,
   projectsOverTime,
   bidsOverTime,
@@ -68,7 +81,9 @@ export default function AnalyticsDashboard({
   statusBreakdown,
   avgBidByTrade,
   geoData,
+  cityData,
   topProjects,
+  funnelData,
 }: Props) {
   const statCards = [
     {
@@ -130,17 +145,20 @@ export default function AnalyticsDashboard({
     },
   ];
 
+  const funnelChartData = [
+    { name: "Signups", value: funnelData.totalSignups, fill: FUNNEL_COLORS[0] },
+    { name: "Posted a Project", value: funnelData.customersPosted, fill: FUNNEL_COLORS[1] },
+    { name: "Received Bids", value: funnelData.projectsWithBids, fill: FUNNEL_COLORS[2] },
+    { name: "Awarded", value: funnelData.projectsAwarded, fill: FUNNEL_COLORS[3] },
+  ];
+
+  const geoChartData = geoData.slice(0, 15).map((row) => ({
+    ...row,
+    total: row.projects + row.users,
+  }));
+
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-text-primary">
-          Platform Analytics 📊
-        </h1>
-        <p className="mt-1 text-text-secondary">
-          Real-time metrics across projectxbidx.
-        </p>
-      </div>
-
       {/* Key Metrics */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
@@ -148,9 +166,62 @@ export default function AnalyticsDashboard({
         ))}
       </div>
 
+      {/* Conversion Funnel */}
+      <div className="mb-6">
+        <ChartCard title="Conversion Funnel (All Time)">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div>
+              <ResponsiveContainer width="100%" height={280}>
+                <FunnelChart>
+                  <Tooltip formatter={(v) => Number(v).toLocaleString()} />
+                  <Funnel dataKey="value" data={funnelChartData} isAnimationActive>
+                    <LabelList
+                      position="right"
+                      fill="#1C1917"
+                      stroke="none"
+                      dataKey="name"
+                      fontSize={12}
+                    />
+                    <LabelList
+                      position="center"
+                      fill="#fff"
+                      stroke="none"
+                      dataKey="value"
+                      fontSize={14}
+                      fontWeight={700}
+                    />
+                  </Funnel>
+                </FunnelChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-col justify-center space-y-3">
+              {funnelChartData.map((step, i) => {
+                const prev = i > 0 ? funnelChartData[i - 1].value : step.value;
+                const rate = prev > 0 ? Math.round((step.value / prev) * 100) : 0;
+                return (
+                  <div key={step.name} className="flex items-center gap-3">
+                    <div
+                      className="h-3 w-3 rounded-full shrink-0"
+                      style={{ backgroundColor: step.fill }}
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-text-primary">{step.name}</p>
+                      <p className="text-xs text-text-muted">
+                        {step.value.toLocaleString()}
+                        {i > 0 && ` (${rate}% of previous)`}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </ChartCard>
+      </div>
+
       {/* Charts Row 1: Timeline Charts */}
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ChartCard title="Projects Over Time (30 days)">
+        <ChartCard title={`Projects Over Time (${rangeDays}d)`}>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={projectsOverTime}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -173,7 +244,7 @@ export default function AnalyticsDashboard({
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Bids Over Time (30 days)">
+        <ChartCard title={`Bids Over Time (${rangeDays}d)`}>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={bidsOverTime}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -249,7 +320,7 @@ export default function AnalyticsDashboard({
 
       {/* Charts Row 3: User Growth + Avg Bid by Trade */}
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ChartCard title="User Growth (30 days)">
+        <ChartCard title={`User Growth (${rangeDays}d)`}>
           <ResponsiveContainer width="100%" height={250}>
             <AreaChart data={userGrowth}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -307,53 +378,65 @@ export default function AnalyticsDashboard({
         </ChartCard>
       </div>
 
-      {/* Tables Row: Geographic + Top Projects */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ChartCard title="Geographic Distribution">
-          <div className="max-h-72 overflow-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="px-4 py-2 font-semibold text-text-primary">
-                    State
-                  </th>
-                  <th className="px-4 py-2 font-semibold text-text-primary text-right">
-                    Projects
-                  </th>
-                  <th className="px-4 py-2 font-semibold text-text-primary text-right">
-                    Users
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {geoData.map((row) => (
-                  <tr key={row.state} className="hover:bg-surface-hover">
-                    <td className="px-4 py-2 text-text-primary">
-                      {row.state || "—"}
-                    </td>
-                    <td className="px-4 py-2 text-right text-text-secondary">
-                      {row.projects}
-                    </td>
-                    <td className="px-4 py-2 text-right text-text-secondary">
-                      {row.users}
-                    </td>
-                  </tr>
-                ))}
-                {geoData.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="px-4 py-8 text-center text-text-muted"
-                    >
-                      No geographic data yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+      {/* Geographic Charts Row */}
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <ChartCard title="Activity by State">
+          {geoChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={Math.max(250, geoChartData.length * 32)}>
+              <BarChart
+                data={geoChartData}
+                layout="vertical"
+                margin={{ left: 50 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+                <YAxis
+                  type="category"
+                  dataKey="state"
+                  tick={{ fontSize: 11 }}
+                  width={50}
+                />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="projects" stackId="geo" fill={CHART_ORANGE} name="Projects" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="users" stackId="geo" fill={CHART_BLUE} name="Users" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="py-8 text-center text-sm text-text-muted">No geographic data yet.</p>
+          )}
         </ChartCard>
 
+        <ChartCard title="Top Cities">
+          {cityData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={Math.max(250, cityData.length * 32)}>
+              <BarChart
+                data={cityData}
+                layout="vertical"
+                margin={{ left: 120 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+                <YAxis
+                  type="category"
+                  dataKey="city"
+                  tick={{ fontSize: 10 }}
+                  width={120}
+                />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="projects" stackId="city" fill={CHART_GREEN} name="Projects" />
+                <Bar dataKey="users" stackId="city" fill={CHART_BLUE} name="Users" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="py-8 text-center text-sm text-text-muted">No city data yet.</p>
+          )}
+        </ChartCard>
+      </div>
+
+      {/* Top Projects Table */}
+      <div className="grid grid-cols-1 gap-6">
         <ChartCard title="Top Projects by Bid Count">
           <div className="max-h-72 overflow-auto">
             <table className="w-full text-sm">

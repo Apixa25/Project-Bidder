@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedCronRequest } from "@/lib/cron";
+import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
 import { isEstimatorReadyForPayouts } from "@/lib/estimate-packages/payout-accounts";
 import { markEstimatePackagePurchasePaidOut } from "@/lib/estimate-packages/payout-processing";
 import { getStripeServerClient } from "@/lib/stripe/server";
@@ -21,10 +22,13 @@ async function handleRequest(request: Request) {
     );
   }
 
+  const cronRunId = await startCronRun("process-estimator-package-payouts");
+
   let stripe;
   try {
     stripe = getStripeServerClient();
   } catch {
+    await completeCronRun(cronRunId, "failed", 0, "Stripe not configured");
     return NextResponse.json(
       {
         error:
@@ -142,6 +146,14 @@ async function handleRequest(request: Request) {
       errors += 1;
     }
   }
+
+  await completeCronRun(
+    cronRunId,
+    errors > 0 ? "failed" : "success",
+    processed,
+    errors > 0 ? `${errors} payout errors` : undefined,
+    { skipped }
+  );
 
   return NextResponse.json({
     ok: true,

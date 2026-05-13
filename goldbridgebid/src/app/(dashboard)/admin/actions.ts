@@ -3,7 +3,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { markPaidEstimateClaimPaidOut } from "@/lib/paid-estimates/payout-processing";
+
+export const IMPERSONATE_COOKIE = "x-impersonate-user-id";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -649,5 +652,194 @@ export async function markPaidEstimateClaimPaidOutManually(
   revalidatePath(`/customer/projects/${claim.project_id}`);
   revalidatePath("/bidder/bids");
   revalidatePath("/bidder/payouts");
+  return { success: true };
+}
+
+export interface GlobalSearchResult {
+  type: "user" | "project" | "bid" | "message";
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
+}
+
+export async function globalAdminSearch(
+  query: string
+): Promise<GlobalSearchResult[]> {
+  const { supabase } = await requireAdmin();
+  const q = `%${query}%`;
+
+  const [
+    { data: users },
+    { data: projects },
+    { data: bids },
+    { data: messages },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("user_id, full_name, email, business_name, role")
+      .or(`full_name.ilike.${q},email.ilike.${q},business_name.ilike.${q}`)
+      .limit(8),
+    supabase
+      .from("projects")
+      .select("id, title, location_city, location_state, status")
+      .or(`title.ilike.${q},description.ilike.${q}`)
+      .limit(8),
+    supabase
+      .from("bids")
+      .select("id, project_id, price, trade, projects!bids_project_id_fkey(title)")
+      .or(`trade.ilike.${q}`)
+      .limit(5),
+    supabase
+      .from("messages")
+      .select("id, content, project_id, sender_id")
+      .ilike("content", q)
+      .limit(5),
+  ]);
+
+  const results: GlobalSearchResult[] = [];
+
+  for (const u of users || []) {
+    results.push({
+      type: "user",
+      id: u.user_id,
+      title: u.full_name,
+      subtitle: `${u.role} · ${u.email}`,
+      href: `/admin/users/${u.user_id}`,
+    });
+  }
+
+  for (const p of projects || []) {
+    results.push({
+      type: "project",
+      id: p.id,
+      title: p.title,
+      subtitle: `${p.status} · ${p.location_city || ""}, ${p.location_state || ""}`,
+      href: `/admin/projects/${p.id}`,
+    });
+  }
+
+  for (const b of bids || []) {
+    const proj = b.projects as unknown as { title: string } | null;
+    results.push({
+      type: "bid",
+      id: b.id,
+      title: `$${Number(b.price).toLocaleString()} bid`,
+      subtitle: proj?.title || b.trade || "Unknown project",
+      href: `/admin/projects/${b.project_id}`,
+    });
+  }
+
+  for (const m of messages || []) {
+    results.push({
+      type: "message",
+      id: m.id,
+      title: m.content.length > 80 ? m.content.slice(0, 80) + "..." : m.content,
+      subtitle: "Message",
+      href: `/admin/messages?q=${m.id}`,
+    });
+  }
+
+  return results;
+}
+
+export async function addUserNote(userId: string, note: string) {
+  const { supabase, adminUserId } = await requireAdmin();
+
+  const { error } = await supabase.from("admin_user_notes").insert({
+    user_id: userId,
+    admin_id: adminUserId,
+    note,
+  });
+
+  if (error) return { error: "Failed to add note." };
+
+  revalidatePath(`/admin/users/${userId}`);
+  return { success: true };
+}
+
+export async function deleteUserNote(noteId: string) {
+  const { supabase } = await requireAdmin();
+
+  const { error } = await supabase
+    .from("admin_user_notes")
+    .delete()
+    .eq("id", noteId);
+
+  if (error) return { error: "Failed to delete note." };
+
+  revalidatePath("/admin/users");
+  return { success: true };
+}
+
+export async function bulkBanUsers(userIds: string[], reason: string) {
+  const { supabase, adminUserId } = await requireAdmin();
+
+  for (const userId of userIds) {
+    const { data: target } = await supabase
+      .from("profiles")
+      .select("full_name, role")
+      .eq("user_id", userId)
+      .single();
+
+    if (target?.role === "admin") continue;
+
+    await supabase
+      .from("profiles")
+      .update({
+        is_banned: true,
+        banned_at: new Date().toISOString(),
+        banned_by: adminUserId,
+        ban_reason: reason,
+      })
+      .eq("user_id", userId);
+
+    await logAudit(supabase, adminUserId, "ban_user", "user", userId, {
+      reason,
+      user_name: target?.full_name,
+      bulk: true,
+    });
+  }
+
+  revalidatePath("/admin/users");
+  return { success: true, count: userIds.length };
+}
+
+export async function startImpersonation(userId: string) {
+  const { supabase, adminUserId } = await requireAdmin();
+
+  const { data: target } = await supabase
+    .from("profiles")
+    .select("full_name, role")
+    .eq("user_id", userId)
+    .single();
+
+  if (!target) return { error: "User not found." };
+  if (target.role === "admin") return { error: "Cannot impersonate another admin." };
+
+  const cookieStore = await cookies();
+  cookieStore.set(IMPERSONATE_COOKIE, userId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60,
+  });
+
+  await logAudit(supabase, adminUserId, "start_impersonation", "user", userId, {
+    user_name: target.full_name,
+  });
+
+  revalidatePath("/");
+  return { success: true };
+}
+
+export async function stopImpersonation() {
+  await requireAdmin();
+
+  const cookieStore = await cookies();
+  cookieStore.delete(IMPERSONATE_COOKIE);
+
+  revalidatePath("/");
   return { success: true };
 }

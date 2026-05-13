@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedCronRequest } from "@/lib/cron";
+import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
 import { dollarsToCents } from "@/lib/paid-estimates/money";
 import {
   getAvailablePaidEstimateRefundAmount,
@@ -17,6 +18,7 @@ async function handleRequest(request: Request) {
     return NextResponse.json({ error: "Unauthorized cron request." }, { status: 401 });
   }
 
+  const cronRunId = await startCronRun("refund-unused-paid-estimates");
   const admin = createAdminClient();
   const stripe = getStripeServerClient();
   const nowIso = new Date().toISOString();
@@ -143,6 +145,14 @@ async function handleRequest(request: Request) {
       errors += 1;
     }
   }
+
+  await completeCronRun(
+    cronRunId,
+    errors > 0 ? "failed" : "success",
+    processed,
+    errors > 0 ? `${errors} refund errors` : undefined,
+    { skipped }
+  );
 
   return NextResponse.json({
     ok: true,

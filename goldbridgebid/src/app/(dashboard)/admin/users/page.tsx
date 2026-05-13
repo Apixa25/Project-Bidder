@@ -6,8 +6,7 @@ import AdminSearchBar from "@/components/admin/AdminSearchBar";
 import AdminFilterBar, { FilterDropdown } from "@/components/admin/AdminFilters";
 import AdminPagination from "@/components/admin/AdminPagination";
 import ExportButton from "@/components/admin/ExportButton";
-import UserActions from "./UserActions";
-import AddressWithMapPreview from "@/components/address-quotes/AddressWithMapPreview";
+import UserTable from "./UserTable";
 
 const PAGE_SIZE = 25;
 
@@ -123,6 +122,33 @@ export default async function AdminUsersPage({ searchParams }: Props) {
     joined: new Date(p.created_at).toLocaleDateString(),
   }));
 
+  const tableUsers = paginated.map((p) => {
+    const roles = roleMap.get(p.user_id) || [p.role];
+    const creds = credMap.get(p.user_id);
+    const badge = creds?.badge_level as BadgeLevel;
+    const badgeInfo = badge ? BADGE_CONFIG[badge] : null;
+
+    return {
+      id: p.id,
+      user_id: p.user_id,
+      full_name: p.full_name,
+      business_name: p.business_name,
+      email: p.email,
+      is_banned: p.is_banned,
+      created_at: p.created_at,
+      city: p.city,
+      state: p.state,
+      address: p.address,
+      exact_address_map_image_url: p.exact_address_map_image_url,
+      roles,
+      badgeLabel: badgeInfo?.label || null,
+      badgeIcon: badgeInfo?.icon || null,
+      badgeBgColor: badgeInfo?.bgColor || null,
+      badgeColor: badgeInfo?.color || null,
+      isBidder: roles.includes("bidder"),
+    };
+  });
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -185,139 +211,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
         </AdminFilterBar>
       </div>
 
-      <div className="rounded-xl border border-border bg-surface shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-bg-warm text-left">
-                <th className="px-6 py-3 font-semibold text-text-primary">
-                  Name
-                </th>
-                <th className="px-6 py-3 font-semibold text-text-primary">
-                  Role
-                </th>
-                <th className="px-6 py-3 font-semibold text-text-primary">
-                  Badge
-                </th>
-                <th className="px-6 py-3 font-semibold text-text-primary">
-                  Email
-                </th>
-                <th className="px-6 py-3 font-semibold text-text-primary">
-                  Location
-                </th>
-                <th className="px-6 py-3 font-semibold text-text-primary">
-                  Joined
-                </th>
-                <th className="px-6 py-3 font-semibold text-text-primary">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {paginated.map((p) => {
-                const creds = credMap.get(p.user_id);
-                const badge = creds?.badge_level as BadgeLevel;
-                const badgeInfo = badge ? BADGE_CONFIG[badge] : null;
-                const roles = roleMap.get(p.user_id) || [p.role];
-
-                return (
-                  <tr
-                    key={p.id}
-                    className={`transition-colors ${
-                      p.is_banned
-                        ? "bg-red-50 hover:bg-red-100"
-                        : "hover:bg-surface-hover"
-                    }`}
-                  >
-                    <td className="px-6 py-4">
-                      <a
-                        href={`/admin/users/${p.user_id}`}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {p.full_name}
-                      </a>
-                      {p.business_name && (
-                        <p className="text-xs text-text-muted">
-                          {p.business_name}
-                        </p>
-                      )}
-                      {p.is_banned && (
-                        <span className="mt-1 inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
-                          BANNED
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1.5">
-                        {roles.map((role) => (
-                          <span
-                            key={role}
-                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                              role === "admin"
-                                ? "bg-purple-100 text-purple-700"
-                                : role === "customer"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : "bg-secondary/10 text-secondary"
-                            }`}
-                          >
-                            {role.charAt(0).toUpperCase() + role.slice(1)}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {badgeInfo ? (
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full ${badgeInfo.bgColor} px-2 py-0.5 text-xs font-medium ${badgeInfo.color}`}
-                        >
-                          {badgeInfo.icon} {badgeInfo.label}
-                        </span>
-                      ) : roles.includes("bidder") ? (
-                        <span className="text-xs text-text-muted">None</span>
-                      ) : (
-                        <span className="text-xs text-text-muted">—</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-text-secondary">
-                      {p.email}
-                    </td>
-                    <td className="px-6 py-4 text-text-muted">
-                      <AddressWithMapPreview
-                        address={
-                          p.city && p.state
-                            ? `${p.city}, ${p.state}`
-                            : p.address || "—"
-                        }
-                        mapImageUrl={p.exact_address_map_image_url}
-                        imageClassName="h-12 w-16"
-                        className="text-xs"
-                      />
-                    </td>
-                    <td className="px-6 py-4 text-text-muted">
-                      {new Date(p.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      {!roles.includes("admin") && (
-                        <UserActions
-                          userId={p.user_id}
-                          userName={p.full_name}
-                          isBanned={p.is_banned}
-                        />
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {totalItems === 0 && (
-          <p className="px-6 py-12 text-center text-sm text-text-muted">
-            No users match your filters.
-          </p>
-        )}
-      </div>
+      <UserTable users={tableUsers} />
 
       <AdminPagination totalItems={totalItems} pageSize={PAGE_SIZE} />
     </div>

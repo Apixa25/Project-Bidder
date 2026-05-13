@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedCronRequest } from "@/lib/cron";
+import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
 import { shouldAutoReleasePaidEstimateClaim } from "@/lib/paid-estimates/settlement";
 import type {
   PaidEstimateClaim,
@@ -15,6 +16,7 @@ async function handleRequest(request: Request) {
     return NextResponse.json({ error: "Unauthorized cron request." }, { status: 401 });
   }
 
+  const cronRunId = await startCronRun("release-paid-estimates");
   const admin = createAdminClient();
   const now = new Date();
   const nowIso = now.toISOString();
@@ -105,6 +107,14 @@ async function handleRequest(request: Request) {
 
     processed += 1;
   }
+
+  await completeCronRun(
+    cronRunId,
+    errors > 0 ? "failed" : "success",
+    processed,
+    errors > 0 ? `${errors} release errors` : undefined,
+    { skipped }
+  );
 
   return NextResponse.json({
     ok: true,

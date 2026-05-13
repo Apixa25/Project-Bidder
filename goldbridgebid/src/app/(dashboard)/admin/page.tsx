@@ -20,10 +20,12 @@ import AdminStatCard from "@/components/admin/AdminStatCard";
 import ActivityFeed, {
   type ActivityItem,
 } from "@/components/admin/ActivityFeed";
-
-const SEVEN_DAYS_AGO_ISO = new Date(
-  Date.now() - 7 * 24 * 60 * 60 * 1000
-).toISOString();
+import TimeRangeSelector, {
+  type TimeRange,
+  getRangeCutoff,
+  getPreviousRangeCutoff,
+  isValidRange,
+} from "@/components/admin/TimeRangeSelector";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -36,7 +38,19 @@ function timeAgo(dateStr: string) {
   return `${days}d ago`;
 }
 
-export default async function AdminDashboard() {
+const RANGE_LABELS: Record<TimeRange, string> = {
+  today: "today",
+  "7d": "this week",
+  "30d": "this month",
+  "90d": "this quarter",
+};
+
+interface Props {
+  searchParams: Promise<{ [key: string]: string | undefined }>;
+}
+
+export default async function AdminDashboard({ searchParams }: Props) {
+  const params = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -53,6 +67,11 @@ export default async function AdminDashboard() {
 
   if (!profile || profile.role !== "admin") redirect("/login");
 
+  const range: TimeRange = isValidRange(params.range) ? params.range : "7d";
+  const rangeCutoff = getRangeCutoff(range);
+  const prevCutoff = getPreviousRangeCutoff(range);
+  const rangeLabel = RANGE_LABELS[range];
+
   const [
     { data: customerRoles },
     { data: bidderRoles },
@@ -64,7 +83,7 @@ export default async function AdminDashboard() {
     supabase
       .from("user_roles")
       .select("user_id, role, created_at")
-      .gte("created_at", SEVEN_DAYS_AGO_ISO)
+      .gte("created_at", rangeCutoff)
       .order("created_at", { ascending: false })
       .limit(10),
     supabase.from("user_reviews").select("*", { count: "exact", head: true }),
@@ -72,10 +91,10 @@ export default async function AdminDashboard() {
 
   const customerCount = new Set((customerRoles || []).map((row) => row.user_id)).size;
   const bidderCount = new Set((bidderRoles || []).map((row) => row.user_id)).size;
-  const customerRolesThisWeek = (recentRoleMemberships || []).filter(
+  const customerRolesInRange = (recentRoleMemberships || []).filter(
     (row) => row.role === "customer"
   ).length;
-  const bidderRolesThisWeek = (recentRoleMemberships || []).filter(
+  const bidderRolesInRange = (recentRoleMemberships || []).filter(
     (row) => row.role === "bidder"
   ).length;
 
@@ -85,8 +104,11 @@ export default async function AdminDashboard() {
     { count: openProjects },
     { count: flaggedCount },
     { count: bannedCount },
-    { count: projectsThisWeek },
-    { count: bidsThisWeek },
+    { count: projectsInRange },
+    { count: bidsInRange },
+    { count: prevProjectsInRange },
+    { count: prevBidsInRange },
+    { data: prevRoleMemberships },
   ] = await Promise.all([
     supabase.from("projects").select("*", { count: "exact", head: true }),
     supabase.from("bids").select("*", { count: "exact", head: true }),
@@ -105,12 +127,34 @@ export default async function AdminDashboard() {
     supabase
       .from("projects")
       .select("*", { count: "exact", head: true })
-      .gte("created_at", SEVEN_DAYS_AGO_ISO),
+      .gte("created_at", rangeCutoff),
     supabase
       .from("bids")
       .select("*", { count: "exact", head: true })
-      .gte("created_at", SEVEN_DAYS_AGO_ISO),
+      .gte("created_at", rangeCutoff),
+    supabase
+      .from("projects")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", prevCutoff)
+      .lt("created_at", rangeCutoff),
+    supabase
+      .from("bids")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", prevCutoff)
+      .lt("created_at", rangeCutoff),
+    supabase
+      .from("user_roles")
+      .select("role")
+      .gte("created_at", prevCutoff)
+      .lt("created_at", rangeCutoff),
   ]);
+
+  const prevCustomerRoles = (prevRoleMemberships || []).filter(
+    (r) => r.role === "customer"
+  ).length;
+  const prevBidderRoles = (prevRoleMemberships || []).filter(
+    (r) => r.role === "bidder"
+  ).length;
 
   // Build activity feed from recent items
   const [
@@ -200,7 +244,11 @@ export default async function AdminDashboard() {
       value: projectCount || 0,
       icon: FolderOpen,
       color: "bg-primary/10 text-primary",
-      trend: { value: projectsThisWeek || 0, label: "this week" },
+      trend: {
+        value: projectsInRange || 0,
+        previousValue: prevProjectsInRange || 0,
+        label: rangeLabel,
+      },
     },
     {
       label: "Open Projects",
@@ -213,21 +261,33 @@ export default async function AdminDashboard() {
       value: bidCount || 0,
       icon: ClipboardList,
       color: "bg-amber-100 text-amber-700",
-      trend: { value: bidsThisWeek || 0, label: "this week" },
+      trend: {
+        value: bidsInRange || 0,
+        previousValue: prevBidsInRange || 0,
+        label: rangeLabel,
+      },
     },
     {
       label: "Customers",
       value: customerCount || 0,
       icon: Users,
       color: "bg-blue-100 text-blue-600",
-      trend: { value: customerRolesThisWeek || 0, label: "enabled this week" },
+      trend: {
+        value: customerRolesInRange || 0,
+        previousValue: prevCustomerRoles,
+        label: `enabled ${rangeLabel}`,
+      },
     },
     {
       label: "Bidders",
       value: bidderCount || 0,
       icon: Users,
       color: "bg-secondary/10 text-secondary",
-      trend: { value: bidderRolesThisWeek || 0, label: "enabled this week" },
+      trend: {
+        value: bidderRolesInRange || 0,
+        previousValue: prevBidderRoles,
+        label: `enabled ${rangeLabel}`,
+      },
     },
     {
       label: "Reviews",
@@ -249,13 +309,16 @@ export default async function AdminDashboard() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-text-primary">
-          Admin Dashboard 🛡️
-        </h1>
-        <p className="mt-1 text-text-secondary">
-          Platform overview and management.
-        </p>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">
+            Admin Dashboard 🛡️
+          </h1>
+          <p className="mt-1 text-text-secondary">
+            Platform overview and management.
+          </p>
+        </div>
+        <TimeRangeSelector />
       </div>
 
       {/* Alert Banners */}

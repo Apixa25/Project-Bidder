@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAuthorizedCronRequest } from "@/lib/cron";
+import { startCronRun, completeCronRun } from "@/lib/cron-tracking";
 import { dollarsToCents } from "@/lib/paid-estimates/money";
 import { isBidderReadyForPayouts } from "@/lib/paid-estimates/payout-accounts";
 import { markPaidEstimateClaimPaidOut } from "@/lib/paid-estimates/payout-processing";
@@ -35,6 +36,7 @@ async function handleRequest(request: Request) {
     );
   }
 
+  const cronRunId = await startCronRun("process-paid-estimate-payouts");
   const admin = createAdminClient();
 
   const { data: claimRows } = await admin
@@ -156,6 +158,14 @@ async function handleRequest(request: Request) {
       errors += 1;
     }
   }
+
+  await completeCronRun(
+    cronRunId,
+    errors > 0 ? "failed" : "success",
+    processed,
+    errors > 0 ? `${errors} payout errors` : undefined,
+    { skipped }
+  );
 
   return NextResponse.json({
     ok: true,

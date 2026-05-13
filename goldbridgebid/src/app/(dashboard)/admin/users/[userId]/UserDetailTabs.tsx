@@ -9,9 +9,15 @@ import {
   deleteUser,
   enableEstimatorRole,
   adminSendPasswordReset,
+  addUserNote,
+  deleteUserNote,
+  startImpersonation,
 } from "@/app/(dashboard)/admin/actions";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
-import { CheckCircle2, Sparkles, XCircle, KeyRound } from "lucide-react";
+import UserActivityTimeline, {
+  type TimelineEvent,
+} from "@/components/admin/UserActivityTimeline";
+import { CheckCircle2, Sparkles, XCircle, KeyRound, Trash2, Eye } from "lucide-react";
 import {
   BIDDER_PAYOUT_READINESS_LABELS,
   getBidderPayoutReadiness,
@@ -69,6 +75,8 @@ interface Props {
   projects: ProjectSummary[] | null;
   bids: BidSummary[] | null;
   messageCount: number;
+  timeline: TimelineEvent[];
+  notes: { id: string; adminName: string; note: string; created_at: string }[];
 }
 
 export default function UserDetailTabs({
@@ -79,11 +87,15 @@ export default function UserDetailTabs({
   projects,
   bids,
   messageCount,
+  timeline,
+  notes,
 }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<
-    "profile" | "activity" | "credentials" | "payouts"
+    "profile" | "activity" | "credentials" | "payouts" | "notes"
   >("profile");
+  const [noteText, setNoteText] = useState("");
+  const [addingNote, setAddingNote] = useState(false);
   const [showBan, setShowBan] = useState(false);
   const [showUnban, setShowUnban] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -129,6 +141,7 @@ export default function UserDetailTabs({
   const tabs = [
     { id: "profile" as const, label: "Profile" },
     { id: "activity" as const, label: "Activity" },
+    { id: "notes" as const, label: `Notes (${notes.length})` },
     ...(roles.includes("bidder")
       ? [
           { id: "credentials" as const, label: "Credentials" },
@@ -289,113 +302,9 @@ export default function UserDetailTabs({
         </div>
       )}
 
-      {/* Activity Tab */}
+      {/* Activity Tab — Chronological Timeline */}
       {tab === "activity" && (
-        <div className="space-y-6">
-          {roles.includes("customer") && projects && (
-            <div className="rounded-xl border border-border bg-surface shadow-sm">
-              <h3 className="border-b border-border px-6 py-4 text-lg font-semibold text-text-primary">
-                Projects ({projects.length})
-              </h3>
-              {projects.length > 0 ? (
-                <div className="divide-y divide-border">
-                  {projects.map((p) => (
-                    <div
-                      key={p.id}
-                      className="flex items-center justify-between px-6 py-3 hover:bg-surface-hover transition-colors"
-                    >
-                      <div>
-                        <Link
-                          href={`/admin/projects/${p.id}`}
-                          className="font-medium text-primary hover:underline"
-                        >
-                          {p.title}
-                        </Link>
-                        <p className="text-xs text-text-muted">
-                          {p.location} ·{" "}
-                          {new Date(p.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-text-muted">
-                          {p.bid_count} bids
-                        </span>
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            p.status === "open"
-                              ? "bg-green-100 text-green-700"
-                              : p.status === "awarded"
-                                ? "bg-amber-100 text-amber-700"
-                                : "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          {p.status.charAt(0).toUpperCase() +
-                            p.status.slice(1)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="px-6 py-8 text-center text-sm text-text-muted">
-                  No projects posted yet.
-                </p>
-              )}
-            </div>
-          )}
-
-          {roles.includes("bidder") && bids && (
-            <div className="rounded-xl border border-border bg-surface shadow-sm">
-              <h3 className="border-b border-border px-6 py-4 text-lg font-semibold text-text-primary">
-                Bids ({bids.length})
-              </h3>
-              {bids.length > 0 ? (
-                <div className="divide-y divide-border">
-                  {bids.map((b) => (
-                    <div
-                      key={b.id}
-                      className="flex items-center justify-between px-6 py-3 hover:bg-surface-hover transition-colors"
-                    >
-                      <div>
-                        <Link
-                          href={`/admin/projects/${b.project_id}`}
-                          className="font-medium text-primary hover:underline"
-                        >
-                          {b.project_title}
-                        </Link>
-                        <p className="text-xs text-text-muted">
-                          {b.trade} ·{" "}
-                          {new Date(b.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-money text-sm font-semibold">
-                          ${b.price.toLocaleString()}
-                        </span>
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            b.project_status === "open"
-                              ? "bg-green-100 text-green-700"
-                              : b.project_status === "awarded"
-                                ? "bg-amber-100 text-amber-700"
-                                : "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          {b.project_status.charAt(0).toUpperCase() +
-                            b.project_status.slice(1)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="px-6 py-8 text-center text-sm text-text-muted">
-                  No bids submitted yet.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+        <UserActivityTimeline events={timeline} />
       )}
 
       {/* Credentials Tab (Bidder only) */}
@@ -509,6 +418,88 @@ export default function UserDetailTabs({
         </div>
       )}
 
+      {/* Notes Tab */}
+      {tab === "notes" && (
+        <div className="space-y-4">
+          {/* Add Note Form */}
+          <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+            <h3 className="mb-3 text-lg font-semibold text-text-primary">
+              Add Internal Note
+            </h3>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!noteText.trim()) return;
+                setAddingNote(true);
+                await addUserNote(profile.user_id, noteText.trim());
+                setNoteText("");
+                setAddingNote(false);
+                router.refresh();
+              }}
+              className="flex flex-col gap-3"
+            >
+              <textarea
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                placeholder="Add a private note about this user (support context, call history, etc.)..."
+                rows={3}
+                className="w-full rounded-lg border border-border bg-bg-warm px-4 py-3 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20"
+              />
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={addingNote || !noteText.trim()}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {addingNote ? "Adding..." : "Add Note"}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Existing Notes */}
+          {notes.length > 0 ? (
+            <div className="rounded-xl border border-border bg-surface shadow-sm divide-y divide-border">
+              {notes.map((n) => (
+                <div key={n.id} className="px-6 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-text-primary whitespace-pre-wrap">
+                        {n.note}
+                      </p>
+                      <p className="mt-2 text-xs text-text-muted">
+                        by {n.adminName} ·{" "}
+                        {new Date(n.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        await deleteUserNote(n.id);
+                        router.refresh();
+                      }}
+                      className="shrink-0 rounded-lg p-1.5 text-text-muted hover:bg-red-50 hover:text-red-600 transition-colors"
+                      title="Delete note"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border bg-surface py-8 text-center shadow-sm">
+              <p className="text-sm text-text-muted">No notes yet.</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Admin Actions */}
       {!roles.includes("admin") && (
         <div className="mt-6 rounded-xl border border-border bg-surface p-4 shadow-sm">
@@ -516,6 +507,19 @@ export default function UserDetailTabs({
             Admin Actions
           </p>
           <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={async () => {
+                const result = await startImpersonation(profile.user_id);
+                if (result.success) {
+                  const role = profile.role === "admin" ? "customer" : profile.role;
+                  router.push(`/${role}`);
+                }
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              View as User
+            </button>
             {profile.is_banned ? (
               <button
                 onClick={() => setShowUnban(true)}

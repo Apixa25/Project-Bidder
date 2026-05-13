@@ -3,6 +3,12 @@ import { redirect } from "next/navigation";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import dynamic from "next/dynamic";
+import TimeRangeSelector, {
+  type TimeRange,
+  getRangeCutoff,
+  getRangeDays,
+  isValidRange,
+} from "@/components/admin/TimeRangeSelector";
 
 const AnalyticsDashboard = dynamic(() => import("./AnalyticsDashboard"), {
   loading: () => (
@@ -12,7 +18,12 @@ const AnalyticsDashboard = dynamic(() => import("./AnalyticsDashboard"), {
   ),
 });
 
-export default async function AdminAnalyticsPage() {
+interface Props {
+  searchParams: Promise<{ [key: string]: string | undefined }>;
+}
+
+export default async function AdminAnalyticsPage({ searchParams }: Props) {
+  const params = await searchParams;
   const supabase = await createClient();
   const nowMs = new Date().getTime();
 
@@ -28,9 +39,9 @@ export default async function AdminAnalyticsPage() {
     .single();
   if (profile?.role !== "admin") redirect("/login");
 
-  const thirtyDaysAgo = new Date(
-    nowMs - 30 * 24 * 60 * 60 * 1000
-  ).toISOString();
+  const range: TimeRange = isValidRange(params.range) ? params.range : "30d";
+  const rangeDays = getRangeDays(range);
+  const rangeCutoff = getRangeCutoff(range);
 
   const [
     { data: customerRoles },
@@ -42,14 +53,13 @@ export default async function AdminAnalyticsPage() {
     supabase
       .from("user_roles")
       .select("created_at, role")
-      .gte("created_at", thirtyDaysAgo)
+      .gte("created_at", rangeCutoff)
       .order("created_at", { ascending: true }),
   ]);
 
   const totalCustomers = new Set((customerRoles || []).map((row) => row.user_id)).size;
   const totalBidders = new Set((bidderRoles || []).map((row) => row.user_id)).size;
 
-  // Aggregate counts
   const [
     { count: totalProjects },
     { count: openProjects },
@@ -82,52 +92,73 @@ export default async function AdminAnalyticsPage() {
     supabase.from("user_reviews").select("*", { count: "exact", head: true }),
   ]);
 
-  // Projects over time (last 30 days)
   const { data: recentProjects } = await supabase
     .from("projects")
     .select("created_at")
-    .gte("created_at", thirtyDaysAgo)
+    .gte("created_at", rangeCutoff)
     .order("created_at", { ascending: true });
 
-  // Bids over time (last 30 days)
   const { data: recentBids } = await supabase
     .from("bids")
     .select("created_at, price, trade")
-    .gte("created_at", thirtyDaysAgo)
+    .gte("created_at", rangeCutoff)
     .order("created_at", { ascending: true });
 
-  // Projects by trade (need all projects for trade breakdown)
   const { data: allProjects } = await supabase
     .from("projects")
     .select("trades");
 
-  // Geographic distribution
   const { data: geoProjects } = await supabase
     .from("projects")
-    .select("location_state");
+    .select("location_state, location_city");
 
   const { data: geoUsers } = await supabase
     .from("profiles")
-    .select("state");
+    .select("state, city");
 
-  // All bids for avg by trade
   const { data: allBids } = await supabase
     .from("bids")
     .select("price, trade");
 
-  // Top projects by bid count
   const { data: topProjects } = await supabase
     .from("projects")
     .select("id, title, bid_count, location_city, location_state")
     .order("bid_count", { ascending: false })
     .limit(10);
 
-  // --- Process data for charts ---
+  // Conversion funnel data
+  const [
+    { count: totalSignups },
+    { data: customersWithProjects },
+    { data: projectsWithBids },
+    { count: awardedOrCompleted },
+  ] = await Promise.all([
+    supabase.from("user_roles").select("*", { count: "exact", head: true }),
+    supabase.from("projects").select("customer_id"),
+    supabase.from("bids").select("project_id"),
+    supabase
+      .from("projects")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["awarded", "completed"]),
+  ]);
 
-  // Daily counts helper
+  const uniqueCustomersPosted = new Set(
+    (customersWithProjects || []).map((p) => p.customer_id)
+  ).size;
+  const uniqueProjectsWithBids = new Set(
+    (projectsWithBids || []).map((b) => b.project_id)
+  ).size;
+
+  const funnelData = {
+    totalSignups: totalSignups || 0,
+    customersPosted: uniqueCustomersPosted,
+    projectsWithBids: uniqueProjectsWithBids,
+    projectsAwarded: awardedOrCompleted || 0,
+  };
+
   function dailyCounts(items: { created_at: string }[] | null) {
     const counts: Record<string, number> = {};
-    for (let i = 29; i >= 0; i--) {
+    for (let i = rangeDays - 1; i >= 0; i--) {
       const d = new Date(nowMs - i * 86400000);
       counts[d.toISOString().slice(0, 10)] = 0;
     }
@@ -147,7 +178,6 @@ export default async function AdminAnalyticsPage() {
   const projectsOverTime = dailyCounts(recentProjects);
   const bidsOverTime = dailyCounts(recentBids);
 
-  // Role growth (cumulative memberships)
   const userGrowth: { date: string; customers: number; bidders: number }[] = [];
   let custCum =
     (totalCustomers || 0) -
@@ -155,7 +185,7 @@ export default async function AdminAnalyticsPage() {
   let bidCum =
     (totalBidders || 0) -
     (recentRoleMemberships || []).filter((s) => s.role === "bidder").length;
-  for (let i = 29; i >= 0; i--) {
+  for (let i = rangeDays - 1; i >= 0; i--) {
     const d = new Date(nowMs - i * 86400000);
     const dateStr = d.toISOString().slice(0, 10);
     const daySignups = (recentRoleMemberships || []).filter(
@@ -173,7 +203,6 @@ export default async function AdminAnalyticsPage() {
     });
   }
 
-  // Trade breakdown
   const tradeCounts: Record<string, number> = {};
   for (const p of allProjects || []) {
     for (const t of (p.trades as TradeCategory[]) || []) {
@@ -188,14 +217,12 @@ export default async function AdminAnalyticsPage() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 15);
 
-  // Status donut
   const statusBreakdown = [
     { name: "Open", value: openProjects || 0 },
     { name: "Awarded", value: awardedProjects || 0 },
     { name: "Closed", value: closedProjects || 0 },
   ];
 
-  // Avg bid by trade
   const tradeAcc: Record<string, { sum: number; count: number }> = {};
   for (const b of allBids || []) {
     const t = b.trade as TradeCategory;
@@ -211,64 +238,95 @@ export default async function AdminAnalyticsPage() {
     .sort((a, b) => b.avg - a.avg)
     .slice(0, 10);
 
-  // Geographic distribution
-  const geoCounts: Record<
-    string,
-    { projects: number; users: number }
-  > = {};
+  // Geographic distribution — state + city level
+  const geoCounts: Record<string, { projects: number; users: number }> = {};
+  const cityCounts: Record<string, { projects: number; users: number }> = {};
   for (const p of geoProjects || []) {
     const st = p.location_state || "Unknown";
     if (!geoCounts[st]) geoCounts[st] = { projects: 0, users: 0 };
     geoCounts[st].projects++;
+    const city = p.location_city && p.location_state
+      ? `${p.location_city}, ${p.location_state}`
+      : null;
+    if (city) {
+      if (!cityCounts[city]) cityCounts[city] = { projects: 0, users: 0 };
+      cityCounts[city].projects++;
+    }
   }
   for (const u of geoUsers || []) {
     const st = u.state || "Unknown";
     if (!geoCounts[st]) geoCounts[st] = { projects: 0, users: 0 };
     geoCounts[st].users++;
+    const city = u.city && u.state ? `${u.city}, ${u.state}` : null;
+    if (city) {
+      if (!cityCounts[city]) cityCounts[city] = { projects: 0, users: 0 };
+      cityCounts[city].users++;
+    }
   }
   const geoData = Object.entries(geoCounts)
     .map(([state, counts]) => ({ state, ...counts }))
     .sort((a, b) => b.projects + b.users - (a.projects + a.users));
 
+  const cityData = Object.entries(cityCounts)
+    .map(([city, counts]) => ({ city, total: counts.projects + counts.users, ...counts }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 15);
+
   return (
-    <AnalyticsDashboard
-      stats={{
-        totalProjects: totalProjects || 0,
-        openProjects: openProjects || 0,
-        awardedProjects: awardedProjects || 0,
-        closedProjects: closedProjects || 0,
-        totalBids: totalBids || 0,
-        totalCustomers: totalCustomers || 0,
-        totalBidders: totalBidders || 0,
-        totalMessages: totalMessages || 0,
-        unresolvedFlags: unresolvedFlags || 0,
-        totalReviews: totalReviews || 0,
-        avgBidPrice:
-          allBids && allBids.length > 0
-            ? Math.round(
-                allBids.reduce((s, b) => s + Number(b.price), 0) /
-                  allBids.length
-              )
-            : 0,
-        bidsPerProject:
-          totalProjects && totalBids
-            ? Number((totalBids / totalProjects).toFixed(1))
-            : 0,
-      }}
-      projectsOverTime={projectsOverTime}
-      bidsOverTime={bidsOverTime}
-      userGrowth={userGrowth}
-      tradeBreakdown={tradeBreakdown}
-      statusBreakdown={statusBreakdown}
-      avgBidByTrade={avgBidByTrade}
-      geoData={geoData}
-      topProjects={
-        (topProjects || []).map((p) => ({
-          title: p.title,
-          bids: p.bid_count,
-          location: `${p.location_city}, ${p.location_state}`,
-        }))
-      }
-    />
+    <div>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">
+            Platform Analytics 📊
+          </h1>
+          <p className="mt-1 text-text-secondary">
+            Metrics across projectxbidx.
+          </p>
+        </div>
+        <TimeRangeSelector />
+      </div>
+      <AnalyticsDashboard
+        rangeDays={rangeDays}
+        stats={{
+          totalProjects: totalProjects || 0,
+          openProjects: openProjects || 0,
+          awardedProjects: awardedProjects || 0,
+          closedProjects: closedProjects || 0,
+          totalBids: totalBids || 0,
+          totalCustomers: totalCustomers || 0,
+          totalBidders: totalBidders || 0,
+          totalMessages: totalMessages || 0,
+          unresolvedFlags: unresolvedFlags || 0,
+          totalReviews: totalReviews || 0,
+          avgBidPrice:
+            allBids && allBids.length > 0
+              ? Math.round(
+                  allBids.reduce((s, b) => s + Number(b.price), 0) /
+                    allBids.length
+                )
+              : 0,
+          bidsPerProject:
+            totalProjects && totalBids
+              ? Number((totalBids / totalProjects).toFixed(1))
+              : 0,
+        }}
+        projectsOverTime={projectsOverTime}
+        bidsOverTime={bidsOverTime}
+        userGrowth={userGrowth}
+        tradeBreakdown={tradeBreakdown}
+        statusBreakdown={statusBreakdown}
+        avgBidByTrade={avgBidByTrade}
+        geoData={geoData}
+        cityData={cityData}
+        topProjects={
+          (topProjects || []).map((p) => ({
+            title: p.title,
+            bids: p.bid_count,
+            location: `${p.location_city}, ${p.location_state}`,
+          }))
+        }
+        funnelData={funnelData}
+      />
+    </div>
   );
 }

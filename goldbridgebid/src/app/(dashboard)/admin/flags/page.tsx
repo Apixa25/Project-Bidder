@@ -36,6 +36,9 @@ export default async function AdminFlagsPage({ searchParams }: Props) {
   } else if (params.status === "unresolved") {
     query = query.eq("resolved", false);
   }
+  if (params.severity) {
+    query = query.eq("severity", params.severity);
+  }
 
   const { data: flags } = await query;
 
@@ -147,6 +150,16 @@ export default async function AdminFlagsPage({ searchParams }: Props) {
               { value: "user", label: "User" },
               { value: "message", label: "Message" },
               { value: "review", label: "Review" },
+            ]}
+          />
+          <FilterDropdown
+            paramName="severity"
+            label="Severity"
+            options={[
+              { value: "critical", label: "Critical" },
+              { value: "high", label: "High" },
+              { value: "normal", label: "Normal" },
+              { value: "low", label: "Low" },
             ]}
           />
           <FilterDropdown
