@@ -77,14 +77,17 @@ export default async function ProjectDetailPage({
 
   if (!user) redirect("/login");
 
-  if (!(await userHasRole(user.id, "customer"))) redirect("/login");
+  const [hasRole, { data: project, error: projectError }] = await Promise.all([
+    userHasRole(user.id, "customer"),
+    supabase
+      .from("projects")
+      .select("*")
+      .eq("id", id)
+      .eq("customer_id", user.id)
+      .single(),
+  ]);
 
-  const { data: project, error: projectError } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", id)
-    .eq("customer_id", user.id)
-    .single();
+  if (!hasRole) redirect("/login");
 
   if (!project) {
     console.error(
@@ -94,117 +97,151 @@ export default async function ProjectDetailPage({
     notFound();
   }
 
-  const { data: customerProfile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const { data: projectFiles } = await supabase
-    .from("project_files")
-    .select("*")
-    .eq("project_id", id)
-    .order("display_order", { ascending: true })
-    .order("uploaded_at", { ascending: false });
-
-  const { data: aiEstimate } = await supabase
-    .from("project_ai_estimates")
-    .select("*")
-    .eq("project_id", id)
-    .maybeSingle();
-
-  const { data: aiClarifications } = await supabase
-    .from("project_ai_clarifications")
-    .select("*")
-    .eq("project_id", id)
-    .order("display_order", { ascending: true })
-    .order("created_at", { ascending: true });
-
-  const { data: aiScopeItems } = await supabase
-    .from("project_ai_scope_items")
-    .select("*")
-    .eq("project_id", id)
-    .order("display_order", { ascending: true })
-    .order("created_at", { ascending: true });
-
-  const { data: aiItemClarifications } = await supabase
-    .from("project_ai_item_clarifications")
-    .select("*")
-    .eq("project_id", id)
-    .order("display_order", { ascending: true })
-    .order("created_at", { ascending: true });
-
-  const { data: latestAiRun } = await supabase
-    .from("project_ai_analysis_runs")
-    .select("model_name")
-    .eq("project_id", id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const { data: paidEstimatePool } = await admin
-    .from("project_paid_estimate_pools")
-    .select("*")
-    .eq("project_id", id)
-    .maybeSingle();
-
-  const { data: bids } = await supabase
-    .from("bids")
-    .select("*, bid_files(*)")
-    .eq("project_id", id)
-    .order("created_at", { ascending: true });
+  const [
+    { data: customerProfile },
+    { data: projectFiles },
+    { data: aiEstimate },
+    { data: aiClarifications },
+    { data: aiScopeItems },
+    { data: aiItemClarifications },
+    { data: latestAiRun },
+    { data: paidEstimatePool },
+    { data: bids },
+    { data: paidEstimateClaims },
+    { data: projectEdits },
+    { data: projectQuestions },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("project_files")
+      .select("*")
+      .eq("project_id", id)
+      .order("display_order", { ascending: true })
+      .order("uploaded_at", { ascending: false }),
+    supabase
+      .from("project_ai_estimates")
+      .select("*")
+      .eq("project_id", id)
+      .maybeSingle(),
+    supabase
+      .from("project_ai_clarifications")
+      .select("*")
+      .eq("project_id", id)
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("project_ai_scope_items")
+      .select("*")
+      .eq("project_id", id)
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("project_ai_item_clarifications")
+      .select("*")
+      .eq("project_id", id)
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("project_ai_analysis_runs")
+      .select("model_name")
+      .eq("project_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("project_paid_estimate_pools")
+      .select("*")
+      .eq("project_id", id)
+      .maybeSingle(),
+    supabase
+      .from("bids")
+      .select("*, bid_files(*)")
+      .eq("project_id", id)
+      .order("created_at", { ascending: true }),
+    admin
+      .from("paid_estimate_claims")
+      .select("*")
+      .eq("project_id", id),
+    supabase
+      .from("project_edits")
+      .select("*")
+      .eq("project_id", id)
+      .order("edited_at", { ascending: false }),
+    supabase
+      .from("project_questions")
+      .select("*")
+      .eq("project_id", id)
+      .order("created_at", { ascending: true }),
+  ]);
 
   const bidIds = (bids || []).map((bid) => bid.id);
-  const { data: bidLineItemRows } = bidIds.length
-    ? await supabase
-        .from("bid_line_items")
-        .select("*")
-        .in("bid_id", bidIds)
-        .order("display_order", { ascending: true })
-    : { data: [] };
+  const bidderIds = bids?.map((b) => b.bidder_id) || [];
+  const questionAskerIds = [
+    ...new Set((projectQuestions || []).map((q) => q.asker_id)),
+  ];
+  const claimIds = (paidEstimateClaims || []).map((claim) => claim.id);
+
+  const [
+    { data: bidLineItemRows },
+    { data: bidderProfiles },
+    { data: bidderCredentials },
+    { data: bidderSpecialties },
+    { data: bidderReviewRows },
+    { data: qaAskerProfiles },
+    { data: paidEstimateDisputes },
+  ] = await Promise.all([
+    bidIds.length
+      ? supabase
+          .from("bid_line_items")
+          .select("*")
+          .in("bid_id", bidIds)
+          .order("display_order", { ascending: true })
+      : Promise.resolve({ data: [] as any[] }),
+    bidderIds.length > 0
+      ? supabase
+          .from("profiles")
+          .select("*")
+          .in("user_id", bidderIds)
+      : Promise.resolve({ data: [] as any[] }),
+    bidderIds.length > 0
+      ? supabase
+          .from("bidder_credentials")
+          .select("*")
+          .in("user_id", bidderIds)
+      : Promise.resolve({ data: [] as any[] }),
+    bidderIds.length > 0
+      ? supabase
+          .from("bidder_specialties")
+          .select("user_id, trade, display_order")
+          .in("user_id", bidderIds)
+          .order("display_order", { ascending: true })
+      : Promise.resolve({ data: [] as any[] }),
+    bidderIds.length > 0
+      ? supabase
+          .from("user_reviews")
+          .select("reviewee_user_id, rating_overall")
+          .in("reviewee_user_id", bidderIds)
+          .eq("status", "published")
+      : Promise.resolve({ data: [] as any[] }),
+    questionAskerIds.length
+      ? supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", questionAskerIds)
+      : Promise.resolve({ data: [] as any[] }),
+    claimIds.length
+      ? admin
+          .from("paid_estimate_disputes")
+          .select("*")
+          .in("claim_id", claimIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
 
   const bidCount = bids?.length ?? 0;
-
-  const { data: paidEstimateClaims } = await admin
-    .from("paid_estimate_claims")
-    .select("*")
-    .eq("project_id", id);
-
-  // Fetch bidder profiles and credentials for each bid
-  const bidderIds = bids?.map((b) => b.bidder_id) || [];
-  const { data: bidderProfiles } = bidderIds.length > 0
-    ? await supabase
-        .from("profiles")
-        .select("*")
-        .in("user_id", bidderIds)
-    : { data: [] };
-
-  const { data: bidderCredentials } = bidderIds.length > 0
-    ? await supabase
-        .from("bidder_credentials")
-        .select("*")
-        .in("user_id", bidderIds)
-    : { data: [] };
-
-  const { data: bidderSpecialties } = bidderIds.length > 0
-    ? await supabase
-        .from("bidder_specialties")
-        .select("user_id, trade, display_order")
-        .in("user_id", bidderIds)
-        .order("display_order", { ascending: true })
-    : { data: [] };
-
-  // Pull every published review for every bidder we're comparing so we can
-  // surface their reputation inline in the bid comparison table. We aggregate
-  // in JS rather than via a Postgres aggregate function to avoid needing a new
-  // RPC — the row volume is small (max ~10 bidders × their lifetime reviews).
-  const { data: bidderReviewRows } = bidderIds.length > 0
-    ? await supabase
-        .from("user_reviews")
-        .select("reviewee_user_id, rating_overall")
-        .in("reviewee_user_id", bidderIds)
-        .eq("status", "published")
-    : { data: [] };
 
   const reviewStatsMap = new Map<
     string,
@@ -224,52 +261,20 @@ export default async function ProjectDetailPage({
     });
   }
 
-  // Fetch edit history
-  const { data: projectEdits } = await supabase
-    .from("project_edits")
-    .select("*")
-    .eq("project_id", id)
-    .order("edited_at", { ascending: false });
-
-  // Fetch Q&A
-  const { data: projectQuestions } = await supabase
-    .from("project_questions")
-    .select("*")
-    .eq("project_id", id)
-    .order("created_at", { ascending: true });
-
-  const questionAskerIds = [
-    ...new Set((projectQuestions || []).map((q) => q.asker_id)),
-  ];
-  const { data: qaAskerProfiles } = questionAskerIds.length
-    ? await supabase
-        .from("profiles")
-        .select("user_id, full_name")
-        .in("user_id", questionAskerIds)
-    : { data: [] };
-
   const qaAskerNameMap = new Map(
-    (qaAskerProfiles || []).map((p) => [p.user_id, p.full_name])
+    (qaAskerProfiles || []).map((p: any) => [p.user_id, p.full_name])
   );
 
-  const formattedQuestions = (projectQuestions || []).map((q) => ({
+  const formattedQuestions = (projectQuestions || []).map((q: any) => ({
     ...q,
     asker_name: qaAskerNameMap.get(q.asker_id) || "A contractor",
   }));
 
-  const claimIds = (paidEstimateClaims || []).map((claim) => claim.id);
-  const { data: paidEstimateDisputes } = claimIds.length
-    ? await admin
-        .from("paid_estimate_disputes")
-        .select("*")
-        .in("claim_id", claimIds)
-    : { data: [] };
-
   const profileMap = new Map(
-    (bidderProfiles || []).map((p) => [p.user_id, p])
+    (bidderProfiles || []).map((p: any) => [p.user_id, p])
   );
   const credentialMap = new Map(
-    (bidderCredentials || []).map((c) => [c.user_id, c])
+    (bidderCredentials || []).map((c: any) => [c.user_id, c])
   );
   const claimMap = new Map(
     ((paidEstimateClaims || []) as PaidEstimateClaim[]).map((claim) => [
@@ -290,7 +295,7 @@ export default async function ProjectDetailPage({
     bidLineItemsMap.set(lineItem.bid_id, current);
   }
   const specialtyMap = new Map<string, string[]>();
-  for (const specialty of bidderSpecialties || []) {
+  for (const specialty of (bidderSpecialties || []) as any[]) {
     const current = specialtyMap.get(specialty.user_id) || [];
     current.push(TRADE_LABELS[specialty.trade as TradeCategory]);
     specialtyMap.set(specialty.user_id, current);

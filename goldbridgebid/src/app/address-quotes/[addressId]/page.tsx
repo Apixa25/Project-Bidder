@@ -84,21 +84,22 @@ export default async function AddressQuoteDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: address } = await admin
-    .from("property_addresses")
-    .select("*")
-    .eq("id", addressId)
-    .maybeSingle();
+  const [{ data: address }, { data: quotes }] = await Promise.all([
+    admin
+      .from("property_addresses")
+      .select("*")
+      .eq("id", addressId)
+      .maybeSingle(),
+    admin
+      .from("address_quotes")
+      .select("*")
+      .eq("property_address_id", addressId)
+      .eq("status", "published")
+      .is("removed_at", null)
+      .order("published_at", { ascending: false }),
+  ]);
 
   if (!address) notFound();
-
-  const { data: quotes } = await admin
-    .from("address_quotes")
-    .select("*")
-    .eq("property_address_id", addressId)
-    .eq("status", "published")
-    .is("removed_at", null)
-    .order("published_at", { ascending: false });
 
   const contractorIds = Array.from(
     new Set((quotes || []).map((quote) => quote.contractor_id))
@@ -160,56 +161,74 @@ export default async function AddressQuoteDetailPage({
     mediaByQuote.set(media.address_quote_id, rows);
   }
 
-  const { data: userClaims } = user
-    ? await admin
-        .from("property_address_claims")
-        .select("*")
-        .eq("property_address_id", addressId)
-        .eq("user_id", user.id)
-    : { data: [] };
+  const [
+    { data: userClaims },
+    { data: addressClaimRows },
+    isCustomerUser,
+    { count: activeClaimCount },
+  ] = await Promise.all([
+    user
+      ? admin
+          .from("property_address_claims")
+          .select("*")
+          .eq("property_address_id", addressId)
+          .eq("user_id", user.id)
+      : Promise.resolve({ data: [] }),
+    admin
+      .from("property_address_claims")
+      .select("user_id")
+      .eq("property_address_id", addressId)
+      .eq("status", "verified")
+      .limit(10),
+    user ? userHasRole(user.id, "customer") : Promise.resolve(false),
+    user
+      ? admin
+          .from("property_address_claims")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .in("status", ["pending", "verified"])
+      : Promise.resolve({ count: 0 }),
+  ]);
 
   const currentClaim = ((userClaims || []) as PropertyAddressClaim[])[0] || null;
-  const { data: addressClaimRows } = await admin
-    .from("property_address_claims")
-    .select("user_id")
-    .eq("property_address_id", addressId)
-    .eq("status", "verified")
-    .limit(10);
   const addressClaimUserIds = Array.from(
     new Set((addressClaimRows || []).map((claim) => claim.user_id))
   );
-  const { data: addressClaimProfileRows } = addressClaimUserIds.length
-    ? await admin
-        .from("profiles")
-        .select("*")
-        .in("user_id", addressClaimUserIds)
-    : { data: [] };
+
+  const [{ data: addressClaimProfileRows }, { data: quoteRequests }] =
+    await Promise.all([
+      addressClaimUserIds.length
+        ? admin
+            .from("profiles")
+            .select("*")
+            .in("user_id", addressClaimUserIds)
+        : Promise.resolve({ data: [] }),
+      (() => {
+        const isVerifiedClaimant = currentClaim?.status === "verified";
+        const hasAccess =
+          isVerifiedClaimant ||
+          (isCustomerUser &&
+            (currentClaim?.status === "pending" ||
+              currentClaim?.status === "verified"));
+        return hasAccess
+          ? admin
+              .from("address_quote_requests")
+              .select("*")
+              .eq("property_address_id", addressId)
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [] });
+      })(),
+    ]);
+
   const addressMapImageUrl =
     ((addressClaimProfileRows || []) as Profile[]).find(
       (profile) => profile.exact_address_map_image_url
     )?.exact_address_map_image_url || null;
-  const isCustomerUser = user ? await userHasRole(user.id, "customer") : false;
   const isVerifiedClaimant = currentClaim?.status === "verified";
   const hasCustomerAddressAccess =
     isVerifiedClaimant ||
     (isCustomerUser &&
       (currentClaim?.status === "pending" || currentClaim?.status === "verified"));
-
-  const { count: activeClaimCount } = user
-    ? await admin
-        .from("property_address_claims")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .in("status", ["pending", "verified"])
-    : { count: 0 };
-
-  const { data: quoteRequests } = hasCustomerAddressAccess
-    ? await admin
-        .from("address_quote_requests")
-        .select("*")
-        .eq("property_address_id", addressId)
-        .order("created_at", { ascending: false })
-    : { data: [] };
 
   const claimLimit = isCustomerUser ? 1 : 3;
   const canClaim =

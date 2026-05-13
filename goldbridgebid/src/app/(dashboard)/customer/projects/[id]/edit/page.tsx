@@ -82,18 +82,6 @@ export default function EditProjectPage() {
         return;
       }
 
-      const { data: roleRows } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id);
-
-      const hasCustomerRole = (roleRows || []).some((row) => row.role === "customer");
-
-      if (!hasCustomerRole) {
-        router.replace("/customer");
-        return;
-      }
-
       const { data, error } = await supabase
         .from("projects")
         .select("*")

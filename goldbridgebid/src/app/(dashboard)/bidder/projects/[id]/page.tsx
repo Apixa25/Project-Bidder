@@ -61,29 +61,85 @@ export default async function BidderProjectDetailPage({
 
   if (!user) redirect("/login");
 
-  if (!(await userHasRole(user.id, "bidder"))) redirect("/login");
+  const [hasRole, { data: project }] = await Promise.all([
+    userHasRole(user.id, "bidder"),
+    supabase
+      .from("projects")
+      .select("*")
+      .eq("id", id)
+      .eq("status", "open")
+      .single(),
+  ]);
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", id)
-    .eq("status", "open")
-    .single();
-
+  if (!hasRole) redirect("/login");
   if (!project) notFound();
 
-  const { data: projectFiles } = await supabase
-    .from("project_files")
-    .select("*")
-    .eq("project_id", id)
-    .order("display_order", { ascending: true })
-    .order("uploaded_at", { ascending: false });
-
-  const { data: projectQuestions } = await supabase
-    .from("project_questions")
-    .select("*")
-    .eq("project_id", id)
-    .order("created_at", { ascending: true });
+  const [
+    { data: projectFiles },
+    { data: projectQuestions },
+    { data: bidderCredentials },
+    { data: paidPoolRow },
+    { data: priorClaims },
+    { data: customerProfile },
+    { count: customerHeartCount },
+    { data: customerReviews },
+    { data: existingBids },
+    { data: projectEdits },
+  ] = await Promise.all([
+    supabase
+      .from("project_files")
+      .select("*")
+      .eq("project_id", id)
+      .order("display_order", { ascending: true })
+      .order("uploaded_at", { ascending: false }),
+    supabase
+      .from("project_questions")
+      .select("*")
+      .eq("project_id", id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("bidder_credentials")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    admin
+      .from("project_paid_estimate_pools")
+      .select("*")
+      .eq("project_id", id)
+      .maybeSingle(),
+    admin
+      .from("paid_estimate_claims")
+      .select("*")
+      .eq("project_id", id)
+      .eq("bidder_id", user.id)
+      .neq("claim_status", "unpaid_bid"),
+    supabase
+      .from("profiles")
+      .select(
+        "user_id, full_name, business_name, city, state, created_at, avatar_url, exact_address_map_image_url"
+      )
+      .eq("user_id", project.customer_id)
+      .single(),
+    supabase
+      .from("profile_hearts")
+      .select("*", { count: "exact", head: true })
+      .eq("target_user_id", project.customer_id),
+    supabase
+      .from("user_reviews")
+      .select("rating_overall, review_type")
+      .eq("reviewee_user_id", project.customer_id)
+      .eq("status", "published"),
+    supabase
+      .from("bids")
+      .select("trade")
+      .eq("project_id", id)
+      .eq("bidder_id", user.id),
+    supabase
+      .from("project_edits")
+      .select("*")
+      .eq("project_id", id)
+      .order("edited_at", { ascending: false }),
+  ]);
 
   const questionAskerIds = [
     ...new Set((projectQuestions || []).map((q) => q.asker_id)),
@@ -104,44 +160,6 @@ export default async function BidderProjectDetailPage({
     asker_name: askerNameMap.get(q.asker_id) || "A contractor",
   }));
 
-  const { data: bidderCredentials } = await supabase
-    .from("bidder_credentials")
-    .select("*")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const { data: paidPoolRow } = await admin
-    .from("project_paid_estimate_pools")
-    .select("*")
-    .eq("project_id", id)
-    .maybeSingle();
-
-  const { data: priorClaims } = await admin
-    .from("paid_estimate_claims")
-    .select("*")
-    .eq("project_id", id)
-    .eq("bidder_id", user.id)
-    .neq("claim_status", "unpaid_bid");
-
-  const { data: customerProfile } = await supabase
-    .from("profiles")
-    .select(
-      "user_id, full_name, business_name, city, state, created_at, avatar_url, exact_address_map_image_url"
-    )
-    .eq("user_id", project.customer_id)
-    .single();
-
-  const { count: customerHeartCount } = await supabase
-    .from("profile_hearts")
-    .select("*", { count: "exact", head: true })
-    .eq("target_user_id", project.customer_id);
-
-  const { data: customerReviews } = await supabase
-    .from("user_reviews")
-    .select("rating_overall, review_type")
-    .eq("reviewee_user_id", project.customer_id)
-    .eq("status", "published");
-
   const customerVerifiedReviews = (customerReviews || []).filter(
     (review) => review.review_type === "verified_platform"
   );
@@ -153,24 +171,12 @@ export default async function BidderProjectDetailPage({
         ) / customerVerifiedReviews.length
       : null;
 
-  const { data: existingBids } = await supabase
-    .from("bids")
-    .select("trade")
-    .eq("project_id", id)
-    .eq("bidder_id", user.id);
-
   const alreadyBidTrades = (existingBids || []).map((b) => b.trade);
   const projectTrades = (project.trades as TradeCategory[]);
   const biddableTrades = projectTrades.length > 0 ? projectTrades : FORM_TRADES;
   const availableTrades = biddableTrades.filter(
     (t) => !alreadyBidTrades.includes(t)
   );
-
-  const { data: projectEdits } = await supabase
-    .from("project_edits")
-    .select("*")
-    .eq("project_id", id)
-    .order("edited_at", { ascending: false });
 
   let paidPool = (paidPoolRow || null) as ProjectPaidEstimatePool | null;
   if (
