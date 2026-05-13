@@ -80,78 +80,80 @@ export default async function BrowseProjectsPage({
 
   if (!user) redirect("/login");
 
-  if (!(await userHasRole(user.id, "bidder"))) redirect("/login");
+  const [
+    hasRole,
+    { data: projects },
+    { data: bidderCredentials },
+    { data: bidderServiceAreas },
+    { data: bidderSpecialtyRows },
+    { data: savedSearches },
+  ] = await Promise.all([
+    userHasRole(user.id, "bidder"),
+    supabase
+      .from("projects")
+      .select(
+        "*, project_files(id, file_url, thumbnail_url, file_type, annotated_url, display_order, uploaded_at)"
+      )
+      .eq("status", "open")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("bidder_credentials")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("bidder_service_areas")
+      .select("state, city")
+      .eq("user_id", user.id),
+    supabase
+      .from("bidder_specialties")
+      .select("trade")
+      .eq("user_id", user.id),
+    supabase
+      .from("bidder_saved_project_searches")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false }),
+  ]);
 
-  const { data: projects } = await supabase
-    .from("projects")
-    .select(
-      "*, project_files(id, file_url, thumbnail_url, file_type, annotated_url, display_order, uploaded_at)"
-    )
-    .eq("status", "open")
-    .order("created_at", { ascending: false });
-
-  const { data: bidderCredentials } = await supabase
-    .from("bidder_credentials")
-    .select("*")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const { data: bidderServiceAreas } = await supabase
-    .from("bidder_service_areas")
-    .select("state, city")
-    .eq("user_id", user.id);
-
-  // Bidder's own specialty list — used to populate the "My Specialties"
-  // quick-filter shortcut so they can see only projects matching trades they
-  // actually work in with one click.
-  const { data: bidderSpecialtyRows } = await supabase
-    .from("bidder_specialties")
-    .select("trade")
-    .eq("user_id", user.id);
+  if (!hasRole) redirect("/login");
 
   const bidderSpecialties = (bidderSpecialtyRows || []).map(
     (row) => row.trade as TradeCategory
   );
-
-  const { data: savedSearches } = await supabase
-    .from("bidder_saved_project_searches")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
 
   const customerIds = Array.from(
     new Set((projects || []).map((project) => project.customer_id))
   );
   const projectIds = (projects || []).map((project) => project.id);
 
-  const { data: customerProfiles } = customerIds.length
-    ? await supabase
-        .from("profiles")
-        .select("user_id, full_name, business_name, city, state, created_at, avatar_url")
-        .in("user_id", customerIds)
-    : { data: [] };
-
-  const { data: customerReviewRows } = customerIds.length
-    ? await supabase
-        .from("user_reviews")
-        .select("reviewee_user_id, rating_overall, review_type, status")
-        .in("reviewee_user_id", customerIds)
-        .eq("status", "published")
-    : { data: [] };
-
-  const { data: customerHearts } = customerIds.length
-    ? await supabase
-        .from("profile_hearts")
-        .select("target_user_id")
-        .in("target_user_id", customerIds)
-    : { data: [] };
-
-  const { data: poolRows } = projectIds.length
-    ? await admin
-        .from("project_paid_estimate_pools")
-        .select("*")
-        .in("project_id", projectIds)
-    : { data: [] };
+  const [{ data: customerProfiles }, { data: customerReviewRows }, { data: customerHearts }, { data: poolRows }] = await Promise.all([
+    customerIds.length
+      ? supabase
+          .from("profiles")
+          .select("user_id, full_name, business_name, city, state, created_at, avatar_url")
+          .in("user_id", customerIds)
+      : Promise.resolve({ data: [] as never[] }),
+    customerIds.length
+      ? supabase
+          .from("user_reviews")
+          .select("reviewee_user_id, rating_overall, review_type, status")
+          .in("reviewee_user_id", customerIds)
+          .eq("status", "published")
+      : Promise.resolve({ data: [] as never[] }),
+    customerIds.length
+      ? supabase
+          .from("profile_hearts")
+          .select("target_user_id")
+          .in("target_user_id", customerIds)
+      : Promise.resolve({ data: [] as never[] }),
+    projectIds.length
+      ? admin
+          .from("project_paid_estimate_pools")
+          .select("*")
+          .in("project_id", projectIds)
+      : Promise.resolve({ data: [] as never[] }),
+  ]);
 
   const customerProfileMap = new Map(
     (customerProfiles || []).map((profile) => [profile.user_id, profile])

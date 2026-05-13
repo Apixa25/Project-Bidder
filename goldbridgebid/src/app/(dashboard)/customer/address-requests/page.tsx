@@ -93,10 +93,10 @@ export default async function CustomerAddressRequestsPage({
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
-  if (!(await userHasRole(user.id, "customer"))) redirect("/login");
 
-  const [{ data: profile }, { data: claimRows }, { data: requestRows }] =
+  const [hasRole, { data: profile }, { data: claimRows }, { data: requestRows }] =
     await Promise.all([
+      userHasRole(user.id, "customer"),
       admin
         .from("profiles")
         .select("*")
@@ -113,6 +113,8 @@ export default async function CustomerAddressRequestsPage({
         .eq("requester_user_id", user.id)
         .order("created_at", { ascending: false }),
     ]);
+
+  if (!hasRole) redirect("/login");
 
   const customerProfile = profile as Profile | null;
   const customerMapImageUrl = customerProfile?.exact_address_map_image_url || null;

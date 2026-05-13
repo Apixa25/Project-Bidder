@@ -119,65 +119,66 @@ export default async function CustomerContractorDirectoryPage({
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
-  if (!(await userHasRole(user.id, "customer"))) redirect("/login");
 
-  const { data: customerProfile } = await supabase
-    .from("profiles")
-    .select("city, state")
-    .eq("user_id", user.id)
-    .single();
+  const [hasRole, { data: customerProfile }, { data: openProjects }, { data: savedSearches }, { data: credentialRows }] =
+    await Promise.all([
+      userHasRole(user.id, "customer"),
+      supabase
+        .from("profiles")
+        .select("city, state")
+        .eq("user_id", user.id)
+        .single(),
+      supabase
+        .from("projects")
+        .select("id, title")
+        .eq("customer_id", user.id)
+        .eq("status", "open")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("customer_saved_contractor_searches")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("bidder_credentials")
+        .select(
+          "user_id, badge_level, license_url, bond_url, insurance_url, workers_comp_url, ein_url, references_url, updated_at"
+        ),
+    ]);
 
-  const { data: openProjects } = await supabase
-    .from("projects")
-    .select("id, title")
-    .eq("customer_id", user.id)
-    .eq("status", "open")
-    .order("created_at", { ascending: false });
-
-  const { data: savedSearches } = await supabase
-    .from("customer_saved_contractor_searches")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
-
-  const { data: credentialRows } = await supabase
-    .from("bidder_credentials")
-    .select(
-      "user_id, badge_level, license_url, bond_url, insurance_url, workers_comp_url, ein_url, references_url, updated_at"
-    );
+  if (!hasRole) redirect("/login");
 
   const bidderUserIds = (credentialRows || []).map((row) => row.user_id);
 
-  const { data: profiles } = bidderUserIds.length
-    ? await supabase
-        .from("profiles")
-        .select("*")
-        .in("user_id", bidderUserIds)
-        .eq("is_banned", false)
-    : { data: [] };
-
-  const { data: specialties } = bidderUserIds.length
-    ? await supabase
-        .from("bidder_specialties")
-        .select("user_id, trade, display_order")
-        .in("user_id", bidderUserIds)
-        .order("display_order", { ascending: true })
-    : { data: [] };
-
-  const { data: heartRows } = bidderUserIds.length
-    ? await supabase
-        .from("profile_hearts")
-        .select("target_user_id")
-        .in("target_user_id", bidderUserIds)
-    : { data: [] };
-
-  const { data: reviewRows } = bidderUserIds.length
-    ? await supabase
-        .from("user_reviews")
-        .select("reviewee_user_id, rating_overall, review_type, status")
-        .in("reviewee_user_id", bidderUserIds)
-        .eq("status", "published")
-    : { data: [] };
+  const [{ data: profiles }, { data: specialties }, { data: heartRows }, { data: reviewRows }] = await Promise.all([
+    bidderUserIds.length
+      ? supabase
+          .from("profiles")
+          .select("*")
+          .in("user_id", bidderUserIds)
+          .eq("is_banned", false)
+      : Promise.resolve({ data: [] as never[] }),
+    bidderUserIds.length
+      ? supabase
+          .from("bidder_specialties")
+          .select("user_id, trade, display_order")
+          .in("user_id", bidderUserIds)
+          .order("display_order", { ascending: true })
+      : Promise.resolve({ data: [] as never[] }),
+    bidderUserIds.length
+      ? supabase
+          .from("profile_hearts")
+          .select("target_user_id")
+          .in("target_user_id", bidderUserIds)
+      : Promise.resolve({ data: [] as never[] }),
+    bidderUserIds.length
+      ? supabase
+          .from("user_reviews")
+          .select("reviewee_user_id, rating_overall, review_type, status")
+          .in("reviewee_user_id", bidderUserIds)
+          .eq("status", "published")
+      : Promise.resolve({ data: [] as never[] }),
+  ]);
 
   const credentialMap = new Map(
     (credentialRows || []).map((row) => [row.user_id, row])

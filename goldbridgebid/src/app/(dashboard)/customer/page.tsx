@@ -31,44 +31,40 @@ export default async function CustomerDashboard() {
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
+  const [{ data: profile }, hasRole, { data: projects, count: projectCount }, { count: totalBids }, { count: unreadMessages }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single(),
+      userHasRole(user.id, "customer"),
+      supabase
+        .from("projects")
+        .select(
+          "*, project_files(id, file_url, thumbnail_url, file_type, annotated_url, display_order, uploaded_at), bids!bids_project_id_fkey(count)",
+          { count: "exact" }
+        )
+        .eq("customer_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(5),
+      supabase
+        .from("bids")
+        .select("id, projects!inner(customer_id)", {
+          count: "exact",
+          head: true,
+        })
+        .eq("projects.customer_id", user.id),
+      supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("receiver_id", user.id)
+        .eq("read", false),
+    ]);
 
-  if (!profile || !(await userHasRole(user.id, "customer"))) redirect("/login");
+  if (!profile || !hasRole) redirect("/login");
 
-  const { data: projects, count: projectCount } = await supabase
-    .from("projects")
-    .select(
-      "*, project_files(id, file_url, thumbnail_url, file_type, annotated_url, display_order, uploaded_at), bids!bids_project_id_fkey(count)",
-      { count: "exact" }
-    )
-    .eq("customer_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(5);
-
-  // Scope the "Total Bids Received" stat to bids on THIS customer's projects.
-  // Previous version selected all bids in the database (no filter) which made
-  // the number on the dashboard nonsensical for everyone except possibly the
-  // very first user. The `projects!inner(customer_id)` join + the
-  // `projects.customer_id` equality filter is the same pattern used in
-  // src/app/(dashboard)/customer/projects/[id]/paid-estimates/actions.ts.
-  const { count: totalBids } = await supabase
-    .from("bids")
-    .select("id, projects!inner(customer_id)", {
-      count: "exact",
-      head: true,
-    })
-    .eq("projects.customer_id", user.id);
   const openProjects = projects?.filter((p) => p.status === "open").length || 0;
-
-  const { count: unreadMessages } = await supabase
-    .from("messages")
-    .select("*", { count: "exact", head: true })
-    .eq("receiver_id", user.id)
-    .eq("read", false);
 
   return (
     <div>
