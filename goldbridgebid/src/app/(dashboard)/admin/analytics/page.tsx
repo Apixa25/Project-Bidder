@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import { TRADE_LABELS } from "@/types/database";
 import type { TradeCategory } from "@/types/database";
 import dynamic from "next/dynamic";
-import TimeRangeSelector, {
+import TimeRangeSelector from "@/components/admin/TimeRangeSelector";
+import {
   type TimeRange,
   getRangeCutoff,
   getRangeDays,
   isValidRange,
-} from "@/components/admin/TimeRangeSelector";
+} from "@/lib/time-range";
 
 const AnalyticsDashboard = dynamic(() => import("./AnalyticsDashboard"), {
   loading: () => (

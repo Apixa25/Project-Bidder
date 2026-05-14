@@ -63,20 +63,22 @@ export default async function AddressQuotesSearchPage({
             </p>
           </div>
           <h1 className="mt-4 text-2xl font-bold tracking-tight sm:mt-5 sm:max-w-3xl sm:text-4xl md:text-5xl">
-            Search an address and see free contractor quotes left there.
+            Did you receive a card saying you have an estimate? Look your address up here.
           </h1>
           <p className="mt-3 text-base leading-7 text-white/80 sm:mt-5 sm:max-w-2xl sm:text-lg sm:leading-8">
-            Contractors can leave measured quotes on real addresses. Homeowners
-            can search any address, compare public quotes, and claim up to 3
-            addresses to request or remove quotes.
+            Contractors measure properties and leave free quotes on real
+            addresses. Browse the map or search your address to see if you
+            have quotes waiting right now.
           </p>
         </div>
       </section>
 
       <section className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
+        <AddressQuoteDiscoveryMap markers={mapMarkers} />
+
         <form
           action={searchPublicAddressQuotes}
-          className="rounded-2xl border border-border bg-surface p-6 shadow-sm"
+          className="mt-8 rounded-2xl border border-border bg-surface p-6 shadow-sm"
         >
           <label
             htmlFor="displayAddress"
@@ -112,8 +114,6 @@ export default async function AddressQuotesSearchPage({
             </p>
           )}
         </form>
-
-        <AddressQuoteDiscoveryMap markers={mapMarkers} />
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">

@@ -20,12 +20,13 @@ import AdminStatCard from "@/components/admin/AdminStatCard";
 import ActivityFeed, {
   type ActivityItem,
 } from "@/components/admin/ActivityFeed";
-import TimeRangeSelector, {
+import TimeRangeSelector from "@/components/admin/TimeRangeSelector";
+import {
   type TimeRange,
   getRangeCutoff,
   getPreviousRangeCutoff,
   isValidRange,
-} from "@/components/admin/TimeRangeSelector";
+} from "@/lib/time-range";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();

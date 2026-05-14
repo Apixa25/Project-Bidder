@@ -118,7 +118,7 @@ export default function AddressQuoteDiscoveryMap({
   }, [markers]);
 
   return (
-    <section className="mt-8 overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+    <section className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
       <div className="flex flex-col gap-2 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-text-primary">
@@ -146,7 +146,7 @@ export default function AddressQuoteDiscoveryMap({
       )}
       <div className="border-t border-border px-5 py-3 text-xs text-text-muted">
         Map pins may be approximate for older quotes. Prefer typing? Use the
-        address search above, or open{" "}
+        address search below, or open{" "}
         <Link href="/address-quotes" className="font-semibold text-primary">
           public address quotes
         </Link>

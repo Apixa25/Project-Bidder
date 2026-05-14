@@ -1,8 +1,14 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-
-export type TimeRange = "today" | "7d" | "30d" | "90d";
+import type { TimeRange } from "@/lib/time-range";
+export {
+  type TimeRange,
+  getRangeCutoff,
+  getPreviousRangeCutoff,
+  getRangeDays,
+  isValidRange,
+} from "@/lib/time-range";
 
 const RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
   { value: "today", label: "Today" },
@@ -10,40 +16,6 @@ const RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
   { value: "30d", label: "30 days" },
   { value: "90d", label: "90 days" },
 ];
-
-export function getRangeCutoff(range: TimeRange): string {
-  const ms: Record<TimeRange, number> = {
-    today: 24 * 60 * 60 * 1000,
-    "7d": 7 * 24 * 60 * 60 * 1000,
-    "30d": 30 * 24 * 60 * 60 * 1000,
-    "90d": 90 * 24 * 60 * 60 * 1000,
-  };
-  return new Date(Date.now() - ms[range]).toISOString();
-}
-
-export function getPreviousRangeCutoff(range: TimeRange): string {
-  const ms: Record<TimeRange, number> = {
-    today: 24 * 60 * 60 * 1000,
-    "7d": 7 * 24 * 60 * 60 * 1000,
-    "30d": 30 * 24 * 60 * 60 * 1000,
-    "90d": 90 * 24 * 60 * 60 * 1000,
-  };
-  return new Date(Date.now() - 2 * ms[range]).toISOString();
-}
-
-export function getRangeDays(range: TimeRange): number {
-  const days: Record<TimeRange, number> = {
-    today: 1,
-    "7d": 7,
-    "30d": 30,
-    "90d": 90,
-  };
-  return days[range];
-}
-
-export function isValidRange(value: string | undefined): value is TimeRange {
-  return !!value && ["today", "7d", "30d", "90d"].includes(value);
-}
 
 export default function TimeRangeSelector() {
   const router = useRouter();

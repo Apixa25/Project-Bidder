@@ -2,12 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import dynamic from "next/dynamic";
-import TimeRangeSelector, {
+import TimeRangeSelector from "@/components/admin/TimeRangeSelector";
+import {
   type TimeRange,
   getRangeCutoff,
   getRangeDays,
   isValidRange,
-} from "@/components/admin/TimeRangeSelector";
+} from "@/lib/time-range";
 
 const RevenueDashboard = dynamic(() => import("./RevenueDashboard"), {
   loading: () => (
