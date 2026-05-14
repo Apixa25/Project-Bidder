@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { type LucideIcon } from "lucide-react";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
@@ -6,6 +7,7 @@ interface AdminStatCardProps {
   value: string | number;
   icon: LucideIcon;
   color: string;
+  href?: string;
   trend?: {
     value: number;
     previousValue?: number;
@@ -18,6 +20,7 @@ export default function AdminStatCard({
   value,
   icon: Icon,
   color,
+  href,
   trend,
 }: AdminStatCardProps) {
   const pctChange =
@@ -25,8 +28,8 @@ export default function AdminStatCard({
       ? Math.round(((trend.value - trend.previousValue) / trend.previousValue) * 100)
       : null;
 
-  return (
-    <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+  const content = (
+    <>
       <div className="flex items-center gap-3">
         <div
           className={`flex h-10 w-10 items-center justify-center rounded-lg ${color}`}
@@ -78,6 +81,20 @@ export default function AdminStatCard({
           )}
         </div>
       )}
-    </div>
+    </>
   );
+
+  const className =
+    "rounded-xl border border-border bg-surface p-6 shadow-sm" +
+    (href ? " transition-colors hover:border-primary/40 hover:bg-surface-hover" : "");
+
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
 }

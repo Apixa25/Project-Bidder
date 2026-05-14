@@ -245,6 +245,7 @@ export default async function AdminDashboard({ searchParams }: Props) {
       value: projectCount || 0,
       icon: FolderOpen,
       color: "bg-primary/10 text-primary",
+      href: "/admin/projects",
       trend: {
         value: projectsInRange || 0,
         previousValue: prevProjectsInRange || 0,
@@ -256,12 +257,14 @@ export default async function AdminDashboard({ searchParams }: Props) {
       value: openProjects || 0,
       icon: TrendingUp,
       color: "bg-green-100 text-green-700",
+      href: "/admin/projects",
     },
     {
       label: "Total Bids",
       value: bidCount || 0,
       icon: ClipboardList,
       color: "bg-amber-100 text-amber-700",
+      href: "/admin/bids",
       trend: {
         value: bidsInRange || 0,
         previousValue: prevBidsInRange || 0,
@@ -273,6 +276,7 @@ export default async function AdminDashboard({ searchParams }: Props) {
       value: customerCount || 0,
       icon: Users,
       color: "bg-blue-100 text-blue-600",
+      href: "/admin/users",
       trend: {
         value: customerRolesInRange || 0,
         previousValue: prevCustomerRoles,
@@ -284,6 +288,7 @@ export default async function AdminDashboard({ searchParams }: Props) {
       value: bidderCount || 0,
       icon: Users,
       color: "bg-secondary/10 text-secondary",
+      href: "/admin/users",
       trend: {
         value: bidderRolesInRange || 0,
         previousValue: prevBidderRoles,
@@ -295,6 +300,7 @@ export default async function AdminDashboard({ searchParams }: Props) {
       value: totalReviews || 0,
       icon: Star,
       color: "bg-primary/10 text-primary",
+      href: "/admin/reviews",
     },
     {
       label: "Flagged Items",
@@ -304,6 +310,7 @@ export default async function AdminDashboard({ searchParams }: Props) {
         (flaggedCount || 0) > 0
           ? "bg-red-100 text-red-600"
           : "bg-green-100 text-green-600",
+      href: "/admin/flags",
     },
   ];
 
