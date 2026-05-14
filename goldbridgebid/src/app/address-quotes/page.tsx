@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { MapPin, Search, ShieldCheck } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { searchPublicAddressQuotes } from "@/lib/address-quotes/actions";
@@ -12,6 +13,14 @@ export default async function AddressQuotesSearchPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
+
+  const headerStore = await headers();
+  const vercelLat = headerStore.get("x-vercel-ip-latitude");
+  const vercelLng = headerStore.get("x-vercel-ip-longitude");
+  const userLocation =
+    vercelLat && vercelLng
+      ? { latitude: parseFloat(vercelLat), longitude: parseFloat(vercelLng) }
+      : null;
   const admin = createAdminClient();
   const { data: publishedQuotes } = await admin
     .from("address_quotes")
@@ -46,7 +55,7 @@ export default async function AddressQuotesSearchPage({
 
   return (
     <main className="min-h-screen bg-bg-warm">
-      <section className="border-b border-border bg-gradient-to-br from-accent via-secondary-dark to-slate-950 px-4 py-10 text-white sm:px-6 sm:py-16">
+      <section className="border-b border-border bg-gradient-to-br from-accent via-secondary-dark to-slate-950 px-4 py-6 text-white sm:px-6 sm:py-8">
         <div className="mx-auto max-w-4xl">
           <Link
             href="/"
@@ -54,7 +63,7 @@ export default async function AddressQuotesSearchPage({
           >
             ← Back to ProjectXBidX
           </Link>
-          <div className="mt-6 flex items-center gap-3 sm:mt-10">
+          <div className="mt-4 flex items-center gap-3 sm:mt-5">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 sm:h-12 sm:w-12">
               <MapPin className="h-5 w-5 text-primary sm:h-6 sm:w-6" />
             </div>
@@ -62,19 +71,14 @@ export default async function AddressQuotesSearchPage({
               Public Address Quotes
             </p>
           </div>
-          <h1 className="mt-4 text-2xl font-bold tracking-tight sm:mt-5 sm:max-w-3xl sm:text-4xl md:text-5xl">
+          <h1 className="mt-3 text-2xl font-bold tracking-tight sm:mt-4 sm:max-w-3xl sm:text-4xl md:text-5xl">
             Did you receive a card saying you have an estimate? Look your address up here.
           </h1>
-          <p className="mt-3 text-base leading-7 text-white/80 sm:mt-5 sm:max-w-2xl sm:text-lg sm:leading-8">
-            Contractors measure properties and leave free quotes on real
-            addresses. Browse the map or search your address to see if you
-            have quotes waiting right now.
-          </p>
         </div>
       </section>
 
       <section className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
-        <AddressQuoteDiscoveryMap markers={mapMarkers} />
+        <AddressQuoteDiscoveryMap markers={mapMarkers} userLocation={userLocation} />
 
         <form
           action={searchPublicAddressQuotes}

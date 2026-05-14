@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { LocateFixed } from "lucide-react";
 import maplibregl, { type Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -15,16 +16,54 @@ type QuoteMapMarker = {
 
 interface AddressQuoteDiscoveryMapProps {
   markers: QuoteMapMarker[];
+  userLocation?: { latitude: number; longitude: number } | null;
 }
 
-const DEFAULT_CENTER: [number, number] = [-124.2026, 41.7558];
+const CRESCENT_CITY: [number, number] = [-124.2026, 41.7558];
 const MAPBOX_PUBLIC_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+
+function getInitialCenter(
+  markers: QuoteMapMarker[],
+  userLocation?: { latitude: number; longitude: number } | null
+): [number, number] {
+  if (markers.length > 0) return [markers[0].longitude, markers[0].latitude];
+  if (userLocation) return [userLocation.longitude, userLocation.latitude];
+  return CRESCENT_CITY;
+}
 
 export default function AddressQuoteDiscoveryMap({
   markers,
+  userLocation,
 }: AddressQuoteDiscoveryMapProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const [locating, setLocating] = useState(false);
+
+  const flyToUser = useCallback(() => {
+    if (!("geolocation" in navigator)) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const map = mapRef.current;
+        if (map) {
+          const lngLat: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+          map.flyTo({ center: lngLat, zoom: 14, duration: 1200 });
+
+          if (userMarkerRef.current) userMarkerRef.current.remove();
+          const el = document.createElement("div");
+          el.className =
+            "h-4 w-4 rounded-full border-2 border-white bg-blue-500 shadow-lg ring-4 ring-blue-500/30";
+          userMarkerRef.current = new maplibregl.Marker({ element: el })
+            .setLngLat(lngLat)
+            .addTo(map);
+        }
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, []);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -55,9 +94,7 @@ export default function AddressQuoteDiscoveryMap({
           },
         ],
       },
-      center: markers[0]
-        ? [markers[0].longitude, markers[0].latitude]
-        : DEFAULT_CENTER,
+      center: getInitialCenter(markers, userLocation),
       zoom: markers.length > 0 ? 15 : 12,
       maxZoom: 22,
       attributionControl: { compact: true },
@@ -70,7 +107,7 @@ export default function AddressQuoteDiscoveryMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [markers]);
+  }, [markers, userLocation]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -133,11 +170,22 @@ export default function AddressQuoteDiscoveryMap({
           {markers.length} address{markers.length === 1 ? "" : "es"} with quotes
         </span>
       </div>
-      <div
-        ref={mapContainerRef}
-        className="h-[320px] w-full bg-bg-warm sm:h-[420px]"
-        aria-label="Map of addresses with public quotes"
-      />
+      <div className="relative">
+        <div
+          ref={mapContainerRef}
+          className="h-[320px] w-full bg-bg-warm sm:h-[420px]"
+          aria-label="Map of addresses with public quotes"
+        />
+        <button
+          type="button"
+          onClick={flyToUser}
+          disabled={locating}
+          className="absolute bottom-3 left-3 z-10 inline-flex items-center gap-1.5 rounded-lg border border-white/60 bg-white/90 px-3 py-2 text-xs font-semibold text-text-primary shadow-md backdrop-blur transition-colors hover:bg-white disabled:opacity-60"
+        >
+          <LocateFixed className={`h-3.5 w-3.5 ${locating ? "animate-pulse" : ""}`} />
+          {locating ? "Locating…" : "Use my location"}
+        </button>
+      </div>
       {markers.length === 0 && (
         <div className="border-t border-border bg-bg-warm px-5 py-4 text-sm text-text-secondary">
           No published quote addresses have map coordinates yet. Search an
