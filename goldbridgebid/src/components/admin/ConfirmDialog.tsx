@@ -30,11 +30,11 @@ export default function ConfirmDialog({
 }: ConfirmDialogProps) {
   const [reason, setReason] = useState(defaultReason);
   const [isPending, startTransition] = useTransition();
+  const [appliedDefault, setAppliedDefault] = useState(defaultReason);
 
-  const prevDefaultRef = { current: defaultReason };
-  if (prevDefaultRef.current !== defaultReason) {
+  if (appliedDefault !== defaultReason) {
+    setAppliedDefault(defaultReason);
     setReason(defaultReason);
-    prevDefaultRef.current = defaultReason;
   }
 
   if (!open) return null;

@@ -18,7 +18,6 @@ import {
   sendProjectDeletedEmail,
   sendProjectEditedEmail,
 } from "@/lib/email";
-import { TRADE_LABELS } from "@/types/database";
 import {
   type ProjectAiAnalysisInput,
   type ProjectAiAnalysisResult,
@@ -760,7 +759,6 @@ async function runAndPersistProjectAiEstimate(params: {
     params;
 
   const startedAt = Date.now();
-  const _benchStart = Date.now();
   const [benchmarks, previousEstimateResult] = await Promise.all([
     getCostEstimates(),
     supabase
@@ -769,12 +767,9 @@ async function runAndPersistProjectAiEstimate(params: {
       .eq("project_id", projectId)
       .maybeSingle(),
   ]);
-  console.log(`[PERF runAiEstimate] benchmarks+prevEstimate: ${Date.now() - _benchStart}ms`);
 
   const previousEstimate = previousEstimateResult.data;
-  const _llmStart = Date.now();
   const analysis = await analyzeProjectAiHybrid(input, benchmarks);
-  console.log(`[PERF runAiEstimate] LLM analysis (analyzeProjectAiHybrid): ${Date.now() - _llmStart}ms`);
   const draftScopeItems = buildProjectAiScopeItems({
     input,
     analysis,
@@ -1483,14 +1478,11 @@ export async function setProjectAiEstimatePublication(
 }
 
 export async function createProject(formData: FormData) {
-  const _createStart = Date.now();
   const supabase = await createClient();
 
-  const _authStart = Date.now();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  console.log(`[PERF createProject] auth.getUser: ${Date.now() - _authStart}ms`);
 
   if (!user) {
     return {
@@ -1583,7 +1575,6 @@ export async function createProject(formData: FormData) {
     } satisfies CreateProjectResult;
   }
 
-  const _insertStart = Date.now();
   const { data: project, error: projectError } = await supabase
     .from("projects")
     .insert({
@@ -1618,7 +1609,6 @@ export async function createProject(formData: FormData) {
     } satisfies CreateProjectResult;
   }
 
-  console.log(`[PERF createProject] DB insert: ${Date.now() - _insertStart}ms`);
   console.info("createProject: project created", {
     userId: user.id,
     projectId: project.id,
@@ -1663,7 +1653,6 @@ export async function createProject(formData: FormData) {
     }
   }
 
-  const _uploadStart = Date.now();
   if (validFiles.length > 0 && project) {
     await uploadFilesWithConcurrency({
       supabase,
@@ -1671,7 +1660,6 @@ export async function createProject(formData: FormData) {
       files: validFiles,
     });
   }
-  console.log(`[PERF createProject] file uploads (parallel): ${Date.now() - _uploadStart}ms (${validFiles.length} files)`);
 
   if (draftCustomScopeItems.length > 0) {
     const { error: customScopeError } = await supabase
@@ -1722,7 +1710,6 @@ export async function createProject(formData: FormData) {
   );
 
   after(async () => {
-    const _aiStart = Date.now();
     try {
       const bgSupabase = await createClient();
       await runAndPersistProjectAiEstimate({
@@ -1749,7 +1736,6 @@ export async function createProject(formData: FormData) {
         },
         triggerType: "create",
       });
-      console.log(`[PERF createProject/after] AI estimate: ${Date.now() - _aiStart}ms`);
     } catch (err) {
       console.error("[createProject/after] AI estimate failed:", err);
     }
@@ -1800,7 +1786,6 @@ export async function createProject(formData: FormData) {
     } satisfies CreateProjectResult;
   }
 
-  console.log(`[PERF createProject] TOTAL: ${Date.now() - _createStart}ms`);
   return {
     error: null,
     redirectUrl: `/customer/projects/${project.id}`,

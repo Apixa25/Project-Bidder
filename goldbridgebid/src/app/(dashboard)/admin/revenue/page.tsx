@@ -8,6 +8,7 @@ import {
   getRangeCutoff,
   getRangeDays,
   isValidRange,
+  currentTimeMs,
 } from "@/lib/time-range";
 
 const RevenueDashboard = dynamic(() => import("./RevenueDashboard"), {
@@ -26,7 +27,7 @@ export default async function AdminRevenuePage({ searchParams }: Props) {
   const params = await searchParams;
   const supabase = await createClient();
   const admin = createAdminClient();
-  const nowMs = Date.now();
+  const nowMs = currentTimeMs();
 
   const {
     data: { user },

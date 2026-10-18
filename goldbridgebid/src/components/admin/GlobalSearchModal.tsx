@@ -27,14 +27,25 @@ export default function GlobalSearchModal() {
   const [loading, setLoading] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const openRef = useRef(false);
   const router = useRouter();
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  function setSearchOpen(next: boolean) {
+    openRef.current = next;
+    setOpen(next);
+    if (next) {
+      setQuery("");
+      setResults([]);
+      setSelectedIdx(0);
+    }
+  }
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setOpen((prev) => !prev);
+        setSearchOpen(!openRef.current);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
@@ -42,13 +53,9 @@ export default function GlobalSearchModal() {
   }, []);
 
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-    } else {
-      setQuery("");
-      setResults([]);
-      setSelectedIdx(0);
-    }
+    if (!open) return;
+    const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 50);
+    return () => window.clearTimeout(focusTimer);
   }, [open]);
 
   const doSearch = useCallback(async (q: string) => {
@@ -76,7 +83,7 @@ export default function GlobalSearchModal() {
   }
 
   function navigate(result: GlobalSearchResult) {
-    setOpen(false);
+    setSearchOpen(false);
     router.push(result.href);
   }
 
@@ -91,7 +98,7 @@ export default function GlobalSearchModal() {
       e.preventDefault();
       navigate(results[selectedIdx]);
     } else if (e.key === "Escape") {
-      setOpen(false);
+      setSearchOpen(false);
     }
   }
 
@@ -101,7 +108,7 @@ export default function GlobalSearchModal() {
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={() => setOpen(false)}
+        onClick={() => setSearchOpen(false)}
       />
       <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-surface shadow-2xl">
         {/* Search input */}
@@ -117,7 +124,7 @@ export default function GlobalSearchModal() {
             className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
           />
           <button
-            onClick={() => setOpen(false)}
+            onClick={() => setSearchOpen(false)}
             className="rounded-md p-1 text-text-muted hover:text-text-primary transition-colors"
           >
             <X className="h-4 w-4" />

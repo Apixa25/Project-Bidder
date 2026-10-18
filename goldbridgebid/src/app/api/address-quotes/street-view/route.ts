@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  mapRateLimitResponse,
+  signedInMapUser,
+} from "@/lib/address-quotes/public-route-guard";
 
 function getLocationParam(url: URL) {
   const lat = url.searchParams.get("lat");
@@ -16,13 +20,24 @@ function getNumberParam(url: URL, key: string, fallback: number) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const user = await signedInMapUser();
+  const limited = mapRateLimitResponse(request, "street-view", Boolean(user));
+  if (limited) return limited;
+
+  if (!user) {
+    return NextResponse.json(
+      { error: "Sign in to load Street View." },
+      { status: 404 }
+    );
+  }
+
   const apiKey = process.env.GOOGLE_MAPS_API_KEY?.trim();
   const location = getLocationParam(url);
 
   if (!apiKey) {
     return NextResponse.json(
-      { error: "Google Maps API key is not configured." },
-      { status: 500 }
+      { error: "Street View is not configured." },
+      { status: 404 }
     );
   }
 
