@@ -28,6 +28,11 @@ import type {
   PaidEstimateClaim,
   PaidEstimateDispute,
   BidLineItem,
+  Profile,
+  BidderCredentials,
+  BidderSpecialty,
+  UserReview,
+  ProjectQuestion,
 } from "@/types/database";
 import ProjectStatusActions from "./ProjectStatusActions";
 import PrintProjectButton from "@/components/project/PrintProjectButton";
@@ -200,45 +205,54 @@ export default async function ProjectDetailPage({
           .select("*")
           .in("bid_id", bidIds)
           .order("display_order", { ascending: true })
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as BidLineItem[] }),
     bidderIds.length > 0
       ? supabase
           .from("profiles")
           .select("*")
           .in("user_id", bidderIds)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as Profile[] }),
     bidderIds.length > 0
       ? supabase
           .from("bidder_credentials")
           .select("*")
           .in("user_id", bidderIds)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as BidderCredentials[] }),
     bidderIds.length > 0
       ? supabase
           .from("bidder_specialties")
           .select("user_id, trade, display_order")
           .in("user_id", bidderIds)
           .order("display_order", { ascending: true })
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({
+          data: [] as Pick<
+            BidderSpecialty,
+            "user_id" | "trade" | "display_order"
+          >[],
+        }),
     bidderIds.length > 0
       ? supabase
           .from("user_reviews")
           .select("reviewee_user_id, rating_overall")
           .in("reviewee_user_id", bidderIds)
           .eq("status", "published")
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({
+          data: [] as Pick<UserReview, "reviewee_user_id" | "rating_overall">[],
+        }),
     questionAskerIds.length
       ? supabase
           .from("profiles")
           .select("user_id, full_name")
           .in("user_id", questionAskerIds)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({
+          data: [] as Pick<Profile, "user_id" | "full_name">[],
+        }),
     claimIds.length
       ? admin
           .from("paid_estimate_disputes")
           .select("*")
           .in("claim_id", claimIds)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as PaidEstimateDispute[] }),
   ]);
 
   const bidCount = bids?.length ?? 0;
@@ -262,19 +276,29 @@ export default async function ProjectDetailPage({
   }
 
   const qaAskerNameMap = new Map(
-    (qaAskerProfiles || []).map((p: any) => [p.user_id, p.full_name])
+    ((qaAskerProfiles || []) as Pick<Profile, "user_id" | "full_name">[]).map(
+      (profile) => [profile.user_id, profile.full_name]
+    )
   );
 
-  const formattedQuestions = (projectQuestions || []).map((q: any) => ({
-    ...q,
-    asker_name: qaAskerNameMap.get(q.asker_id) || "A contractor",
-  }));
+  const formattedQuestions = ((projectQuestions || []) as ProjectQuestion[]).map(
+    (question) => ({
+      ...question,
+      asker_name: qaAskerNameMap.get(question.asker_id) || "A contractor",
+    })
+  );
 
   const profileMap = new Map(
-    (bidderProfiles || []).map((p: any) => [p.user_id, p])
+    ((bidderProfiles || []) as Profile[]).map((profile) => [
+      profile.user_id,
+      profile,
+    ])
   );
   const credentialMap = new Map(
-    (bidderCredentials || []).map((c: any) => [c.user_id, c])
+    ((bidderCredentials || []) as BidderCredentials[]).map((credentials) => [
+      credentials.user_id,
+      credentials,
+    ])
   );
   const claimMap = new Map(
     ((paidEstimateClaims || []) as PaidEstimateClaim[]).map((claim) => [
@@ -295,7 +319,10 @@ export default async function ProjectDetailPage({
     bidLineItemsMap.set(lineItem.bid_id, current);
   }
   const specialtyMap = new Map<string, string[]>();
-  for (const specialty of (bidderSpecialties || []) as any[]) {
+  for (const specialty of (bidderSpecialties || []) as Pick<
+    BidderSpecialty,
+    "user_id" | "trade" | "display_order"
+  >[]) {
     const current = specialtyMap.get(specialty.user_id) || [];
     current.push(TRADE_LABELS[specialty.trade as TradeCategory]);
     specialtyMap.set(specialty.user_id, current);

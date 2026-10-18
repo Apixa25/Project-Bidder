@@ -5,7 +5,6 @@ const BAN_CHECK_COOKIE = "x-ban-checked";
 const BAN_CHECK_TTL_SECONDS = 60;
 
 export async function updateSession(request: NextRequest) {
-  const _mwStart = Date.now();
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -29,11 +28,9 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const _mwAuthStart = Date.now();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  console.log(`[PERF middleware] auth.getUser: ${Date.now() - _mwAuthStart}ms (path: ${request.nextUrl.pathname})`);
 
   const isPublicRoute =
     request.nextUrl.pathname === "/" ||
@@ -60,13 +57,11 @@ export async function updateSession(request: NextRequest) {
     const skipBanCheck = banCacheCookie === user.id;
 
     if (!skipBanCheck) {
-      const _mwBanStart = Date.now();
       const { data: profile } = await supabase
         .from("profiles")
         .select("is_banned")
         .eq("user_id", user.id)
         .single();
-      console.log(`[PERF middleware] ban check: ${Date.now() - _mwBanStart}ms`);
 
       if (profile?.is_banned) {
         const url = request.nextUrl.clone();
@@ -81,11 +76,8 @@ export async function updateSession(request: NextRequest) {
         maxAge: BAN_CHECK_TTL_SECONDS,
         path: "/",
       });
-    } else {
-      console.log(`[PERF middleware] ban check: SKIPPED (cached)`);
     }
   }
 
-  console.log(`[PERF middleware] TOTAL: ${Date.now() - _mwStart}ms (path: ${request.nextUrl.pathname})`);
   return supabaseResponse;
 }

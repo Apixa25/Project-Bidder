@@ -19,3 +19,6 @@ Desktop.ini
 # __pycache__/
 # .venv/
 .vercel
+
+# Supabase CLI local link state (project ref, organization id, pooler host)
+goldbridgebid/supabase/.temp/
