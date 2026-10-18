@@ -1,3 +1,5 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+
 export function getCronSecret() {
   const secret = process.env.CRON_SECRET;
 
@@ -8,6 +10,13 @@ export function getCronSecret() {
   return secret;
 }
 
+function matchesSecret(provided: string | null, expected: string) {
+  if (!provided) return false;
+  const providedDigest = createHash("sha256").update(provided).digest();
+  const expectedDigest = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(providedDigest, expectedDigest);
+}
+
 export function isAuthorizedCronRequest(request: Request) {
   const expectedSecret = getCronSecret();
   const authorizationHeader = request.headers.get("authorization");
@@ -15,6 +24,7 @@ export function isAuthorizedCronRequest(request: Request) {
   const explicitHeaderSecret = request.headers.get("x-cron-secret");
 
   return (
-    bearerToken === expectedSecret || explicitHeaderSecret === expectedSecret
+    matchesSecret(bearerToken, expectedSecret) ||
+    matchesSecret(explicitHeaderSecret, expectedSecret)
   );
 }

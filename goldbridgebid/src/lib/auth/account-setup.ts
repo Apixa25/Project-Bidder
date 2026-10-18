@@ -59,14 +59,18 @@ function getClientIp(headers?: Headers) {
 }
 
 function hashSignal(value: string) {
-  const salt =
-    process.env.ACCOUNT_SIGNAL_HASH_SALT ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    "projectxbidx-local-account-signal-salt";
+  const salt = process.env.ACCOUNT_SIGNAL_HASH_SALT?.trim();
+  const material = salt
+    ? `${salt}:${value}`
+    : process.env.NODE_ENV === "production"
+      ? null
+      : `projectxbidx-local-account-signal-salt:${value}`;
 
-  return createHash("sha256")
-    .update(`${salt}:${value}`)
-    .digest("hex");
+  if (!material) {
+    throw new Error("Missing ACCOUNT_SIGNAL_HASH_SALT.");
+  }
+
+  return createHash("sha256").update(material).digest("hex");
 }
 
 function confidenceForSignal(signalType: string): SignalConfidence {
