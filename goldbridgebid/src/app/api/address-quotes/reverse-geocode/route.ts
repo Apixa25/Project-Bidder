@@ -1,4 +1,10 @@
 import { NextResponse } from "next/server";
+import {
+  mapRateLimitResponse,
+  nominatimBusyResponse,
+  signedInMapUser,
+  takeNominatimSlot,
+} from "@/lib/address-quotes/public-route-guard";
 
 const NOMINATIM_UA =
   "ProjectXBidX-AddressQuotes/1.0 (https://www.projectxbidx.com)";
@@ -208,10 +214,19 @@ export async function GET(request: Request) {
     );
   }
 
-  const address =
-    (await reverseGeocodeWithGoogle(lat, lon)) ||
-    (await reverseGeocodeWithMapbox(lat, lon)) ||
-    (await reverseGeocodeWithNominatim(lat, lon));
+  const user = await signedInMapUser();
+  const limited = mapRateLimitResponse(request, "reverse-geocode", Boolean(user));
+  if (limited) return limited;
+
+  let address = user
+    ? (await reverseGeocodeWithGoogle(lat, lon)) ||
+      (await reverseGeocodeWithMapbox(lat, lon))
+    : null;
+
+  if (!address) {
+    if (!takeNominatimSlot()) return nominatimBusyResponse();
+    address = await reverseGeocodeWithNominatim(lat, lon);
+  }
 
   if (!address) {
     return NextResponse.json(
