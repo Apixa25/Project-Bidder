@@ -25,7 +25,7 @@
 
 ## 📖 What is ProjectXBidX?
 
-**ProjectXBidX.com** is a full-stack **sealed-bid marketplace for the construction industry**. It connects customers who have projects with qualified contractors who want to bid on them — fairly, transparently, and without the usual runaround.
+**ProjectXBidX.com** is a full-stack **sealed-bid marketplace for estimating and bidding across all construction trades**. It connects customers who have projects with qualified contractors who want to bid on them — fairly, transparently, and without the usual runaround. A specialty such as lawn care or snow removal can be an example or a saved template. It is not a separate product. See the product boundary in [project-vision.md](project-vision.md).
 
 Customers post projects with rich descriptions, photos, videos, and documents. Contractors browse jobs that match their specialties and service areas, then submit **sealed bids** that only the project owner can see. No bidding wars, no undercutting — just honest competition on price, qualifications, and reputation.
 
@@ -138,7 +138,7 @@ All data access is protected by **Supabase Row-Level Security (RLS)**:
 
 ### Prerequisites
 
-- **Node.js** 18+ and **npm**
+- **Node.js** 20+ and **npm**
 - A [Supabase](https://supabase.com/) project (free tier works)
 - A [Stripe](https://stripe.com/) account (test mode)
 - *(Optional)* An [OpenAI](https://openai.com/) API key for the AI Scope Builder
