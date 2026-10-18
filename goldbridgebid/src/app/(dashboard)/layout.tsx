@@ -11,20 +11,16 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const _layoutStart = Date.now();
   const supabase = await createClient();
 
-  const _authStart = Date.now();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  console.log(`[PERF dashboard-layout] auth.getUser: ${Date.now() - _authStart}ms`);
 
   if (!user) {
     redirect("/login");
   }
 
-  const _parallelStart = Date.now();
   const [{ data: profile }, availableRoles, { count: unreadCount }] =
     await Promise.all([
       supabase
@@ -39,8 +35,6 @@ export default async function DashboardLayout({
         .eq("user_id", user.id)
         .eq("read", false),
     ]);
-  console.log(`[PERF dashboard-layout] parallel queries (profile+roles+notifications): ${Date.now() - _parallelStart}ms`);
-  console.log(`[PERF dashboard-layout] TOTAL: ${Date.now() - _layoutStart}ms`);
 
   if (!profile) {
     redirect("/login");

@@ -22,16 +22,15 @@ export default function AiWorkingOverlay({
   visible,
   title = "AI is building your scope",
 }: AiWorkingOverlayProps) {
+  if (!visible) return null;
+  return <AiWorkingOverlayActive title={title} />;
+}
+
+function AiWorkingOverlayActive({ title }: { title: string }) {
   const [messageIndex, setMessageIndex] = useState(0);
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    if (!visible) {
-      setMessageIndex(0);
-      setElapsed(0);
-      return;
-    }
-
     const messageInterval = setInterval(() => {
       setMessageIndex((prev) =>
         prev < PROGRESS_MESSAGES.length - 1 ? prev + 1 : prev
@@ -46,9 +45,7 @@ export default function AiWorkingOverlay({
       clearInterval(messageInterval);
       clearInterval(timerInterval);
     };
-  }, [visible]);
-
-  if (!visible) return null;
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
