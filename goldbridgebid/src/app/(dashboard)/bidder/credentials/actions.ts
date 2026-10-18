@@ -93,20 +93,15 @@ export async function uploadCredential(formData: FormData) {
     };
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("credential-files").getPublicUrl(filePath);
-
   const { error: updateError } = await supabase
     .from("bidder_credentials")
-    .update({ [field]: publicUrl })
+    .update({ [field]: filePath })
     .eq("user_id", user.id);
 
   if (updateError) {
     console.error("Credential update error:", {
       field,
       filePath,
-      publicUrl,
       updateError,
     });
     return {

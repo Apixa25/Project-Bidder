@@ -53,6 +53,12 @@ import ProjectQA from "@/components/ProjectQA";
 import BidComparisonToggle from "@/components/BidComparisonToggle";
 import BidLineItemsTable from "@/components/bids/BidLineItemsTable";
 import { reconcilePaidEstimatePoolFunding } from "@/lib/paid-estimates/funding";
+import {
+  BID_FILES_BUCKET,
+  CREDENTIAL_FILES_BUCKET,
+  lookupSignedUrl,
+  signedUrlByStoredValue,
+} from "@/lib/storage/private-files";
 import { getStripeServerClient } from "@/lib/stripe/server";
 import type {
   ProjectAiRecommendedQuestion,
@@ -299,6 +305,27 @@ export default async function ProjectDetailPage({
       credentials.user_id,
       credentials,
     ])
+  );
+  const credentialUrlMap = await signedUrlByStoredValue(
+    supabase,
+    CREDENTIAL_FILES_BUCKET,
+    (bidderCredentials || []).flatMap((row: any) => [
+      row.license_url,
+      row.bond_url,
+      row.insurance_url,
+      row.workers_comp_url,
+      row.ein_url,
+      row.references_url,
+    ])
+  );
+  const bidFileUrlMap = await signedUrlByStoredValue(
+    supabase,
+    BID_FILES_BUCKET,
+    (bids || []).flatMap((bid) =>
+      ((bid.bid_files || []) as { file_url: string }[]).map(
+        (file) => file.file_url
+      )
+    )
   );
   const claimMap = new Map(
     ((paidEstimateClaims || []) as PaidEstimateClaim[]).map((claim) => [
@@ -667,24 +694,29 @@ export default async function ProjectDetailPage({
                     ? BADGE_CONFIG[badgeLevel]
                     : null;
                   const hasCoreCheck = hasCoreCredentials(creds);
-                  const bidFiles = (bid.bid_files || []) as {
+                  const bidFiles = ((bid.bid_files || []) as {
                     id: string;
                     file_url: string;
                     file_name: string;
                     file_type: string;
-                  }[];
+                  }[]).map((file) => ({
+                    ...file,
+                    file_url:
+                      lookupSignedUrl(bidFileUrlMap, file.file_url) ??
+                      file.file_url,
+                  }));
                   const bidLineItems = bidLineItemsMap.get(bid.id) || [];
                   const specialtyLabels = specialtyMap.get(bid.bidder_id) || [];
                   const claim = claimMap.get(bid.id) || null;
                   const dispute = claim ? disputeMap.get(claim.id) || null : null;
 
                   const credChecks = [
-                    { label: "License", url: creds?.license_url },
-                    { label: "Bond", url: creds?.bond_url },
-                    { label: "Insurance", url: creds?.insurance_url },
-                    { label: "Workers' Comp", url: creds?.workers_comp_url },
-                    { label: "EIN", url: creds?.ein_url },
-                    { label: "References", url: creds?.references_url },
+                    { label: "License", url: lookupSignedUrl(credentialUrlMap, creds?.license_url) },
+                    { label: "Bond", url: lookupSignedUrl(credentialUrlMap, creds?.bond_url) },
+                    { label: "Insurance", url: lookupSignedUrl(credentialUrlMap, creds?.insurance_url) },
+                    { label: "Workers' Comp", url: lookupSignedUrl(credentialUrlMap, creds?.workers_comp_url) },
+                    { label: "EIN", url: lookupSignedUrl(credentialUrlMap, creds?.ein_url) },
+                    { label: "References", url: lookupSignedUrl(credentialUrlMap, creds?.references_url) },
                   ];
 
                   return (

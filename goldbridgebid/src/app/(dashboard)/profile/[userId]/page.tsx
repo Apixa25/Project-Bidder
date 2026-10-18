@@ -28,6 +28,11 @@ import ProfileReviewsList from "@/components/profile/ProfileReviewsList";
 import PublicReviewForm from "@/components/profile/PublicReviewForm";
 import VerifiedReviewForm from "@/components/profile/VerifiedReviewForm";
 import { getUserRoles } from "@/lib/auth/roles";
+import {
+  CREDENTIAL_FILES_BUCKET,
+  lookupSignedUrl,
+  signedUrlByStoredValue,
+} from "@/lib/storage/private-files";
 import CredentialChecklist from "@/components/credentials/CredentialChecklist";
 import CoreCredentialsCheck from "@/components/credentials/CoreCredentialsCheck";
 
@@ -98,19 +103,43 @@ export default async function PublicProfilePage({
   const specialtyLabels = (specialties || []).map(
     (specialty) => TRADE_LABELS[specialty.trade as TradeCategory]
   );
+  const isOwnProfile = user.id === userId;
 
   const credChecks = credentials
     ? [
-        { label: "License", url: credentials.license_url },
-        { label: "Bond", url: credentials.bond_url },
-        { label: "Insurance", url: credentials.insurance_url },
-        { label: "Workers' Comp", url: credentials.workers_comp_url },
-        { label: "EIN", url: credentials.ein_url },
-        { label: "References", url: credentials.references_url },
+        { label: "License", stored: credentials.license_url },
+        { label: "Bond", stored: credentials.bond_url },
+        { label: "Insurance", stored: credentials.insurance_url },
+        { label: "Workers' Comp", stored: credentials.workers_comp_url },
+        { label: "EIN", stored: credentials.ein_url },
+        { label: "References", stored: credentials.references_url },
       ]
     : null;
-
-  const isOwnProfile = user.id === userId;
+  const credentialViewerRoles = await getUserRoles(user.id);
+  let mayOpenCredentialFiles =
+    isOwnProfile || credentialViewerRoles.includes("admin");
+  if (!mayOpenCredentialFiles && credentials) {
+    const { count } = await supabase
+      .from("bids")
+      .select("id, projects!inner(customer_id)", { count: "exact", head: true })
+      .eq("bidder_id", userId)
+      .eq("projects.customer_id", user.id);
+    mayOpenCredentialFiles = (count ?? 0) > 0;
+  }
+  const signedCredentialUrls = mayOpenCredentialFiles
+    ? await signedUrlByStoredValue(
+        supabase,
+        CREDENTIAL_FILES_BUCKET,
+        (credChecks || []).map((item) => item.stored)
+      )
+    : new Map<string, string>();
+  const visibleCredChecks = credChecks?.map((item) => ({
+    label: item.label,
+    uploaded: Boolean(item.stored),
+    url: mayOpenCredentialFiles
+      ? lookupSignedUrl(signedCredentialUrls, item.stored)
+      : null,
+  }));
 
   const { count: heartCount } = await supabase
     .from("profile_hearts")
@@ -437,7 +466,7 @@ export default async function PublicProfilePage({
           )}
 
           {/* Credentials (bidder only) */}
-          {credChecks && (
+          {visibleCredChecks && (
             <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
               <h3 className="mb-3 text-sm font-semibold text-text-primary flex items-center gap-2">
                 <Shield className="h-4 w-4" />
@@ -446,7 +475,7 @@ export default async function PublicProfilePage({
               <p className="mb-3 text-xs text-text-muted">
                 {qualificationCount} of 6 credential types uploaded.
               </p>
-              <CredentialChecklist items={credChecks} />
+              <CredentialChecklist items={visibleCredChecks} />
             </div>
           )}
 
