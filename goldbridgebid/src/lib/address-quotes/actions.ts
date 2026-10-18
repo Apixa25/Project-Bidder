@@ -32,7 +32,13 @@ function normalizeAddress(value: string) {
 }
 
 function hashAddress(normalizedAddress: string) {
-  return crypto.createHash("sha256").update(normalizedAddress).digest("hex");
+  const salt = process.env.ADDRESS_HASH_SALT?.trim();
+  if (process.env.NODE_ENV === "production" && !salt) {
+    throw new Error("Missing ADDRESS_HASH_SALT.");
+  }
+
+  const material = salt ? `${salt}:${normalizedAddress}` : normalizedAddress;
+  return crypto.createHash("sha256").update(material).digest("hex");
 }
 
 function getDistanceMeters(
