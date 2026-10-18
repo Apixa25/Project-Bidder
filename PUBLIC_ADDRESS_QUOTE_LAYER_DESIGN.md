@@ -1,5 +1,7 @@
 # Public Address Quote Layer Design
 
+> **Product boundary (October 2026).** ProjectXBidX is a general estimating and bidding platform for unlimited project types and trades. Lawn care, snow removal, and any other niche in this note are optional templates or examples only. Do not add them as the core schema, a dedicated pricing engine, or the default quick-quote path. Map area, length, and count are general quantity inputs. See the product boundary in `project-vision.md` and `docs/MODERNIZATION_PLAN.md`.
+
 ## Product Decision
 
 ProjectXBidX will add a separate product surface inside the current app: a public quote layer over real addresses.
