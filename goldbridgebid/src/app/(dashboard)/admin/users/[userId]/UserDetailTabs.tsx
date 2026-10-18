@@ -639,7 +639,7 @@ export default function UserDetailTabs({
         onClose={() => setShowDelete(false)}
         onConfirm={async () => {
           await deleteUser(profile.user_id);
-          window.location.href = "/admin/users";
+          router.push("/admin/users");
         }}
         title={`Delete ${profile.full_name}`}
         description="This will permanently delete the user and all their data. This cannot be undone."

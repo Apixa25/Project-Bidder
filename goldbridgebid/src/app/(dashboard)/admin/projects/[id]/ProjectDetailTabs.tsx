@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import RichTextRenderer from "@/components/ui/RichTextRenderer";
 import type {
   TradeCategory,
@@ -101,6 +102,7 @@ export default function ProjectDetailTabs({
   tradeLabels,
 }: Props) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("Details");
+  const router = useRouter();
   const [showClose, setShowClose] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [disputeResolution, setDisputeResolution] = useState<{
@@ -601,7 +603,7 @@ export default function ProjectDetailTabs({
         onClose={() => setShowDelete(false)}
         onConfirm={async () => {
           await deleteProject(project.id);
-          window.location.href = "/admin/projects";
+          router.push("/admin/projects");
         }}
         title="Delete Project"
         description="This will permanently delete the project and all associated bids, files, and messages. This cannot be undone."

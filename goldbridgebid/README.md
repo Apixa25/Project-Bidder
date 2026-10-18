@@ -96,7 +96,7 @@ goldbridgebid/              # Next.js app root (legacy folder name)
 │   │   └── badges.ts         # Qualification badge logic
 │   ├── types/                # TypeScript type definitions
 │   │   └── database.ts       # Database types & interfaces
-│   └── middleware.ts          # Auth middleware
+│   └── proxy.ts              # Auth proxy (Next.js request boundary)
 ├── supabase/
 │   └── migrations/           # SQL migration files
 ├── .env.local.example        # Environment variables template
