@@ -28,7 +28,6 @@ import {
   MapPin,
   DollarSign,
   Timer,
-  Search,
 } from "lucide-react";
 import { signOut } from "@/app/(auth)/actions";
 import type { UserRole } from "@/types/database";
