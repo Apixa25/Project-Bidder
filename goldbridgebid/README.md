@@ -15,7 +15,7 @@
 
 ### Prerequisites
 
-- Node.js 20+ and npm
+- Node.js 20+ and npm (the repo root README uses the same floor)
 - A [Supabase](https://supabase.com/) project (free tier works)
 - A [Stripe](https://stripe.com/) account for paid estimate funding
 
@@ -96,7 +96,7 @@ goldbridgebid/              # Next.js app root (legacy folder name)
 │   │   └── badges.ts         # Qualification badge logic
 │   ├── types/                # TypeScript type definitions
 │   │   └── database.ts       # Database types & interfaces
-│   └── middleware.ts          # Auth middleware
+│   └── proxy.ts              # Auth proxy (Next.js request boundary)
 ├── supabase/
 │   └── migrations/           # SQL migration files
 ├── .env.local.example        # Environment variables template
@@ -107,11 +107,11 @@ goldbridgebid/              # Next.js app root (legacy folder name)
 
 ## Key Features
 
-- **Project Posting** — Customers post projects with descriptions, file uploads, trade categories, and mandatory completion criteria
+- **Project Posting** — Customers post projects with descriptions, file uploads, an expertise level (Licensed Contractor, Handyman, or General Labor), and completion criteria. The project is not locked to one trade.
 - **Sealed Bidding** — Contractors submit bids visible only to the project owner and admin
 - **Paid Estimate Pools** — Customers can fund a project-wide paid estimate offer through Stripe
 - **Qualification Badges** — 🥇 Gold / 🥈 Silver / 🥉 Bronze based on uploaded credentials
-- **Multi-Trade Support** — Projects can require multiple trades; bidders select their specialty
+- **Specialties are data** — Bidders name the work they do so browse and search can filter. A niche (lawn care, snow removal, or anything else) is an optional template or example, not a separate product. See the product boundary in `../project-vision.md`.
 - **Edit Tracking** — Project edits are highlighted with timestamps protecting existing bidders
 - **In-Platform Messaging** — Direct chat between customers and bidders per project
 - **Notifications** — Real-time alerts for bids, awards, edits, and messages

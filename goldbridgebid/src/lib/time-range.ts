@@ -1,5 +1,10 @@
 export type TimeRange = "today" | "7d" | "30d" | "90d";
 
+/** Clock read kept outside React components so render stays pure. */
+export function currentTimeMs() {
+  return Date.now();
+}
+
 export function getRangeCutoff(range: TimeRange): string {
   const ms: Record<TimeRange, number> = {
     today: 24 * 60 * 60 * 1000,
