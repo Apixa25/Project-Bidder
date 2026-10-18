@@ -18,6 +18,11 @@ import type {
   PaidEstimateClaim,
   TradeCategory,
 } from "@/types/database";
+import {
+  BID_FILES_BUCKET,
+  lookupSignedUrl,
+  signedUrlByStoredValue,
+} from "@/lib/storage/private-files";
 import BidLineItemsTable from "@/components/bids/BidLineItemsTable";
 import { userHasRole } from "@/lib/auth/roles";
 import {
@@ -124,6 +129,17 @@ export default async function MyBidsPage() {
     const existing = bidFilesMap.get(file.bid_id) || [];
     existing.push(file);
     bidFilesMap.set(file.bid_id, existing);
+  }
+  const signedBidFileUrls = await signedUrlByStoredValue(
+    supabase,
+    BID_FILES_BUCKET,
+    (bidFileRows || []).map((file) => file.file_url)
+  );
+  for (const files of bidFilesMap.values()) {
+    for (const file of files) {
+      const signedUrl = lookupSignedUrl(signedBidFileUrls, file.file_url);
+      if (signedUrl) file.file_url = signedUrl;
+    }
   }
   const bidLineItemsMap = new Map<string, BidLineItem[]>();
   for (const lineItem of (bidLineItemRows || []) as BidLineItem[]) {

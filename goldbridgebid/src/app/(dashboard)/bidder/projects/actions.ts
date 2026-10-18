@@ -514,13 +514,9 @@ export async function submitBid(formData: FormData) {
         .upload(filePath, file, { contentType: file.type || undefined });
 
       if (!uploadError) {
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("bid-files").getPublicUrl(filePath);
-
         await supabase.from("bid_files").insert({
           bid_id: bid.id,
-          file_url: publicUrl,
+          file_url: filePath,
           file_name: file.name,
           file_type: file.type,
         });

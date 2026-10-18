@@ -6,6 +6,11 @@ import type { BadgeLevel } from "@/types/database";
 import { Star } from "lucide-react";
 import CredentialCard from "./CredentialCard";
 import { userHasRole } from "@/lib/auth/roles";
+import {
+  CREDENTIAL_FILES_BUCKET,
+  lookupSignedUrl,
+  signedUrlByStoredValue,
+} from "@/lib/storage/private-files";
 
 const CREDENTIAL_FIELDS = [
   {
@@ -78,6 +83,15 @@ export default async function CredentialsPage() {
   const uploadedCount = CREDENTIAL_FIELDS.filter(
     (c) => credentials[c.field as keyof typeof credentials] !== null
   ).length;
+
+  const signedCredentialUrls = await signedUrlByStoredValue(
+    supabase,
+    CREDENTIAL_FILES_BUCKET,
+    CREDENTIAL_FIELDS.map(
+      (cred) =>
+        credentials[cred.field as keyof typeof credentials] as string | null
+    )
+  );
 
   return (
     <div>
@@ -181,9 +195,10 @@ export default async function CredentialsPage() {
       {/* Credential Cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {CREDENTIAL_FIELDS.map((cred) => {
-          const currentUrl = credentials[
+          const storedUrl = credentials[
             cred.field as keyof typeof credentials
           ] as string | null;
+          const currentUrl = lookupSignedUrl(signedCredentialUrls, storedUrl);
           return (
             <CredentialCard
               key={cred.field}

@@ -5,6 +5,8 @@ import { CheckCircle2, ExternalLink, XCircle } from "lucide-react";
 interface CredentialChecklistItem {
   label: string;
   url: string | null | undefined;
+  /** True when a document exists but this viewer should not receive a link. */
+  uploaded?: boolean;
 }
 
 interface CredentialChecklistProps {
@@ -17,7 +19,8 @@ export default function CredentialChecklist({
   return (
     <div className="space-y-2">
       {items.map((item) => {
-        const hasFile = !!item.url;
+        const hasFile = item.uploaded ?? Boolean(item.url);
+        const href = item.url;
 
         return (
           <div
@@ -37,9 +40,9 @@ export default function CredentialChecklist({
               <span className="truncate">{item.label}</span>
             </div>
 
-            {hasFile ? (
+            {hasFile && href ? (
               <a
-                href={item.url!}
+                href={href}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-white px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-surface-hover"
@@ -47,6 +50,8 @@ export default function CredentialChecklist({
                 <ExternalLink className="h-3 w-3" />
                 Open
               </a>
+            ) : hasFile ? (
+              <span className="shrink-0 text-xs text-text-muted">On file</span>
             ) : (
               <span className="shrink-0 text-xs text-text-muted">Missing</span>
             )}

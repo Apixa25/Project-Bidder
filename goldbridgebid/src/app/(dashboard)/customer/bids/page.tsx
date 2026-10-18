@@ -18,6 +18,11 @@ import RichTextRenderer from "@/components/ui/RichTextRenderer";
 import BidLineItemsTable from "@/components/bids/BidLineItemsTable";
 import { TRADE_LABELS } from "@/types/database";
 import type { BadgeLevel, BidLineItem, TradeCategory } from "@/types/database";
+import {
+  BID_FILES_BUCKET,
+  lookupSignedUrl,
+  signedUrlByStoredValue,
+} from "@/lib/storage/private-files";
 
 type BidWithProject = {
   id: string;
@@ -62,6 +67,17 @@ export default async function CustomerBidsPage() {
     .order("created_at", { ascending: false });
 
   const bids = ((bidRows || []) as BidWithProject[]).filter((bid) => bid.projects);
+  const signedBidFileUrls = await signedUrlByStoredValue(
+    supabase,
+    BID_FILES_BUCKET,
+    bids.flatMap((bid) => (bid.bid_files || []).map((file) => file.file_url))
+  );
+  for (const bid of bids) {
+    for (const file of bid.bid_files || []) {
+      const signedUrl = lookupSignedUrl(signedBidFileUrls, file.file_url);
+      if (signedUrl) file.file_url = signedUrl;
+    }
+  }
   const bidIds = bids.map((bid) => bid.id);
   const bidderIds = Array.from(new Set(bids.map((bid) => bid.bidder_id)));
 
