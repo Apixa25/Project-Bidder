@@ -1,9 +1,4 @@
-const DANGEROUS_PATTERN =
-  /<script[\s>]|on\w+\s*=|javascript:/gi;
-
-function sanitize(html: string): string {
-  return html.replace(DANGEROUS_PATTERN, "");
-}
+import { sanitizeRichText } from "@/lib/rich-text-sanitize";
 
 function looksLikeHtml(text: string): boolean {
   return /<[a-z][\s\S]*>/i.test(text);
@@ -19,9 +14,7 @@ export function stripHtml(content: string | null | undefined): string {
   if (!content) return "";
   if (!looksLikeHtml(content)) return content;
 
-  return content
-    // Drop any dangerous markup first.
-    .replace(DANGEROUS_PATTERN, "")
+  return sanitizeRichText(content)
     // Convert structural breaks to spaces so words don't run together.
     .replace(/<\/(p|div|li|h[1-6]|br)>/gi, " ")
     .replace(/<br\s*\/?>/gi, " ")
@@ -61,7 +54,7 @@ export default function RichTextRenderer({
   return (
     <div
       className={`rich-text-display leading-relaxed ${className}`}
-      dangerouslySetInnerHTML={{ __html: sanitize(content) }}
+      dangerouslySetInnerHTML={{ __html: sanitizeRichText(content) }}
     />
   );
 }
