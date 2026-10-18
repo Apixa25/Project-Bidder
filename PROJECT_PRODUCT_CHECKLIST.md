@@ -1,5 +1,7 @@
 # ProjectXBidX Product Checklist
 
+> **Product boundary (October 2026).** ProjectXBidX is a general estimating and bidding platform for unlimited project types and trades. Items below that name a niche (lawn care, snow removal, and similar) are optional templates or examples. They are not the core design and must not become their own module. See the product boundary in `project-vision.md` and `docs/MODERNIZATION_PLAN.md`.
+
 This checklist captures product ideas from the April 2026 brainstorming session so they do not get lost while the core platform continues to move forward.
 
 ## Near-Term Focus
@@ -37,8 +39,8 @@ This checklist captures product ideas from the April 2026 brainstorming session 
 ## Standard Automated Bid Verticals
 
 - [ ] Explore highly repeatable project types where bids can be mostly automated.
-- [ ] Start with lawn mowing / lawn care as a possible standard-bid vertical.
-- [ ] Investigate map-based area measurement inputs, such as property polygon area in square feet.
+- [ ] If a repeatable service needs a head start, ship it as an optional template (lawn mowing is only an example). Do not make that template the default quote flow or a separate product.
+- [ ] Investigate map-based area measurement as a general quantity input (square feet), reusable by any trade. A lawn polygon is one example.
 - [ ] Let contractors define standard pricing rules for repeatable services.
 - [ ] Use AI to explain and assemble the quote, but keep measured quantities and contractor-approved rates as the pricing source of truth.
 

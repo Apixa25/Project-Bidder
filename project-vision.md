@@ -45,6 +45,17 @@
 - **Database Scope:** Designed for nationwide scale from day one
 - **Initial Expected Scale:** ~100 customers, ~500 bidders
 
+### Product boundary
+
+ProjectXBidX is a **general estimating and bidding platform** for many bidders and estimators, across unlimited project types and trades. A kitchen remodel, a rebar package, a roof, and a one-day exterior repair all use the same objects: a project, a scope, a sealed bid, and (when someone is selling takeoff work) an estimate package.
+
+- **Trades are data, not modules.** A specialty, license class, or service name is a label a person picks or types. The California CSLB list may ship as a seed so a local contractor can choose a familiar class. That list is not a ceiling, and a new trade must not require its own route tree or pricing engine.
+- **Niches are optional templates.** Lawn care, snow removal, landscaping, and any other specialty may exist only as an example or a saved template: a service label plus quantity fields such as count, length, area, or volume. They are not the core design. Map area is a general quantity. A lawn polygon is one use of that quantity.
+- **Quick quotes stay small and general.** An address quote is a short version of the same idea (address, service label, measured quantities), not a separate vertical product.
+- **Missing prices stay missing.** When the product does not have a rate for that work in that place, it says so. See `DESIGN_PRINCIPLES.md`: false confidence is worse than no number.
+
+The ordered cleanup for this boundary lives in `docs/MODERNIZATION_PLAN.md`.
+
 ---
 
 ## Core Concept
@@ -600,12 +611,17 @@ These features are live in production today:
 
 ### Near-Term Cleanup (from App Usability Audit)
 
-- 🔧 **"Forgot Password" flow** on the login page (currently missing — users locked out have no recovery path)
-- 🔧 **Admin password reset** — admin-only field/action to reset a user's password
-- 🔧 **Centralized status pill** — fix the recurring `completed → Closed` mislabeling across multiple pages
-- 🔧 **Customer dashboard "Total Bids Received"** — currently counts global bids; needs to scope to the customer's projects
-- 🔧 **Terms of Service + Privacy Policy checkbox** on signup
-- 🔧 **Better friendly labels** for paid estimate claim statuses (replace raw enum text like "payout_denied_refunded")
+Shipped since the May 2026 rewrite:
+
+- ✅ **"Forgot Password" flow** — `/forgot-password` and `/reset-password`
+- ✅ **Admin password reset** — admin action sends the same recovery email
+- ✅ **Centralized status pill** — `ProjectStatusPill` labels `open`, `awarded`, `completed`, and `closed`
+- ✅ **Customer dashboard "Total Bids Received"** — counted through the customer's own projects, not every bid on the platform
+- ✅ **Terms of Service + Privacy Policy checkbox** on signup
+
+Still open:
+
+- 🔧 **Better friendly labels** for paid estimate claim statuses — bidder bid rows use a label map; the payouts page, admin project tabs, and some customer project copy still surface raw enum text such as `payout_denied_refunded`
 - 🔧 **In-app help chat** — automated explainer that answers "how do I do X?" questions (see chat-tool design notes in audit conversation)
 
 ### Phase 2 — Enhanced Platform
@@ -723,6 +739,8 @@ Supabase RLS policies enforce:
 ## Document History
 
 This vision doc was rewritten on **May 4, 2026** to match what is actually shipped in production. Prior versions described a much smaller MVP (sealed bids only) and listed many of the now-shipped features (AI Scope Builder, Paid Estimates, Quick Quotes, Estimate Library, Reviews, Stripe payouts, multi-role accounts) as Phase 2–4 work. The product grew faster than the doc, and the audit conversation that triggered this rewrite found dozens of places where the UI had drifted from the doc's promises. **Treat this version as the new source of truth.** Update it whenever the product expands further.
+
+On **October 18, 2026** the product boundary was written down: ProjectXBidX stays a general estimating and bidding platform. Niches are optional templates. The near-term cleanup list was reconciled with the code (password reset, status pill, scoped bid count, and the signup terms checkbox are shipped).
 
 ---
 

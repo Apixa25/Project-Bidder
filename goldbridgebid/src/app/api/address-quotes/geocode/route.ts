@@ -1,4 +1,10 @@
 import { NextResponse } from "next/server";
+import {
+  mapRateLimitResponse,
+  nominatimBusyResponse,
+  signedInMapUser,
+  takeNominatimSlot,
+} from "@/lib/address-quotes/public-route-guard";
 
 const NOMINATIM_UA =
   "ProjectXBidX-AddressQuotes/1.0 (https://www.projectxbidx.com)";
@@ -44,9 +50,19 @@ export async function GET(request: Request) {
     );
   }
 
-  const googleResult = await geocodeWithGoogle(address);
-  if (googleResult) {
-    return NextResponse.json(googleResult);
+  const user = await signedInMapUser();
+  const limited = mapRateLimitResponse(request, "geocode", Boolean(user));
+  if (limited) return limited;
+
+  if (user) {
+    const googleResult = await geocodeWithGoogle(address);
+    if (googleResult) {
+      return NextResponse.json(googleResult);
+    }
+  }
+
+  if (!takeNominatimSlot()) {
+    return nominatimBusyResponse();
   }
 
   const response = await fetch(

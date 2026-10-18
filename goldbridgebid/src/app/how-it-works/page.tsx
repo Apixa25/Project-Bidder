@@ -4,7 +4,6 @@ import {
   ClipboardList,
   Send,
   ShieldCheck,
-  Award,
   MessageSquare,
   Star,
   Sparkles,
@@ -247,7 +246,7 @@ export default function HowItWorksPage() {
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-text-secondary">
               Find real work, submit clean bids, build a verified reputation,
-              and get paid for the estimates you'd otherwise be giving away
+              and get paid for the estimates you&apos;d otherwise be giving away
               for free.
             </p>
             <div className="mt-12 space-y-6">
