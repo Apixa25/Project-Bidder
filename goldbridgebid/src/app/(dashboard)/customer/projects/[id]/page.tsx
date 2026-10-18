@@ -309,7 +309,7 @@ export default async function ProjectDetailPage({
   const credentialUrlMap = await signedUrlByStoredValue(
     supabase,
     CREDENTIAL_FILES_BUCKET,
-    (bidderCredentials || []).flatMap((row: any) => [
+    ((bidderCredentials || []) as BidderCredentials[]).flatMap((row) => [
       row.license_url,
       row.bond_url,
       row.insurance_url,
